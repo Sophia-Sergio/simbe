@@ -1,5 +1,7 @@
 # Leads Workflow — UI Implementation Plan
 
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`** (colors, type, shapes, logo override the handoff). Layout/behavior: `design_handoff_simbe/README.md` §6–9 and screenshots `08`–`11`, `16`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(leads-ui): task N – <title>`) after the task's tests + typecheck + lint.
 
 **Goal:** Pipeline board/list, lead slide-over panel, coordinator Next actions, Coordinators screens and the ⌘K search palette.
