@@ -1,6 +1,7 @@
-# Simbe — Project Rules
+# Simbe — Agent Rules (OpenCode / Cursor / any coding agent)
 
-Entry point for **Claude Code**, mirrored for OpenCode in `AGENTS.md` and Cursor in `.cursor/rules/`.
+Mirror of `CLAUDE.md`. You are the **implementer**: execute plans in `docs/superpowers/plans/` task by task.
+Detailed rules live in `docs/conventions/`.
 Detailed rules live in `docs/conventions/`.
 
 ## Required reading
