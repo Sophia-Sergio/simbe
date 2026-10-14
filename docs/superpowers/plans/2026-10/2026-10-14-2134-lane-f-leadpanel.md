@@ -6,7 +6,7 @@
 **Owns:** `frontend/src/features/lead-panel/**`, `frontend/e2e/lead-panel.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useLead(id)` (`@/api/hooks/leads`), `useToggleDone()` (`@/api/hooks/nextActions`), `useLeadPanel()` (`@/app/leadPanel`: `leadId`, `tab`, `close`, `prev`, `next`, `hasPrev/hasNext`), `useAuth()`, `useToast()`
-**Kit consumed:** `Sheet`, `Tabs`, `Ring`, `ProgressBar`?, `StatusPill`, `SourcePill`, `Timeline`, `Pill`, `Button`, `Skeleton`, `ErrorState`, `Avatar`
+**Kit consumed:** `Sheet`, `Tabs`, `Ring`, `StatusPill`, `SourcePill`, `Timeline`, `Pill`, `Button`, `Skeleton`, `ErrorState`, `Avatar`
 **Contract operations:** `getLead`, `completeNextAction`, `undoNextAction`
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2008-leads-workflow-design.md` (decisions 5, 6, 7)
 **Detail reference:** `plans/2026-10/2026-10-14-2010-leads-workflow-ui.md` **Task 4 (Lead panel)** — execute as written. Skip Tasks 1–3 and 5–8.
