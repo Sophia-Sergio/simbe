@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+# Sensitive: fictional health data, never commit exports (take-home ground rule)
+harbor-takehome/exports/*/
+/node_modules
+/log
+/tmp
+/storage
+/coverage
+.worktrees/
+.claude/worktrees/
+.superpowers/

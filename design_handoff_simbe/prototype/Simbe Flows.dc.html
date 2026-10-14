@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-557d5a23-e826-4631-a47f-35237176d718/styles.css">
+<style>body{margin:0;background:var(--color-bg)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-600)}</style>
+</helmet>
+<div style="padding:40px;font-family:var(--font-body);color:var(--color-text);max-width:1280px;box-sizing:border-box">
+  <h1 style="margin:0 0 4px;font-family:var(--font-heading);font-size:44px;letter-spacing:-.03em">Simbe user flows</h1>
+  <p style="margin:0 0 40px;max-width:640px">Six flows across the owner and coordinator roles. Each step is a screen on desktop and mobile. <a href="Simbe Screens.dc.html">See the screens</a> or <a href="Simbe App.dc.html">try the prototype</a>.</p>
+  <sc-for list="{{ flows }}" as="f" hint-placeholder-count="6">
+    <section style="border-top:2px solid var(--color-divider);padding:16px 0 36px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin-bottom:16px"><span style="font-family:var(--font-heading);font-size:24px;font-weight:700">{{ f.title }}</span><span class="tag tag-outline">{{ f.role }}</span><span style="font-size:14px">{{ f.goal }}</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px 0;align-items:stretch">
+        <sc-for list="{{ f.steps }}" as="s" hint-placeholder-count="5">
+          <div style="display:flex;align-items:stretch">
+            <div style="width:170px;border:2px solid var(--color-divider);padding:12px;box-sizing:border-box;background:{{ s.bg }}"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em">{{ s.kind }}</div><div style="font-weight:700;margin:4px 0">{{ s.name }}</div><div style="font-size:13px">{{ s.note }}</div></div>
+            <div style="width:28px;display:flex;align-items:center;justify-content:center;font-weight:700">{{ s.arrow }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const S = (kind, name, note, last) => ({ kind, name, note, arrow: last ? '' : '→', bg: kind === 'Result' ? 'var(--color-accent-100)' : kind === 'Decision' ? 'var(--color-neutral-200)' : 'transparent' });
+class Component extends DCLogic {
+  renderVals() {
+    const flows = [
+      ['1. Create an agency account', 'Owner', 'Sign up, add the agency and load data in one pass', [['Entry', 'Sign up', 'Name and work email'], ['Screen', 'Agency', 'Name, time zone, definition of qualified'], ['Screen', 'Ad accounts', 'Connect Meta and Google, or skip'], ['Screen', 'Load data', 'Drop the seven CSV files, see each load'], ['Screen', 'Invite team', 'Add coordinators by email'], ['Result', 'This week', 'Owner dashboard with recommended actions']]],
+      ['2. Sign in and plan the week', 'Owner', 'See what to do and open the evidence behind it', [['Entry', 'Sign in', 'Email and password'], ['Screen', 'This week', 'Four recommended actions'], ['Decision', 'Pick an action', 'Each action links to its data'], ['Screen', 'Channels or Funnel', 'Compare cost and drop-off'], ['Screen', 'Channel detail', 'Campaigns in one channel'], ['Result', 'Act outside Simbe', 'Change budget, targeting or follow-up']]],
+      ['3. Daily follow-up', 'Coordinator', 'Know who to contact next and why', [['Entry', 'Next actions', 'Grouped by urgency'], ['Screen', 'Lead detail', 'Timeline and screener verdicts'], ['Decision', 'Text or call', 'Draft a message or dial'], ['Screen', 'Back to list', 'Mark the follow-up done'], ['Result', 'Queue empty', 'Open count reaches zero']]],
+      ['4. Reload a new export', 'Owner', 'Replace the snapshot without double counting', [['Entry', 'Data sources', 'Shows last load per file'], ['Screen', 'Upload', 'Choose the seven files'], ['Screen', 'Validate', 'Columns, duplicates, agency match'], ['Decision', 'Review changes', 'Row counts before and after'], ['Result', 'Snapshot replaced', 'Confirmation and refreshed numbers']]],
+      ['5. Ask the agent', 'Owner and coordinator', 'Answer a question from the open screen', [['Entry', 'Chat button', 'Bottom right on every screen'], ['Screen', 'Ask', 'Type or tap a suggested question'], ['Screen', 'Answer', 'Text, chart and source links'], ['Decision', 'Follow up', 'Tap a chip or open the suggested action'], ['Result', 'Screen opens', 'Channels, Funnel or Leads with the data']]],
+      ['6. Manage the agency', 'Owner', 'Change the definition, team and connections', [['Entry', 'Settings', 'Definition, time zone, team'], ['Decision', 'Change definition', 'Numbers update right away'], ['Screen', 'Invite coordinator', 'Email invite, role is coordinator'], ['Screen', 'Connect Claude', 'MCP URL, key and config'], ['Result', 'Saved', 'Confirmation message']]]
+    ].map(([title, role, goal, steps]) => ({ title, role, goal, steps: steps.map(([k, n, no], i) => S(k, n, no, i === steps.length - 1)) }));
+    return { flows };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#fafaf9;color:#1c1917;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;font-size:14px;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input{font-family:inherit}
+a{color:#be3a5f;text-decoration:none}a:hover{color:#9f2d4e}
+:focus-visible{outline:2px solid #e6a3b6;outline-offset:2px}
+@keyframes sb{0%,100%{opacity:.3}50%{opacity:1}}
+@keyframes slidein{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+</style>
+</helmet>
+<div style="min-height:100vh">
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;max-width:400px;background:#fff;border:1px solid #e7e5e4;border-radius:16px;padding:32px;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px"><span style="width:32px;height:32px;border-radius:10px;background:#fdf2f5;color:#be3a5f;display:flex;align-items:center;justify-content:center;font-weight:800">S</span><span style="font-weight:700;font-size:18px">Simbe</span></div>
+      <div style="font-size:22px;font-weight:650;margin-bottom:4px">Welcome back</div>
+      <div style="color:#78716c;margin-bottom:24px">Sign in to your agency workspace</div>
+      <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Email</label>
+      <input value="{{ form.email }}" onInput="{{ setEmail }}" style="width:100%;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px;margin-bottom:16px" />
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px"><label style="font-size:13px;font-weight:500">Password</label><a href="#" onClick="{{ noop }}" style="font-size:13px">Forgot?</a></div>
+      <input type="password" value="password123" style="width:100%;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px;margin-bottom:24px" />
+      <button onClick="{{ toApp }}" style="width:100%;height:40px;border:0;border-radius:8px;background:#be3a5f;color:#fff;font-weight:600;font-size:14px;cursor:pointer" style-hover="background:#9f2d4e">Sign in</button>
+      <div style="text-align:center;margin-top:20px;font-size:13px;color:#78716c">New agency? <a href="#" onClick="{{ toSignup }}">Create an account</a></div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:{{ signupPad }}">
+    <div style="width:100%;max-width:600px;display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:9px;background:#fdf2f5;color:#be3a5f;display:flex;align-items:center;justify-content:center;font-weight:800">S</span><span style="font-weight:700;font-size:17px">Simbe</span></div>
+      <a href="#" onClick="{{ toLogin }}" style="font-size:13px">Sign in instead</a>
+    </div>
+    <div style="width:100%;max-width:600px;background:#fff;border:1px solid #e7e5e4;border-radius:16px;overflow:hidden">
+      <div style="display:flex;border-bottom:1px solid #e7e5e4;background:#fafaf9;padding:14px 20px;gap:6px;overflow-x:auto">
+        <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:8px;flex:none;padding-right:10px"><span style="{{ s.dot }}">{{ s.mark }}</span><span style="{{ s.lbl }}">{{ s.label }}</span></div>
+        </sc-for>
+      </div>
+      <div style="padding:28px 24px">
+        <div style="font-size:21px;font-weight:650;margin-bottom:4px">{{ stepTitle }}</div>
+        <div style="color:#78716c;margin-bottom:24px">{{ stepSub }}</div>
+        <sc-if value="{{ st0 }}" hint-placeholder-val="{{ true }}">
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Your name</label>
+          <input value="{{ form.owner }}" onInput="{{ setOwner }}" style="width:100%;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px;margin-bottom:16px" />
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Work email</label>
+          <input value="{{ form.email }}" onInput="{{ setEmail }}" style="width:100%;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px;margin-bottom:16px" />
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Password</label>
+          <input type="password" value="password123" style="width:100%;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px" />
+        </sc-if>
+        <sc-if value="{{ st1 }}" hint-placeholder-val="{{ false }}">
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Agency name</label>
+          <input value="{{ form.agency }}" onInput="{{ setAgency }}" style="width:100%;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px;margin-bottom:16px" />
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:6px">Time zone</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px"><sc-for list="{{ zones }}" as="z" hint-placeholder-count="4"><button onClick="{{ z.go }}" style="{{ z.style }}">{{ z.label }}</button></sc-for></div>
+          <label style="display:block;font-size:13px;font-weight:500;margin-bottom:8px">A qualified surrogate is a lead who has…</label>
+          <div style="display:grid;gap:8px"><sc-for list="{{ milestones }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.go }}" style="{{ m.style }}"><span style="{{ m.radio }}"></span><span style="flex:1"><span style="font-weight:600;display:block">{{ m.label }}</span><span style="font-size:12px;color:#78716c">{{ m.note }}</span></span></button></sc-for></div>
+        </sc-if>
+        <sc-if value="{{ st2 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:grid;gap:10px"><sc-for list="{{ connectors }}" as="c" hint-placeholder-count="2">
+            <div style="display:flex;align-items:center;gap:14px;border:1px solid #e7e5e4;border-radius:12px;padding:14px">
+              <span style="{{ c.logo }}">{{ c.mark }}</span>
+              <div style="flex:1;min-width:0"><div style="font-weight:600">{{ c.name }}</div><div style="font-size:12px;color:#78716c">{{ c.note }}</div></div>
+              <button onClick="{{ c.go }}" style="{{ c.btnStyle }}">{{ c.btn }}</button>
+            </div>
+          </sc-for></div>
+          <div style="font-size:12px;color:#78716c;margin-top:12px">Optional. You can connect later from Data sources.</div>
+        </sc-if>
+        <sc-if value="{{ st3 }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ addAll }}" style="width:100%;border:1.5px dashed #d6d3d1;border-radius:12px;background:#fafaf9;padding:24px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:#1c1917;margin-bottom:16px" style-hover="border-color:#be3a5f;background:#fdf2f5">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#be3a5f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+            <span style="font-weight:600">Drop your 7 CSV exports</span><span style="font-size:12px;color:#78716c">or click to browse · replaces any earlier snapshot</span>
+          </button>
+          <div style="border:1px solid #e7e5e4;border-radius:12px;overflow:hidden">
+            <sc-for list="{{ files }}" as="f" hint-placeholder-count="7">
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #f5f5f4">
+                <span style="{{ f.dot }}"></span>
+                <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:13px">{{ f.name }}</div><div style="font-size:12px;color:#78716c">{{ f.note }}</div></div>
+                <span style="{{ f.pill }}">{{ f.btn }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-size:12px;color:#78716c"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Screener answers include health information. They are encrypted and only shown to the assigned coordinator.</div>
+        </sc-if>
+        <sc-if value="{{ st4 }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;margin-bottom:16px"><input placeholder="coordinator@agency.com" value="{{ inviteDraft }}" onInput="{{ onInvite }}" style="flex:1;min-width:0;height:40px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:14px" /><button onClick="{{ sendInvite }}" style="height:40px;padding:0 16px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;font-weight:600;cursor:pointer">Invite</button></div>
+          <div style="border:1px solid #e7e5e4;border-radius:12px;overflow:hidden"><sc-for list="{{ team }}" as="t" hint-placeholder-count="2"><div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #f5f5f4"><span style="{{ t.av }}">{{ t.ini }}</span><span style="flex:1;font-weight:500">{{ t.name }}</span><span style="{{ t.pill }}">{{ t.role }}</span></div></sc-for></div>
+          <div style="font-size:12px;color:#78716c;margin-top:12px">Coordinators see their own leads and next actions. Spend, settings and team numbers stay with owners.</div>
+        </sc-if>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:8px;padding:16px 24px;border-top:1px solid #e7e5e4;background:#fafaf9">
+        <button onClick="{{ back }}" style="height:38px;padding:0 16px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;font-weight:500;cursor:pointer">Back</button>
+        <button onClick="{{ next }}" style="height:38px;padding:0 18px;border:0;border-radius:8px;background:#be3a5f;color:#fff;font-weight:600;cursor:pointer" style-hover="background:#9f2d4e">{{ nextLabel }}</button>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;min-height:100vh">
+  <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}">
+    <aside style="width:224px;flex:none;background:#fff;border-right:1px solid #e7e5e4;display:flex;flex-direction:column;position:sticky;top:0;height:100vh">
+      <div style="height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #f5f5f4">
+        <div style="display:flex;align-items:center;gap:10px"><span style="width:28px;height:28px;border-radius:8px;background:#fdf2f5;color:#be3a5f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">S</span><span style="font-weight:700;font-size:16px">Simbe</span></div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a8a29e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-5-5 5-5M18 17l-5-5 5-5"></path></svg>
+      </div>
+      <div style="padding:12px"><div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid #e7e5e4;border-radius:10px"><span style="width:26px;height:26px;border-radius:7px;background:#1c1917;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center">H</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:600;font-size:13px">Harbor Surrogacy</span><span style="display:block;font-size:11px;color:#78716c">Pacific time</span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a8a29e" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></div></div>
+      <nav style="flex:1;overflow-y:auto;padding:4px 12px 12px">
+        <sc-for list="{{ nav }}" as="n" hint-placeholder-count="9">
+          <sc-if value="{{ n.head }}" hint-placeholder-val="{{ false }}"><div style="font-size:11px;font-weight:600;color:#a8a29e;padding:14px 10px 6px;text-transform:uppercase;letter-spacing:.06em">{{ n.head }}</div></sc-if>
+          <button onClick="{{ n.go }}" style="{{ n.style }}" style-hover="background:#f5f5f4"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.d }}"></path></svg><span style="flex:1;text-align:left">{{ n.label }}</span><sc-if value="{{ n.count }}" hint-placeholder-val="{{ false }}"><span style="{{ n.countStyle }}">{{ n.count }}</span></sc-if></button>
+        </sc-for>
+      </nav>
+      <div style="padding:12px;border-top:1px solid #f5f5f4">
+        <div style="font-size:11px;color:#a8a29e;margin:0 4px 6px">Prototype · view as</div>
+        <div style="display:flex;background:#f5f5f4;border-radius:8px;padding:3px;margin-bottom:10px"><sc-for list="{{ roles }}" as="r" hint-placeholder-count="2"><button onClick="{{ r.go }}" style="{{ r.style }}">{{ r.label }}</button></sc-for></div>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px"><span style="width:30px;height:30px;border-radius:50%;background:#f5f5f4;border:1px solid #e7e5e4;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ initials }}</span><span style="font-size:13px;line-height:1.25"><b style="font-weight:600">{{ userName }}</b><br /><span style="color:#78716c;font-size:12px">{{ userRole }}</span></span></div>
+      </div>
+    </aside>
+  </sc-if>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <header style="{{ topbar }}">
+      <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px"><span style="width:28px;height:28px;border-radius:8px;background:#fdf2f5;color:#be3a5f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">S</span><span style="font-weight:700;font-size:16px">{{ crumb }}</span></div></sc-if>
+      <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><div style="flex:1"></div>
+        <button onClick="{{ goLeads }}" style="width:360px;height:36px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid #e7e5e4;border-radius:10px;background:#fff;color:#a8a29e;font-size:14px;cursor:pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3"></path></svg><span style="flex:1;text-align:left">Search candidates…</span><span style="font-size:11px;border:1px solid #e7e5e4;border-radius:5px;padding:1px 6px;color:#78716c">⌘K</span></button>
+      <div style="flex:1"></div></sc-if>
+      <div style="display:flex;align-items:center;gap:10px">
+        <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><div style="display:flex;background:#f5f5f4;border-radius:8px;padding:3px"><sc-for list="{{ roles }}" as="r" hint-placeholder-count="2"><button onClick="{{ r.go }}" style="{{ r.style }}">{{ r.short }}</button></sc-for></div></sc-if>
+        <sc-if value="{{ desktop }}" hint-placeholder-val="{{ true }}"><span style="font-size:12px;color:#78716c;border:1px solid #e7e5e4;border-radius:999px;padding:3px 10px;background:#fff">Snapshot Oct 1</span></sc-if>
+        <span style="width:30px;height:30px;border-radius:50%;background:#f5f5f4;border:1px solid #e7e5e4;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center">{{ initials }}</span>
+      </div>
+    </header>
+
+    <main style="{{ mainStyle }}">
+
+    <sc-if value="{{ s_week }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:20px">
+        <div><div style="font-size:22px;font-weight:650">Good morning, Erin</div><div style="color:#78716c;margin-top:2px">Week of Oct 12 · 4 things worth your time</div></div>
+        <div style="display:flex;background:#fff;border:1px solid #e7e5e4;border-radius:8px;padding:3px"><sc-for list="{{ ranges }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.go }}" style="{{ r.style }}">{{ r.label }}</button></sc-for></div>
+      </div>
+      <div style="{{ kpiGrid }}">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px">
+            <div style="font-size:12px;color:#78716c;font-weight:500">{{ k.label }}</div>
+            <div style="display:flex;align-items:baseline;gap:8px;margin:6px 0 10px"><span style="font-size:26px;font-weight:650;letter-spacing:-.02em">{{ k.value }}</span><span style="{{ k.deltaStyle }}">{{ k.delta }}</span></div>
+            <div style="display:flex;gap:2px;height:6px"><sc-for list="{{ k.seg }}" as="g" hint-placeholder-count="3"><span style="{{ g }}"></span></sc-for></div>
+            <div style="font-size:12px;color:#78716c;margin-top:8px">{{ k.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="{{ weekGrid }}">
+        <section style="background:#f5f5f4;border:1px solid #e7e5e4;border-radius:14px;padding:12px;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 4px 12px"><span style="font-weight:600;font-size:15px">Recommended actions</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">4</span></div>
+          <div style="display:grid;gap:8px">
+            <sc-for list="{{ actions }}" as="a" hint-placeholder-count="4">
+              <div style="background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="{{ a.areaStyle }}">{{ a.area }}</span><span style="font-size:12px;color:#78716c">{{ a.impact }}</span></div>
+                <div style="font-weight:600;font-size:15px;margin-bottom:4px">{{ a.title }}</div>
+                <div style="color:#57534e;font-size:13px;line-height:1.5">{{ a.why }}</div>
+                <div style="display:flex;gap:8px;margin-top:12px"><button onClick="{{ a.go }}" style="height:32px;padding:0 12px;border:1px solid #f4c6d3;border-radius:8px;background:#fff;color:#be3a5f;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#fdf2f5">{{ a.cta }}</button><button onClick="{{ a.ask }}" style="height:32px;padding:0 12px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px" style-hover="background:#fafaf9"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#be3a5f" stroke-width="2" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>Ask why</button></div>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+        <aside style="display:grid;gap:16px;align-content:start;min-width:0">
+          <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:18px">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div style="position:relative;width:92px;height:92px;flex:none"><svg width="92" height="92" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" fill="none" stroke="#f5f5f4" stroke-width="3.2"></circle><circle cx="18" cy="18" r="15.9" fill="none" stroke="#22a559" stroke-width="3.2" stroke-dasharray="73 100" transform="rotate(-90 18 18)"></circle><circle cx="18" cy="18" r="15.9" fill="none" stroke="#f59e0b" stroke-width="3.2" stroke-dasharray="27 100" stroke-dashoffset="-73" transform="rotate(-90 18 18)"></circle></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:18px">27%</b><span style="font-size:10px;color:#78716c">stall</span></div></div>
+              <div><div style="font-weight:600;margin-bottom:4px">Biggest leak: unfinished applications</div><div style="font-size:13px;color:#57534e;line-height:1.5">27% of applicants stop before submitting, most after pregnancy history.</div></div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:18px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-weight:600">Cost per qualified</span><span style="font-size:11px;color:#78716c;background:#f5f5f4;border-radius:999px;padding:2px 8px">sample spend</span></div>
+            <sc-for list="{{ costBars }}" as="b" hint-placeholder-count="4"><div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span>{{ b.label }}</span><b style="font-weight:600">{{ b.val }}</b></div><div style="background:#f5f5f4;height:8px;border-radius:999px;overflow:hidden"><div style="{{ b.bar }}"></div></div></div></sc-for>
+            <button onClick="{{ goChannels }}" style="border:0;background:none;color:#be3a5f;font-weight:600;font-size:13px;padding:0;cursor:pointer">View all channels →</button>
+          </div>
+        </aside>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_funnel }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span style="font-size:22px;font-weight:650">Funnel</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">3,530 leads</span></div>
+      <div style="color:#78716c;margin-bottom:20px">Qualified = attended a consult. Recent leads are still maturing.</div>
+      <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:8px 20px">
+        <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="6">
+          <div style="padding:14px 0;border-bottom:1px solid #f5f5f4">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px"><span style="{{ f.nameStyle }}">{{ f.name }}</span><span style="display:flex;gap:8px;align-items:baseline"><b style="font-size:16px;font-weight:650">{{ f.n }}</b><span style="{{ f.convStyle }}">{{ f.conv }}</span></span></div>
+            <div style="background:#f5f5f4;height:10px;border-radius:999px;overflow:hidden"><div style="{{ f.bar }}"></div></div>
+            <div style="font-size:12px;color:#78716c;margin-top:6px">{{ f.exit }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:18px 20px;margin-top:16px">
+        <div style="font-weight:600;margin-bottom:2px">Where applicants stop in the form</div>
+        <div style="font-size:13px;color:#78716c;margin-bottom:14px">Last section completed by 249 applicants who did not submit</div>
+        <sc-for list="{{ formBars }}" as="b" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:130px 1fr 36px;gap:12px;align-items:center;margin-bottom:10px;font-size:13px"><span>{{ b.label }}</span><div style="background:#f5f5f4;height:8px;border-radius:999px;overflow:hidden"><div style="{{ b.bar }}"></div></div><span style="text-align:right;font-weight:600">{{ b.val }}</span></div></sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_channels }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:4px"><span style="font-size:22px;font-weight:650">Channels</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">6</span></div>
+      <div style="color:#78716c;margin-bottom:20px">Which ads produce qualified surrogates. Spend is sample data until Meta and Google sync.</div>
+      <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden">
+        <div style="overflow-x:auto"><table style="width:100%;min-width:600px;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:#fafaf9;color:#78716c;text-align:left"><th style="padding:10px 16px;font-weight:500">Channel</th><th style="padding:10px 16px;font-weight:500">Leads</th><th style="padding:10px 16px;font-weight:500">Qualified</th><th style="padding:10px 16px;font-weight:500">Rate</th><th style="padding:10px 16px;font-weight:500">Spend</th><th style="padding:10px 16px;font-weight:500">Per qualified</th></tr></thead>
+          <tbody><sc-for list="{{ channels }}" as="c" hint-placeholder-count="6"><tr onClick="{{ c.go }}" style="border-top:1px solid #f5f5f4;cursor:pointer" style-hover="background:#fafaf9"><td style="padding:12px 16px"><span style="display:flex;align-items:center;gap:10px"><span style="{{ c.logo }}">{{ c.mark }}</span><b style="font-weight:600">{{ c.name }}</b></span></td><td style="padding:12px 16px">{{ c.leads }}</td><td style="padding:12px 16px">{{ c.q }}</td><td style="padding:12px 16px"><span style="display:flex;align-items:center;gap:8px"><span style="width:60px;height:6px;background:#f5f5f4;border-radius:999px;overflow:hidden;display:inline-block"><span style="{{ c.rateBar }}"></span></span>{{ c.rate }}</span></td><td style="padding:12px 16px">{{ c.spend }}</td><td style="padding:12px 16px"><span style="{{ c.cpqStyle }}">{{ c.cpq }}</span></td></tr></sc-for></tbody>
+        </table></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:12px;margin-top:16px">
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:16px"><div style="font-weight:600;margin-bottom:4px">30% of leads have no source</div><div style="font-size:13px;color:#57534e;line-height:1.5">1,050 untagged leads, 147 qualified. Add UTM tags to every ad link to credit them.</div></div>
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:16px"><div style="font-weight:600;margin-bottom:4px">14.9% are out of area</div><div style="font-size:13px;color:#57534e;line-height:1.5">These leads live outside Harbor's eight states. Check geo-targeting by campaign.</div></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_channel }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ goChannels }}" style="border:0;background:none;color:#78716c;font-size:13px;padding:0;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Channels</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px"><span style="{{ ch.logo }}">{{ ch.mark }}</span><span style="font-size:22px;font-weight:650">{{ ch.name }}</span></div>
+      <div style="{{ kpiGrid }}"><sc-for list="{{ ch.kpis }}" as="k" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px"><div style="font-size:12px;color:#78716c">{{ k.label }}</div><div style="font-size:24px;font-weight:650;margin-top:6px">{{ k.value }}</div></div></sc-for></div>
+      <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden"><div style="padding:14px 16px;font-weight:600;border-bottom:1px solid #f5f5f4">Campaigns</div>
+        <div style="overflow-x:auto"><table style="width:100%;min-width:480px;border-collapse:collapse;font-size:13px"><thead><tr style="background:#fafaf9;color:#78716c;text-align:left"><th style="padding:10px 16px;font-weight:500">Campaign</th><th style="padding:10px 16px;font-weight:500">Leads</th><th style="padding:10px 16px;font-weight:500">Qualified</th><th style="padding:10px 16px;font-weight:500">Per qualified</th></tr></thead><tbody><sc-for list="{{ ch.camps }}" as="c" hint-placeholder-count="3"><tr style="border-top:1px solid #f5f5f4"><td style="padding:12px 16px;font-weight:600">{{ c.name }}</td><td style="padding:12px 16px">{{ c.leads }}</td><td style="padding:12px 16px">{{ c.q }}</td><td style="padding:12px 16px">{{ c.cpq }}</td></tr></sc-for></tbody></table></div>
+      </div>
+      <div style="background:#fdf2f5;border:1px solid #f4c6d3;border-radius:14px;padding:16px;margin-top:16px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between"><div style="max-width:560px"><div style="font-weight:600;margin-bottom:2px">{{ ch.noteTitle }}</div><div style="font-size:13px;color:#57534e">{{ ch.note }}</div></div><button onClick="{{ ch.ask }}" style="height:34px;padding:0 14px;border:1px solid #f4c6d3;border-radius:8px;background:#fff;color:#be3a5f;font-weight:600;cursor:pointer">Ask Simbe</button></div>
+    </sc-if>
+
+    <sc-if value="{{ s_leads }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px;font-weight:650">{{ leadsTitle }}</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">{{ leadCount }}</span></div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:5px">
+          <div style="display:flex;background:#f5f5f4;border-radius:7px;padding:2px"><sc-for list="{{ views }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.go }}" style="{{ v.style }}">{{ v.label }}</button></sc-for></div>
+          <sc-if value="{{ owner }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;padding:0 8px;display:flex;align-items:center;gap:4px">All coordinators<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></span></sc-if>
+        </div>
+      </div>
+      <sc-if value="{{ showBoard }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px"><sc-for list="{{ colTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }} · {{ t.n }}</button></sc-for></div></sc-if>
+        <div style="{{ boardGrid }}">
+          <sc-for list="{{ columns }}" as="col" hint-placeholder-count="4">
+            <section style="background:#f5f5f4;border:1px solid #e7e5e4;border-radius:14px;padding:10px;min-width:0;align-self:start">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 4px 10px"><span style="font-weight:600">{{ col.title }}</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">{{ col.n }}</span></div>
+              <div style="display:grid;gap:8px">
+                <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+                  <button onClick="{{ c.go }}" style="text-align:left;background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:12px;cursor:pointer;color:inherit;box-shadow:0 1px 2px rgba(0,0,0,.03)" style-hover="border-color:#d6d3d1;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap"><b style="font-weight:600">{{ c.name }}</b><span style="font-size:11px;border:1px solid #e7e5e4;background:#fafaf9;border-radius:999px;padding:0 7px">{{ c.src }}</span><span style="{{ c.pillStyle }}">{{ c.pill }}</span></div>
+                    <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#78716c;margin-bottom:8px;white-space:nowrap"><span>{{ c.meta }}</span><span>{{ c.date }}</span></div>
+                    <div style="display:flex;gap:2px;height:5px"><sc-for list="{{ c.seg }}" as="g" hint-placeholder-count="6"><span style="{{ g }}"></span></sc-for></div>
+                  </button>
+                </sc-for>
+              </div>
+            </section>
+          </sc-for>
+        </div>
+      </sc-if>
+      <sc-if value="{{ showList }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden">
+          <div style="padding:10px;border-bottom:1px solid #f5f5f4"><input placeholder="Filter by name, source or stage" value="{{ search }}" onInput="{{ onSearch }}" style="width:100%;height:34px;border:1px solid #e7e5e4;border-radius:8px;padding:0 10px;font-size:13px" /></div>
+          <sc-for list="{{ leadRows }}" as="l" hint-placeholder-count="8">
+            <button onClick="{{ l.go }}" style="width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:12px 16px;border:0;border-bottom:1px solid #f5f5f4;background:#fff;text-align:left;cursor:pointer;color:inherit" style-hover="background:#fafaf9">
+              <span style="display:flex;align-items:center;gap:8px;min-width:0"><b style="font-weight:600">{{ l.name }}</b><span style="font-size:11px;border:1px solid #e7e5e4;background:#fafaf9;border-radius:999px;padding:0 7px">{{ l.src }}</span></span><span style="{{ l.pillStyle }}">{{ l.pill }}</span>
+              <span style="font-size:12px;color:#78716c">{{ l.meta }} · {{ l.stage }}</span><span style="font-size:12px;color:#78716c;text-align:right">{{ l.coord }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+    </sc-if>
+
+    <sc-if value="{{ s_next }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px">
+        <div><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px;font-weight:650">Next actions</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">{{ openCount }}</span></div><div style="color:#78716c;margin-top:2px">Tuesday Oct 13 · most urgent first</div></div>
+        <div style="min-width:220px;background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:10px 12px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:#78716c">Today's progress</span><b style="font-weight:600">{{ doneCount }} / {{ totalCount }}</b></div><div style="height:6px;background:#f5f5f4;border-radius:999px;overflow:hidden"><div style="{{ progBar }}"></div></div></div>
+      </div>
+      <div style="{{ boardGrid }}">
+        <sc-for list="{{ queue }}" as="g" hint-placeholder-count="4">
+          <section style="background:#f5f5f4;border:1px solid #e7e5e4;border-radius:14px;padding:10px;min-width:0;align-self:start">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 4px 2px"><span style="font-weight:600;display:flex;align-items:center;gap:8px"><span style="{{ g.dot }}"></span>{{ g.title }}</span><span style="font-size:12px;background:#fff;border:1px solid #e7e5e4;border-radius:999px;padding:1px 8px">{{ g.n }}</span></div>
+            <div style="font-size:12px;color:#78716c;padding:0 4px 10px">{{ g.hint }}</div>
+            <div style="display:grid;gap:8px">
+              <sc-for list="{{ g.items }}" as="i" hint-placeholder-count="2">
+                <div style="{{ i.style }}">
+                  <button onClick="{{ i.open }}" style="text-align:left;background:none;border:0;padding:0;cursor:pointer;color:inherit;width:100%"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><b style="font-weight:600">{{ i.name }}</b><span style="font-size:12px;color:#78716c">{{ i.age }}</span></div><div style="font-size:12px;color:#57534e;line-height:1.45">{{ i.why }}</div></button>
+                  <div style="display:flex;gap:6px;margin-top:10px"><button onClick="{{ i.call }}" style="flex:1;height:30px;border:1px solid #f4c6d3;border-radius:7px;background:#fff;color:#be3a5f;font-weight:600;font-size:12px;cursor:pointer">{{ i.verb }}</button><button onClick="{{ i.done }}" style="{{ i.doneStyle }}">{{ i.doneLabel }}</button></div>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_coords }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><span style="font-size:22px;font-weight:650">Coordinators</span><span style="font-size:11px;color:#be3a5f;background:#fdf2f5;border:1px solid #f4c6d3;border-radius:999px;padding:1px 8px">Owner only</span></div>
+      <div style="color:#78716c;margin-bottom:20px">Follow-up speed and outcomes by person. Sample figures.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:12px">
+        <sc-for list="{{ coords }}" as="c" hint-placeholder-count="4">
+          <button onClick="{{ c.go }}" style="text-align:left;background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:16px;cursor:pointer;color:inherit" style-hover="border-color:#d6d3d1;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="width:36px;height:36px;border-radius:50%;background:#f5f5f4;border:1px solid #e7e5e4;font-weight:600;display:flex;align-items:center;justify-content:center">{{ c.ini }}</span><span style="flex:1"><b style="font-weight:600;display:block">{{ c.name }}</b><span style="font-size:12px;color:#78716c">{{ c.leads }} leads · {{ c.share }}</span></span><span style="{{ c.flagStyle }}">{{ c.flag }}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;color:#78716c"><div>First reply<b style="display:block;color:#1c1917;font-size:15px;font-weight:600;margin-top:2px">{{ c.reply }}</b></div><div>Qualified<b style="display:block;color:#1c1917;font-size:15px;font-weight:600;margin-top:2px">{{ c.rate }}</b></div><div>Overdue<b style="display:block;color:#1c1917;font-size:15px;font-weight:600;margin-top:2px">{{ c.overdue }}</b></div></div>
+          </button>
+        </sc-for>
+      </div>
+      <div style="font-size:12px;color:#78716c;margin-top:14px;max-width:620px">First reply is the median time from signup to the first outbound message. Differences can reflect lead mix as well as effort.</div>
+    </sc-if>
+
+    <sc-if value="{{ s_coord }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ goCoords }}" style="border:0;background:none;color:#78716c;font-size:13px;padding:0;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:4px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>Coordinators</button>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px"><span style="width:44px;height:44px;border-radius:50%;background:#f5f5f4;border:1px solid #e7e5e4;font-weight:600;font-size:16px;display:flex;align-items:center;justify-content:center">{{ co.ini }}</span><div><div style="font-size:22px;font-weight:650">{{ co.name }}</div><div style="color:#78716c;font-size:13px">Coordinator · Harbor Surrogacy</div></div></div>
+      <div style="{{ kpiGrid }}"><sc-for list="{{ co.kpis }}" as="k" hint-placeholder-count="4"><div style="background:#fff;border:1px solid #e7e5e4;border-radius:12px;padding:16px"><div style="font-size:12px;color:#78716c">{{ k.label }}</div><div style="font-size:24px;font-weight:650;margin-top:6px">{{ k.value }}</div></div></sc-for></div>
+      <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden"><div style="padding:14px 16px;font-weight:600;border-bottom:1px solid #f5f5f4">Leads needing action</div>
+        <sc-for list="{{ co.leads }}" as="l" hint-placeholder-count="3"><button onClick="{{ l.go }}" style="width:100%;display:flex;justify-content:space-between;gap:12px;padding:12px 16px;border:0;border-bottom:1px solid #f5f5f4;background:#fff;text-align:left;cursor:pointer;color:inherit" style-hover="background:#fafaf9"><span><b style="font-weight:600">{{ l.name }}</b><span style="display:block;font-size:12px;color:#78716c">{{ l.stage }}</span></span><span style="font-size:12px;color:#78716c">{{ l.last }}</span></button></sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_data }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;margin-bottom:20px">
+        <div><div style="font-size:22px;font-weight:650">Data sources</div><div style="color:#78716c;margin-top:2px">What Simbe reads for Harbor Surrogacy</div></div>
+        <button onClick="{{ openUpload }}" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:#be3a5f;color:#fff;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px" style-hover="background:#9f2d4e"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>Upload new snapshot</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:12px;margin-bottom:16px">
+        <sc-for list="{{ connectors }}" as="c" hint-placeholder-count="2">
+          <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px"><span style="{{ c.logo }}">{{ c.mark }}</span><div style="flex:1;min-width:0"><div style="font-weight:600">{{ c.name }}</div><div style="font-size:12px;color:#78716c">{{ c.note }}</div></div><button onClick="{{ c.go }}" style="{{ c.btnStyle }}">{{ c.btn }}</button></div>
+        </sc-for>
+      </div>
+      <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden">
+        <div style="padding:14px 16px;display:flex;justify-content:space-between;border-bottom:1px solid #f5f5f4"><b style="font-weight:600">CRM exports</b><span style="font-size:12px;color:#78716c">Loaded Oct 1, 2026 · 9:14 am</span></div>
+        <sc-for list="{{ exports }}" as="f" hint-placeholder-count="7"><div style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid #f5f5f4"><span style="width:8px;height:8px;border-radius:50%;background:#22a559"></span><span style="flex:1;font-size:13px;font-weight:500">{{ f.name }}</span><span style="font-size:12px;color:#78716c">{{ f.rows }} rows</span></div></sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_connect }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:22px;font-weight:650">Connect Claude</div>
+      <div style="color:#78716c;margin:2px 0 20px;max-width:620px">Add Simbe as an MCP server in Claude to ask about your agency where you already work. The key reads Harbor's data only.</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:16px">
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:18px">
+          <label style="display:block;font-size:12px;color:#78716c;margin-bottom:6px">Server URL</label>
+          <div style="height:38px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;display:flex;align-items:center;font-family:ui-monospace,monospace;font-size:13px;background:#fafaf9;margin-bottom:14px">https://mcp.simbe.app/harbor</div>
+          <label style="display:block;font-size:12px;color:#78716c;margin-bottom:6px">API key</label>
+          <div style="display:flex;gap:8px;margin-bottom:16px"><div style="flex:1;min-width:0;height:38px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;display:flex;align-items:center;font-family:ui-monospace,monospace;font-size:13px;background:#fafaf9;overflow:hidden">{{ keyShown }}</div><button onClick="{{ toggleKey }}" style="height:38px;padding:0 12px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;cursor:pointer">{{ keyBtn }}</button></div>
+          <pre style="margin:0;background:#1c1917;color:#f5f5f4;border-radius:10px;padding:14px;font-size:12px;line-height:1.55;overflow-x:auto">{{ snippet }}</pre>
+        </div>
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden"><div style="padding:14px 16px;font-weight:600;border-bottom:1px solid #f5f5f4">Tools Claude can use</div>
+          <sc-for list="{{ tools }}" as="t" hint-placeholder-count="5"><div style="padding:11px 16px;border-bottom:1px solid #f5f5f4"><div style="font-family:ui-monospace,monospace;font-size:13px;font-weight:600;color:#be3a5f">{{ t.name }}</div><div style="font-size:12px;color:#78716c;margin-top:2px">{{ t.desc }}</div></div></sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ s_settings }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:22px;font-weight:650;margin-bottom:20px">Settings</div>
+      <div style="display:grid;gap:16px;max-width:720px">
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:18px"><div style="font-weight:600">Definition of qualified</div><div style="font-size:13px;color:#78716c;margin:2px 0 14px">Changing this updates every number right away.</div>
+          <div style="display:grid;gap:8px"><sc-for list="{{ milestones }}" as="m" hint-placeholder-count="4"><button onClick="{{ m.go }}" style="{{ m.style }}"><span style="{{ m.radio }}"></span><span style="flex:1"><span style="font-weight:600;display:block">{{ m.label }}</span><span style="font-size:12px;color:#78716c">{{ m.note }}</span></span></button></sc-for></div></div>
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;padding:18px"><div style="font-weight:600;margin-bottom:12px">Time zone</div><div style="display:flex;flex-wrap:wrap;gap:6px"><sc-for list="{{ zones }}" as="z" hint-placeholder-count="4"><button onClick="{{ z.go }}" style="{{ z.style }}">{{ z.label }}</button></sc-for></div></div>
+        <div style="background:#fff;border:1px solid #e7e5e4;border-radius:14px;overflow:hidden"><div style="padding:16px 18px 12px;font-weight:600">Team</div>
+          <sc-for list="{{ team }}" as="t" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid #f5f5f4"><span style="{{ t.av }}">{{ t.ini }}</span><span style="flex:1;font-weight:500">{{ t.name }}</span><span style="{{ t.pill }}">{{ t.role }}</span></div></sc-for>
+          <div style="display:flex;gap:8px;padding:12px 18px;border-top:1px solid #f5f5f4;background:#fafaf9"><input placeholder="coordinator@agency.com" value="{{ inviteDraft }}" onInput="{{ onInvite }}" style="flex:1;min-width:0;height:36px;border:1px solid #e7e5e4;border-radius:8px;padding:0 12px;font-size:13px" /><button onClick="{{ sendInvite }}" style="height:36px;padding:0 14px;border:1px solid #f4c6d3;border-radius:8px;background:#fff;color:#be3a5f;font-weight:600;cursor:pointer">Invite</button></div>
+        </div>
+      </div>
+    </sc-if>
+    </main>
+  </div>
+</div>
+
+<sc-if value="{{ mobile }}" hint-placeholder-val="{{ false }}">
+  <nav style="position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #e7e5e4;display:flex;z-index:30;padding-bottom:4px">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.go }}" style="{{ t.style }}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ t.d }}"></path></svg><span>{{ t.label }}</span></button></sc-for>
+  </nav>
+  <sc-if value="{{ more }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeMore }}" style="position:fixed;inset:0;background:rgba(28,25,23,.3);z-index:34"></div>
+    <div style="position:fixed;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;padding:8px 12px 84px;z-index:35;box-shadow:0 -8px 30px rgba(0,0,0,.12)">
+      <div style="width:36px;height:4px;border-radius:2px;background:#d6d3d1;margin:4px auto 12px"></div>
+      <sc-for list="{{ moreItems }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.go }}" style="display:flex;gap:12px;align-items:center;width:100%;padding:14px 12px;background:none;border:0;border-radius:10px;font-size:15px;font-weight:500;color:inherit;text-align:left;cursor:pointer" style-hover="background:#f5f5f4"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ n.d }}"></path></svg>{{ n.label }}</button></sc-for>
+    </div>
+  </sc-if>
+</sc-if>
+
+<sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closePanel }}" style="position:fixed;inset:0;background:rgba(250,250,249,.6);backdrop-filter:blur(1px);z-index:50"></div>
+  <aside style="{{ panelStyle }}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid #e7e5e4">
+      <div style="min-width:0"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><b style="font-size:17px;font-weight:650">{{ lead.name }}</b><span style="font-size:12px;color:#78716c;display:flex;align-items:center;gap:4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path></svg>{{ lead.coord }}</span></div><div style="font-size:12px;color:#78716c;margin-top:2px">{{ lead.stage }} · {{ lead.pill }}</div></div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:13px;flex:none">
+        <button onClick="{{ prevLead }}" style="border:0;background:none;color:#78716c;cursor:pointer;padding:6px;display:flex;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>{{ prevLabel }}</button>
+        <button onClick="{{ nextLead }}" style="border:0;background:none;cursor:pointer;padding:6px;display:flex;align-items:center;font-weight:500">{{ nextLabel2 }}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg></button>
+        <button onClick="{{ closePanel }}" style="border:0;background:none;cursor:pointer;padding:6px;display:flex;align-items:center;gap:4px;font-weight:500">{{ closeLabel }}<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+      </div>
+    </div>
+    <div style="flex:1;overflow-y:auto">
+      <div style="display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:12px 20px 0">
+        <button onClick="{{ lead.text }}" style="height:32px;padding:0 12px;border:1px solid #f4c6d3;border-radius:8px;background:#fff;color:#be3a5f;font-weight:600;font-size:13px;cursor:pointer" style-hover="background:#fdf2f5">Send text</button>
+        <button onClick="{{ lead.call }}" style="height:32px;padding:0 12px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;font-size:13px;cursor:pointer">Call</button>
+        <sc-if value="{{ isCoord }}" hint-placeholder-val="{{ false }}"><button onClick="{{ lead.done }}" style="{{ lead.doneStyle }}">{{ lead.doneLabel }}</button></sc-if>
+        <button style="height:32px;padding:0 10px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px">Actions<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"></path></svg></button>
+      </div>
+      <div style="{{ panelTop }}">
+        <div style="display:grid;gap:9px;font-size:13px;align-content:start">
+          <span style="display:flex;gap:10px;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4"></path></svg>{{ lead.state }}</span>
+          <span style="display:flex;gap:10px;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M3 5h18v14H3zM3 6l9 7 9-7"></path></svg>{{ lead.email }}</span>
+          <span style="display:flex;gap:10px;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg>{{ lead.phone }}</span>
+          <span style="display:flex;gap:10px;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#78716c" stroke-width="1.8"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"></path></svg>{{ lead.age }}</span>
+          <span style="font-size:11px;border:1px solid #e7e5e4;background:#fafaf9;border-radius:999px;padding:1px 8px;justify-self:start">{{ lead.src }} · {{ lead.camp }}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="position:relative;width:84px;height:84px;flex:none"><svg width="84" height="84" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.9" fill="none" stroke="#e7e5e4" stroke-width="3"></circle><sc-for list="{{ lead.ring }}" as="r" hint-placeholder-count="3"><circle cx="18" cy="18" r="15.9" fill="none" stroke="{{ r.c }}" stroke-width="3" stroke-dasharray="{{ r.da }}" stroke-dashoffset="{{ r.off }}" transform="rotate(-90 18 18)"></circle></sc-for></svg><div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:16px">{{ lead.pct }}</b><span style="font-size:9px;color:#78716c">Progress</span></div></div>
+          <div style="display:grid;gap:4px;font-size:12px"><sc-for list="{{ lead.legend }}" as="g" hint-placeholder-count="4"><span style="display:flex;align-items:center;gap:6px"><span style="{{ g.dot }}"></span>{{ g.label }}</span></sc-for></div>
+        </div>
+        <div style="font-size:13px"><div style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:4px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h18v16H3zM16 3v4M8 3v4M3 10h18"></path></svg>Consult</div><div style="color:#78716c;margin-bottom:10px">{{ lead.consult }}</div><button onClick="{{ lead.book }}" style="height:32px;padding:0 12px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;font-size:13px;cursor:pointer">{{ lead.bookLabel }}</button></div>
+      </div>
+      <div style="padding:0 20px"><div style="display:flex;background:#f5f5f4;border-radius:10px;padding:3px"><sc-for list="{{ ptabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button></sc-for></div></div>
+      <div style="padding:16px 20px 28px">
+        <sc-if value="{{ pt_summary }}" hint-placeholder-val="{{ true }}">
+          <div style="border:1px solid #e7e5e4;border-radius:12px;padding:14px;margin-bottom:12px">
+            <div style="font-size:11px;font-weight:600;color:#78716c;letter-spacing:.06em;margin-bottom:8px">PROCESS</div>
+            <sc-for list="{{ lead.proc }}" as="p" hint-placeholder-count="5"><div style="display:flex;align-items:center;gap:10px;padding:4px 0;font-size:13px"><span style="{{ p.icon }}">{{ p.mark }}</span><span><b style="font-weight:500">{{ p.name }}</b><span style="color:#78716c"> · {{ p.state }}</span></span></div></sc-for>
+          </div>
+          <div style="border:1px solid #e7e5e4;border-radius:12px;padding:14px;background:#fafaf9">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#be3a5f" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>Simbe summary</div>
+            <div style="font-size:13px;line-height:1.6;color:#44403c">{{ lead.summary }}</div>
+            <div style="font-size:12px;font-weight:600;margin:12px 0 6px">Suggested next step</div>
+            <div style="display:flex;gap:8px;align-items:flex-start;font-size:13px"><span style="width:7px;height:7px;border-radius:50%;background:#be3a5f;margin-top:6px;flex:none"></span>{{ lead.nextStep }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ pt_screener }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid #e7e5e4;border-radius:12px;overflow:hidden"><sc-for list="{{ lead.flags }}" as="g" hint-placeholder-count="8"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f4;font-size:13px"><span>{{ g.label }}</span><span style="{{ g.style }}">{{ g.v }}</span></div></sc-for></div>
+          <div style="font-size:12px;color:#78716c;margin-top:10px">Health answers are visible to the assigned coordinator only.</div>
+        </sc-if>
+        <sc-if value="{{ pt_activity }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ lead.events }}" as="e" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:16px 1fr;gap:12px;padding-bottom:16px"><span style="{{ e.dot }}"></span><div><div style="display:flex;justify-content:space-between;gap:8px;font-size:13px"><b style="font-weight:600">{{ e.what }}</b><span style="color:#78716c;font-size:12px">{{ e.when }}</span></div><div style="font-size:12px;color:#78716c">{{ e.detail }}</div></div></div></sc-for>
+        </sc-if>
+        <sc-if value="{{ pt_source }}" hint-placeholder-val="{{ false }}">
+          <div style="border:1px solid #e7e5e4;border-radius:12px;overflow:hidden"><sc-for list="{{ lead.attr }}" as="a" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid #f5f5f4;font-size:13px"><span style="color:#78716c">{{ a.k }}</span><span style="font-weight:500;text-align:right">{{ a.v }}</span></div></sc-for></div>
+        </sc-if>
+      </div>
+    </div>
+  </aside>
+</sc-if>
+
+<sc-if value="{{ uploadOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="{{ modalWrap }}">
+    <div style="{{ modalBox }}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:17px;font-weight:650">{{ upTitle }}</b><button onClick="{{ upCancel }}" style="border:0;background:none;cursor:pointer;padding:4px;display:flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div>
+      <sc-if value="{{ up1 }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:13px;color:#78716c;margin-bottom:16px">Upload all seven files from a new export. This replaces the Oct 1 snapshot for Harbor only.</div>
+        <button onClick="{{ upChoose }}" style="width:100%;border:1.5px dashed #d6d3d1;border-radius:12px;background:#fafaf9;padding:28px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:#1c1917" style-hover="border-color:#be3a5f;background:#fdf2f5"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#be3a5f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg><b style="font-weight:600">Drop CSV files or browse</b></button>
+      </sc-if>
+      <sc-if value="{{ up2 }}" hint-placeholder-val="{{ false }}"><div style="padding:28px 0;text-align:center;color:#78716c;animation:sb 1s infinite">Checking columns, duplicates and agency match…</div></sc-if>
+      <sc-if value="{{ up3 }}" hint-placeholder-val="{{ false }}">
+        <div style="font-size:13px;color:#78716c;margin-bottom:14px">Everything checks out. Review before replacing.</div>
+        <div style="border:1px solid #e7e5e4;border-radius:12px;overflow:hidden"><sc-for list="{{ upRows }}" as="r" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid #f5f5f4;font-size:13px"><span style="display:flex;align-items:center;gap:8px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22a559" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg>{{ r.a }}</span><b style="font-weight:600">{{ r.b }}</b></div></sc-for></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px"><button onClick="{{ upCancel }}" style="height:36px;padding:0 14px;border:1px solid #e7e5e4;border-radius:8px;background:#fff;cursor:pointer">Cancel</button><button onClick="{{ upConfirm }}" style="height:36px;padding:0 14px;border:0;border-radius:8px;background:#be3a5f;color:#fff;font-weight:600;cursor:pointer">Replace snapshot</button></div>
+      </sc-if>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}"><div style="{{ toastStyle }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg>{{ toast }}</div></sc-if>
+
+<sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+  <aside style="{{ agentStyle }}">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #e7e5e4">
+      <div style="display:flex;align-items:center;gap:10px"><span style="width:30px;height:30px;border-radius:9px;background:#fdf2f5;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#be3a5f" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg></span><div><b style="font-weight:600">Ask Simbe</b><div style="font-size:11px;color:#78716c">Harbor Surrogacy data only</div></div></div>
+      <button onClick="{{ closeAgent }}" style="border:0;background:none;cursor:pointer;padding:6px;display:flex;color:#78716c"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+    </div>
+    <div style="flex:1;overflow-y:auto;padding:16px">
+      <sc-if value="{{ noMsgs }}" hint-placeholder-val="{{ true }}"><div style="text-align:center;padding:20px 8px 8px"><div style="font-weight:600;margin-bottom:4px">How can I help this week?</div><div style="font-size:13px;color:#78716c">Ask about ads, funnel drop-off or what extra spend might return.</div></div></sc-if>
+      <sc-for list="{{ msgs }}" as="m" hint-placeholder-count="0">
+        <div style="{{ m.wrap }}">
+          <div style="{{ m.bubble }}">
+            <div style="white-space:pre-wrap;line-height:1.55;font-size:13px">{{ m.text }}</div>
+            <sc-if value="{{ m.hasBars }}" hint-placeholder-val="{{ false }}"><div style="background:#fafaf9;border:1px solid #f5f5f4;border-radius:10px;padding:10px 12px;margin-top:10px"><sc-for list="{{ m.bars }}" as="b" hint-placeholder-count="0"><div style="display:grid;grid-template-columns:72px 1fr 44px;gap:8px;align-items:center;font-size:12px;padding:3px 0"><span>{{ b.label }}</span><div style="background:#e7e5e4;height:6px;border-radius:999px;overflow:hidden"><div style="{{ b.bar }}"></div></div><b style="text-align:right;font-weight:600">{{ b.val }}</b></div></sc-for></div></sc-if>
+            <sc-if value="{{ m.hasAction }}" hint-placeholder-val="{{ false }}"><button onClick="{{ m.actionGo }}" style="margin-top:10px;height:30px;padding:0 12px;border:1px solid #f4c6d3;border-radius:8px;background:#fff;color:#be3a5f;font-weight:600;font-size:12px;cursor:pointer">{{ m.action }} →</button></sc-if>
+            <sc-if value="{{ m.hasSrc }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:10px;align-items:center"><span style="font-size:11px;color:#a8a29e">Sources</span><sc-for list="{{ m.srcs }}" as="sr" hint-placeholder-count="0"><button onClick="{{ sr.go }}" style="font-size:11px;border:1px solid #e7e5e4;background:#fff;border-radius:999px;padding:1px 8px;cursor:pointer;color:#57534e">{{ sr.label }}</button></sc-for></div></sc-if>
+          </div>
+        </div>
+      </sc-for>
+      <sc-if value="{{ thinking }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#78716c;animation:sb 1s infinite;padding:4px 0">Reading your data…</div></sc-if>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"><sc-for list="{{ chips }}" as="c" hint-placeholder-count="3"><button onClick="{{ c.go }}" style="font-size:12px;border:1px solid #e7e5e4;background:#fff;border-radius:999px;padding:6px 12px;cursor:pointer;text-align:left;color:#44403c" style-hover="border-color:#f4c6d3;color:#be3a5f">{{ c.text }}</button></sc-for></div>
+    </div>
+    <form onSubmit="{{ send }}" style="display:flex;gap:8px;padding:12px;border-top:1px solid #e7e5e4">
+      <input value="{{ draft }}" onInput="{{ onDraft }}" placeholder="Ask about your business…" style="flex:1;min-width:0;height:38px;border:1px solid #e7e5e4;border-radius:10px;padding:0 12px;font-size:13px" />
+      <button type="submit" style="width:38px;height:38px;border:0;border-radius:10px;background:#be3a5f;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+    </form>
+  </aside>
+</sc-if>
+<sc-if value="{{ showFab }}" hint-placeholder-val="{{ true }}">
+  <button onClick="{{ openAgent }}" aria-label="Ask Simbe" style="{{ fabStyle }}" style-hover="background:#9f2d4e"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"></path></svg></button>
+</sc-if>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const Q = new URLSearchParams(location.search);
+const ROSE = '#be3a5f', G = '#22a559', O = '#f59e0b', R = '#e5484d', GR = '#d6d3d1';
+const ICON = { week: 'M3 10 12 3l9 7v11h-6v-7H9v7H3z', funnel: 'M3 4h18l-7 8v7l-4 2v-9z', channels: 'M3 3v18h18M8 17v-6M13 17V7M18 17v-3', leads: 'M5 3h4v18H5zM15 3h4v12h-4z', coords: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M16 11l2 2 4-4', data: 'M4 6c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3', connect: 'M12 22v-5M9 8V2M15 8V2M18 8v5a6 6 0 0 1-12 0V8z', settings: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6', next: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', more: 'M4 6h16M4 12h16M4 18h16', ask: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z' };
+const LBL = { week: 'This week', funnel: 'Funnel', channels: 'Channels', leads: 'Pipeline', coords: 'Coordinators', data: 'Data sources', connect: 'Connect Claude', settings: 'Settings', next: 'Next actions' };
+const CH = [['Facebook', 1100, 140, 18400], ['Instagram', 520, 60, 7200], ['Google', 420, 75, 11800], ['TikTok', 190, 12, 4100], ['Referral', 250, 62, 0], ['Unknown', 1050, 147, 0]];
+const CHLOGO = { Facebook: ['f', '#1877f2'], Instagram: ['ig', '#d62976'], Google: ['G', '#ea4335'], TikTok: ['tt', '#111'], Referral: ['R', '#22a559'], Unknown: ['?', '#a8a29e'], Meta: ['∞', '#0866ff'] };
+const STAGES = [['Inquiry', 3530, 'Screener rejects 51% · BMI, state, age, prior birth'], ['Application', 918, '27% of applicants never submit'], ['Consult booked', 579, '4% withdraw · 11% never book'], ['Attended consult', 496, '14% of bookings are no-shows'], ['Records', 400, '5% not a fit after consult'], ['Accepted', 300, '21% fail medical records']];
+const FILES = [['leads.csv', 3530, 'One row per lead'], ['stage_history.csv', 9257, 'Stage entry times'], ['contact_log.csv', 10446, 'Texts, calls, emails'], ['screener_answers.csv', 35300, 'Health data · encrypted'], ['web_sessions.csv', 9901, 'Pre-signup visits'], ['appointments.csv', 642, 'Consult bookings'], ['applications.csv', 918, 'Application progress']];
+// id, name, age, state, source, stage label, stageIdx(0-5), coordinator, status, col, date, last
+const LEADS = [
+  ['L-4817', 'Brianna Cole', 26, 'WA', 'Google', 'Pre-screen', 1, 'Maya', 'action', 'action', 'Oct 13', '38 min ago'],
+  ['L-4830', 'Tanya Brooks', 31, 'OR', 'Instagram', 'Pre-screen', 1, 'Maya', 'action', 'action', 'Oct 13', '1 h ago'],
+  ['L-4821', 'Jessica Moreno', 29, 'CA', 'Facebook', 'Application · 60%', 2, 'Maya', 'action', 'app', 'Oct 11', '2 h ago'],
+  ['L-4702', 'Monique Hart', 34, 'CA', 'Facebook', 'Application · 40%', 2, 'Tomas', 'action', 'app', 'Oct 6', '5 days ago'],
+  ['L-4611', 'Rachel Kim', 32, 'ID', 'Google', 'Paused until Sep 19', 1, 'Maya', 'action', 'action', 'Aug 30', '3 weeks ago'],
+  ['L-4790', 'Ashley Nguyen', 33, 'AZ', 'Instagram', 'Consult booked · Oct 16', 3, 'Dev', 'open', 'consult', 'Oct 8', 'Today'],
+  ['L-4795', 'Leah Turner', 29, 'CA', 'Facebook', 'Missed consult Oct 9', 3, 'Dev', 'action', 'consult', 'Oct 2', 'Yesterday'],
+  ['L-4755', 'Kayla Reed', 28, 'NV', 'Referral', 'Attended consult', 4, 'Maya', 'qualified', 'qual', 'Sep 28', 'Yesterday'],
+  ['L-4688', 'Sara Lindqvist', 30, 'CO', 'Unknown', 'Records', 5, 'Priya', 'qualified', 'qual', 'Sep 20', '2 days ago'],
+  ['L-4640', 'Danielle Ortiz', 27, 'UT', 'TikTok', 'Not eligible · BMI', 1, 'Maya', 'closed', 'closed', 'Oct 4', '9 days ago']
+];
+const STATUS = { action: ['Action needed', ROSE, '#fdf2f5', '#f4c6d3'], open: ['On track', '#57534e', '#f5f5f4', '#e7e5e4'], qualified: ['Qualified', '#15803d', '#f0fdf4', '#bbf7d0'], closed: ['Closed', '#78716c', '#f5f5f4', '#e7e5e4'] };
+const COORD = { Maya: [2260, '14 min', '14.8%', 6, '64%'], Dev: [580, '52 min', '13.1%', 11, '16%'], Priya: [420, '38 min', '13.6%', 4, '12%'], Tomas: [270, '2 h 10 min', '11.9%', 9, '8%'] };
+const EVENTS = [['Oct 11 · 9:02 am', 'Signed up', 'Submitted the screener from a Facebook ad'], ['Oct 11 · 9:03 am', 'Screener reviewed', 'Automatic · 1 item to review'], ['Oct 11 · 9:21 am', 'Text sent', 'By Maya'], ['Oct 11 · 10:05 am', 'Replied', 'Inbound text'], ['Oct 11 · 6:40 pm', 'Application started', 'Stopped at pregnancy history'], ['Oct 13 · 11:15 am', 'Consult booked', 'For Oct 16'], ['Oct 16 · 2:00 pm', 'Consult attended', 'Qualified'], ['Oct 19 · 9:30 am', 'Records received', 'Under review']];
+const QUESTIONS = ['Age', 'Height', 'Weight / BMI', 'State', 'Children given birth to', 'C-sections', 'Smoke or vape', 'Government assistance', 'When to start', 'How did you hear'];
+const pill = (fg, bg, bd) => `font-size:11px;font-weight:500;color:${fg};background:${bg};border:1px solid ${bd};border-radius:999px;padding:1px 8px;white-space:nowrap`;
+const usd = n => '$' + Math.round(n).toLocaleString('en-US');
+const fmt = n => n.toLocaleString('en-US');
+const logo = (k, sz = 28) => { const [m, c] = CHLOGO[k] || ['?', '#a8a29e']; return { mark: m, logo: `width:${sz}px;height:${sz}px;border-radius:8px;background:${c};color:#fff;font-weight:700;font-size:${m.length > 1 ? 11 : 13}px;display:inline-flex;align-items:center;justify-content:center;flex:none` }; };
+const segs = (idx, status) => Array.from({ length: 6 }, (_, i) => `flex:1;border-radius:999px;background:${i < idx ? G : i === idx ? (status === 'closed' ? R : status === 'action' ? O : G) : GR}`);
+
+class Component extends DCLogic {
+  state = {
+    view: Q.get('view') || 'app', role: Q.get('role') || 'owner', screen: Q.get('screen') || '', step: +(Q.get('step') || 0),
+    open: Q.get('open') === '1', more: Q.get('more') === '1', mobile: innerWidth < 860, done: {}, showKey: false, range: '12m',
+    panel: Q.get('lead') || '', ptab: Q.get('tab') || 'summary', leadsView: 'board', mcol: 'action', search: '',
+    channel: Q.get('channel') || 'Facebook', coordSel: Q.get('coord') || 'Maya', upload: +(Q.get('upload') || 0), invites: [], inviteDraft: '', toast: '',
+    form: { owner: 'Erin', email: 'erin@harborsurrogacy.com', agency: 'Harbor Surrogacy', tz: 'Pacific' }, ms: 'consult_attended', conn: { Meta: true, Google: Q.get('step') !== '2' },
+    files: Q.get('step') === '3' ? { 'leads.csv': 1, 'stage_history.csv': 1, 'contact_log.csv': 1, 'screener_answers.csv': 1 } : {},
+    msgs: Q.get('open') === '1' ? [{ who: 'You', text: 'Which campaign gives me the most qualified surrogates per dollar?' }, this.answer('campaign')] : [],
+    chips: Q.get('open') === '1' ? ['What if I move TikTok budget to Instagram?', 'Where do leads stall?'] : ['Which ads bring the most qualified surrogates per dollar?', 'Where do leads stall in my funnel?', 'What if I spend $10k more on Google?'], draft: '', thinking: false
+  };
+  componentDidMount() { this._r = () => this.setState({ mobile: innerWidth < 860 }); addEventListener('resize', this._r); }
+  componentWillUnmount() { removeEventListener('resize', this._r); }
+  answer(t) {
+    const go = s => () => this.setState({ screen: s, open: false, more: false, panel: '' });
+    const paid = CH.filter(c => c[3]).map(c => ({ n: c[0], v: c[3] / c[2] })).sort((a, b) => a.v - b.v), max = paid[paid.length - 1].v;
+    if (/\$|spend|move|budget/.test(t)) return { who: 'Simbe', text: 'Moving TikTok\'s $4,100 to Instagram at $120 per qualified surrogate would bring about 34 instead of 12. Returns usually soften as spend rises, so plan on 24 to 34.', bars: [{ label: 'TikTok now', val: '12', bar: 35 }, { label: 'Instagram', val: '≈34', bar: 100 }], action: 'Open channels', actionGo: go('channels'), srcs: [{ label: 'Channel spend', go: go('channels') }] };
+    if (/stall|funnel|drop|where|why/.test(t)) return { who: 'Simbe', text: 'Most loss is at the screener. After that, 27% of applicants go quiet before submitting, mostly after the pregnancy history section. That is the biggest loss you can act on.', bars: [{ label: 'Screener', val: '74%', bar: 74 }, { label: 'Application', val: '27%', bar: 27 }, { label: 'No-show', val: '14%', bar: 14 }], action: 'Open funnel', actionGo: go('funnel'), srcs: [{ label: 'Stage history', go: go('funnel') }, { label: 'Applications', go: go('data') }] };
+    return { who: 'Simbe', text: 'Instagram is your cheapest paid channel at $120 per qualified surrogate. TikTok is the most expensive at $342. Referral brought 62 qualified leads with no ad cost.', bars: paid.map(p => ({ label: p.n, val: usd(p.v), bar: p.v / max * 100 })), action: 'Open channels', actionGo: go('channels'), srcs: [{ label: 'Meta spend', go: go('data') }, { label: 'Google spend', go: go('data') }, { label: 'Pipeline', go: go('leads') }] };
+  }
+  ask(text) {
+    if (!text.trim() || this.state.thinking) return;
+    this.setState(s => ({ open: true, msgs: [...s.msgs, { who: 'You', text }], draft: '', thinking: true, chips: [] }));
+    setTimeout(() => this.setState(s => ({ thinking: false, msgs: [...s.msgs, this.answer(text.toLowerCase())], chips: ['What if I move TikTok budget to Instagram?', 'Where do leads stall?'] })), 1000);
+  }
+  renderVals() {
+    const s = this.state, set = o => this.setState(o), m = s.mobile, owner = s.role === 'owner';
+    const screen = s.screen || (owner ? 'week' : 'next');
+    const act = { channel: 'channels', coord: 'coords' }[screen] || screen;
+    const goto = k => () => set({ screen: k, more: false, panel: '' });
+    const toast = msg => { set({ toast: msg }); clearTimeout(this._t); this._t = setTimeout(() => set({ toast: '' }), 2600); };
+    const openLead = id => () => set({ panel: id, ptab: 'summary', more: false });
+    const seg = (on, small) => `height:${small ? 26 : 30}px;padding:0 ${small ? 10 : 12}px;border:0;border-radius:6px;font-size:13px;font-weight:${on ? 600 : 500};cursor:pointer;background:${on ? '#fff' : 'transparent'};color:${on ? '#1c1917' : '#78716c'};box-shadow:${on ? '0 1px 2px rgba(0,0,0,.08)' : 'none'};flex:1;white-space:nowrap`;
+    const chip = on => `height:34px;padding:0 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:1px solid ${on ? '#f4c6d3' : '#e7e5e4'};background:${on ? '#fdf2f5' : '#fff'};color:${on ? ROSE : '#1c1917'}`;
+
+    const navKeys = owner ? ['week', 'funnel', 'channels', 'leads', 'coords', 'data', 'connect', 'settings'] : ['next', 'leads'];
+    const HEAD = owner ? { week: 'Insights', leads: 'Operations', data: 'Agency' } : { next: 'Today' };
+    let open = 0; const QG = [
+      ['Text back now', 'New, no message sent yet', R, [['L-4817', 'Signed up 38 min ago, passed the screener', 'Text', '38m'], ['L-4830', 'Signed up 1 h ago, passed the screener', 'Text', '1h']]],
+      ['Nudge applications', 'Quiet 24 h+ mid-application', O, [['L-4821', '60% complete, stopped at pregnancy history', 'Text', '2d']]],
+      ['Rebook consults', 'No-show with no new booking', '#8b5cf6', [['L-4795', 'Missed consult Oct 9, not rebooked', 'Call', '4d']]],
+      ['Paused, due back', 'Return date has passed', '#a8a29e', [['L-4611', 'Paused until Sep 19, no reply since', 'Text', '3w']]]];
+    const queue = QG.map(([title, hint, dc, items]) => ({ title, hint, n: items.length, dot: `width:8px;height:8px;border-radius:50%;background:${dc}`, items: items.map(([id, why, verb, age]) => { const L = LEADS.find(l => l[0] === id), d = !!s.done[id]; if (!d) open++; return { name: L[1], why, verb, age, open: openLead(id), call: () => toast((verb === 'Text' ? 'Text drafted to ' : 'Calling ') + L[1]), done: () => set({ done: { ...s.done, [id]: !d } }), doneLabel: d ? 'Undo' : 'Done', doneStyle: `flex:1;height:30px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${d ? '#bbf7d0' : '#e7e5e4'};background:${d ? '#f0fdf4' : '#fff'};color:${d ? '#15803d' : '#1c1917'}`, style: `background:#fff;border:1px solid #e7e5e4;border-radius:10px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,.03);${d ? 'opacity:.5' : ''}` }; }) }));
+    const totalCount = QG.reduce((a, g) => a + g[3].length, 0);
+    const nav = navKeys.map(k => ({ head: HEAD[k] || '', label: LBL[k], d: ICON[k], go: goto(k), count: k === 'next' ? String(open) : k === 'leads' && owner ? '10' : '', countStyle: `font-size:11px;font-weight:600;border-radius:999px;padding:0 7px;background:${act === k ? '#fff' : '#f5f5f4'};color:${act === k ? ROSE : '#78716c'}`, style: `display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;margin-bottom:2px;border:0;border-radius:8px;font-size:14px;font-weight:${act === k ? 600 : 500};cursor:pointer;background:${act === k ? '#fdf2f5' : 'transparent'};color:${act === k ? ROSE : '#44403c'}` }));
+    const tabKeys = owner ? ['week', 'leads', 'channels'] : ['next', 'leads'];
+    const tabStyle = on => `flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px 6px;border:0;background:none;font-size:11px;font-weight:${on ? 600 : 500};color:${on ? ROSE : '#78716c'};cursor:pointer;min-height:58px`;
+    const tabs = tabKeys.map(k => ({ label: k === 'week' ? 'Home' : LBL[k], d: ICON[k], go: goto(k), style: tabStyle(act === k && !s.open) }));
+    tabs.push({ label: 'Ask', d: ICON.ask, go: () => set({ open: true }), style: tabStyle(s.open) });
+    if (owner) tabs.push({ label: 'More', d: ICON.more, go: () => set({ more: !s.more }), style: tabStyle(s.more || ['funnel', 'coords', 'data', 'connect', 'settings'].includes(act)) });
+    const moreItems = ['funnel', 'coords', 'data', 'connect', 'settings'].map(k => ({ label: LBL[k], d: ICON[k], go: goto(k) }));
+    const roles = [['owner', 'Owner', 'Owner'], ['coord', 'Coordinator', 'Coord.']].map(([k, label, short]) => ({ label, short, go: () => set({ role: k, screen: '', more: false, panel: '' }), style: seg(s.role === k, true) + ';font-size:12px' }));
+
+    const paid = CH.filter(c => c[3]), spend = paid.reduce((a, c) => a + c[3], 0), pq = paid.reduce((a, c) => a + c[2], 0);
+    const cpqs = paid.map(c => ({ n: c[0], v: c[3] / c[2] })).sort((a, b) => a.v - b.v), maxc = cpqs[cpqs.length - 1].v;
+    const bar = (w, c) => `height:100%;width:${w}%;background:${c};border-radius:999px`;
+    const sg = (arr) => arr.map(([w, c]) => `flex:${w};border-radius:999px;background:${c}`);
+    const kpis = [
+      { label: 'Leads', value: '3,530', delta: '+6%', note: '12 months', seg: sg([[26, G], [74, GR]]) },
+      { label: 'Qualified', value: '496', delta: '+4%', note: 'Attended a consult', seg: sg([[14, G], [86, GR]]) },
+      { label: 'Qualified rate', value: '14.1%', delta: '−0.3', note: 'Recent leads still maturing', seg: sg([[14, G], [3, O], [83, GR]]) },
+      { label: 'Cost per qualified', value: usd(spend / pq), delta: 'sample', note: 'Paid spend ' + usd(spend), seg: sg([[60, G], [30, O], [10, R]]) }
+    ].map(k => ({ ...k, deltaStyle: `font-size:12px;font-weight:600;color:${k.delta.startsWith('+') ? '#15803d' : k.delta.startsWith('−') ? '#b45309' : '#78716c'}` }));
+    const ACT = [['Process', 'Text unfinished applications within 24 hours', '27% of applicants stop before submitting, most after the pregnancy history section. 249 leads are stuck there.', 'Largest controllable loss', 'Open funnel', 'funnel', 'Where do leads stall in my funnel?'],
+      ['Ads', 'Move TikTok budget to Instagram', 'TikTok costs $342 per qualified surrogate, Instagram $120. TikTok produced 12 qualified leads in a year.', '≈ +22 qualified a year', 'Open channels', 'channels', 'What if I move TikTok budget to Instagram?'],
+      ['Ads', 'Tighten Facebook geo-targeting', '14.9% of leads are outside your eight states and cannot qualify.', 'Less wasted spend', 'Open channels', 'channels', 'Which ads bring the most qualified surrogates per dollar?'],
+      ['People', 'Re-engage overdue paused leads', 'Leads paused until mid-September have not returned. One message may bring them back.', '12 leads (sample)', 'Open pipeline', 'leads', 'Where do leads stall in my funnel?']];
+    const AREA = { Process: ['#b45309', '#fffbeb', '#fde68a'], Ads: [ROSE, '#fdf2f5', '#f4c6d3'], People: ['#6d28d9', '#f5f3ff', '#ddd6fe'] };
+    const actions = ACT.map(([area, title, why, impact, cta, to, q]) => ({ area, areaStyle: pill(...AREA[area]), title, why, impact, cta, go: goto(to), ask: () => this.ask(q) }));
+    const costBars = cpqs.map(c => ({ label: c.n, val: usd(c.v), bar: bar(c.v / maxc * 100, c.v === maxc ? R : c.v === cpqs[0].v ? G : '#a8a29e') }));
+    const funnel = STAGES.map(([name, n, exit], i) => ({ name, n: fmt(n), conv: i ? Math.round(n / STAGES[i - 1][1] * 100) + '% of previous' : 'All leads', convStyle: 'font-size:12px;color:#78716c', exit, nameStyle: `font-weight:${i === 3 ? 650 : 500};color:${i === 3 ? ROSE : '#1c1917'}`, bar: bar(Math.max(n / 3530 * 100, 1.5), i === 3 ? ROSE : i > 3 ? G : '#44403c') }));
+    const formBars = [['Pregnancy history', 105], ['Personal info', 65], ['Medical history', 28], ['Support system', 19], ['None completed', 27]].map(([label, v]) => ({ label, val: v, bar: bar(v / 105 * 100, v === 105 ? O : '#a8a29e') }));
+    const channels = CH.map(c => ({ ...logo(c[0], 26), go: () => set({ screen: 'channel', channel: c[0] }), name: c[0], leads: fmt(c[1]), q: c[2], rate: (c[2] / c[1] * 100).toFixed(1) + '%', rateBar: `display:block;height:100%;width:${c[2] / c[1] * 400}%;background:${G};border-radius:999px`, spend: c[3] ? usd(c[3]) : '—', cpq: c[3] ? usd(c[3] / c[2]) : '—', cpqStyle: c[3] ? (c[3] / c[2] === maxc ? pill('#b91c1c', '#fef2f2', '#fecaca') : c[3] / c[2] === cpqs[0].v ? pill('#15803d', '#f0fdf4', '#bbf7d0') : 'font-weight:600') : 'color:#a8a29e' }));
+    const cc = CH.find(c => c[0] === s.channel) || CH[0], paidCh = !!cc[3];
+    const ch = { ...logo(cc[0], 36), name: cc[0], kpis: [{ label: 'Leads', value: fmt(cc[1]) }, { label: 'Qualified', value: cc[2] }, { label: 'Qualified rate', value: (cc[2] / cc[1] * 100).toFixed(1) + '%' }, { label: 'Per qualified', value: paidCh ? usd(cc[3] / cc[2]) : '—' }],
+      camps: paidCh ? ['Moms 25-38', 'Lookalike', 'Retargeting'].map((n, i) => { const p = [.5, .3, .2][i], q = Math.round(cc[2] * [.55, .3, .15][i]); return { name: n, leads: fmt(Math.round(cc[1] * p)), q, cpq: usd(cc[3] * p / q) }; }) : [{ name: cc[0] === 'Referral' ? 'Word of mouth and partners' : 'No UTM tag', leads: fmt(cc[1]), q: cc[2], cpq: '—' }],
+      noteTitle: paidCh ? 'Judge campaigns on qualified, not leads' : 'About this channel', note: paidCh ? 'A cheap lead who never attends a consult costs more than an expensive one who does.' : cc[0] === 'Unknown' ? 'These leads have no tag. Add UTM tags to every ad link to credit them.' : 'No ad cost. Ask your best referrers for an intro you can share.', ask: () => this.ask('Which ads bring the most qualified surrogates per dollar?') };
+
+    const mine = LEADS.filter(l => owner || l[7] === 'Maya');
+    const card = l => { const st = STATUS[l[8]]; return { go: openLead(l[0]), name: l[1], src: l[4], pill: st[0], pillStyle: pill(st[1], st[2], st[3]), meta: `${l[2]} yrs | ${l[3]}`, date: l[10], seg: segs(l[6], l[8]), stage: l[5], coord: owner ? l[7] : l[11] }; };
+    const COLS = [['action', 'Action needed'], ['app', 'In application'], ['consult', 'Consult'], ['qual', 'Qualified']];
+    let columns = COLS.map(([k, title]) => { const cards = mine.filter(l => l[9] === k).map(card); return { k, title, n: cards.length, cards }; });
+    const colTabs = columns.map(c => ({ label: c.title, n: c.n, go: () => set({ mcol: c.k }), style: chip(s.mcol === c.k) + ';flex:none' }));
+    if (m) columns = columns.filter(c => c.k === s.mcol);
+    const sq = s.search.toLowerCase();
+    const leadRows = mine.filter(l => !sq || (l[1] + l[4] + l[5]).toLowerCase().includes(sq)).map(card);
+    const views = [['board', 'Board'], ['list', 'List']].map(([k, label]) => ({ label, go: () => set({ leadsView: k }), style: seg(s.leadsView === k, true) }));
+
+    const L = LEADS.find(l => l[0] === s.panel) || LEADS[2];
+    const flags = QUESTIONS.map((q, i) => { const no = q.startsWith('Weight') && /BMI/.test(L[5]), rv = q === 'C-sections' && L[0] === 'L-4821', un = q === 'When to start' && L[6] < 2; return { label: q, v: no ? 'Not met' : rv ? 'Review' : un ? 'Unanswered' : 'Met', style: no ? pill('#b91c1c', '#fef2f2', '#fecaca') : rv ? pill('#b45309', '#fffbeb', '#fde68a') : un ? pill('#78716c', '#f5f5f4', '#e7e5e4') : pill('#15803d', '#f0fdf4', '#bbf7d0') }; });
+    const cnt = v => flags.filter(f => f.v === v).length, met = cnt('Met'), red = cnt('Not met'), rev = cnt('Review'), una = cnt('Unanswered');
+    let off = 0; const ring = [[met, G], [rev, O], [red, R]].filter(r => r[0]).map(([n, c]) => { const da = n * 10; const r = { c, da: `${da - .6} ${100 - da + .6}`, off: String(-off) }; off += da; return r; });
+    const nEv = Math.min(8, [2, 3, 5, 6, 7, 8][L[6]] || 3), dn = !!s.done[L[0]], idx = LEADS.indexOf(L);
+    const PROC = ['Screener', 'Application', 'Consult', 'Medical records', 'Accepted'];
+    const lead = { name: L[1], coord: L[7], stage: L[5], pill: STATUS[L[8]][0], state: { CA: 'California', WA: 'Washington', OR: 'Oregon', AZ: 'Arizona', NV: 'Nevada', CO: 'Colorado', ID: 'Idaho', UT: 'Utah' }[L[3]], email: L[1].split(' ')[0].toLowerCase() + '@gmail.com', phone: '(•••) •••-' + L[0].slice(-4), age: L[2] + ' years old', src: L[4], camp: L[4] === 'Unknown' ? 'No tag' : 'Moms 25-38',
+      ring, pct: Math.round(met / 10 * 100) + '%', legend: [[met + ' met', G], [red + ' red flags', R], [rev + ' to review', O], [una + ' unanswered', GR]].map(([label, c]) => ({ label, dot: `width:8px;height:8px;border-radius:50%;background:${c}` })),
+      consult: L[6] >= 4 ? 'Attended Oct 16' : L[6] === 3 ? L[5].replace('Consult booked · ', 'Scheduled ') : 'No consult scheduled', bookLabel: L[6] >= 3 ? 'View booking' : 'Book consult', book: () => toast('Booking link sent to ' + L[1]),
+      proc: PROC.map((n, i) => { const st = i + 1 < L[6] ? 'done' : i + 1 === L[6] ? (L[8] === 'closed' ? 'stopped' : 'ongoing') : 'upcoming'; return { name: n, state: { done: 'Complete', ongoing: 'Ongoing', stopped: 'Stopped', upcoming: 'Upcoming' }[st], mark: st === 'done' ? '✓' : '', icon: `width:16px;height:16px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;${st === 'done' ? 'background:' + G : st === 'ongoing' ? 'border:2px solid ' + ROSE : st === 'stopped' ? 'background:' + R : 'border:1.5px solid ' + GR}` }; }),
+      summary: L[8] === 'closed' ? `${L[1].split(' ')[0]} did not meet the BMI requirement on the screener. A coordinator sent the decline message. No further action needed.` : `${L[1].split(' ')[0]} passed the screener${rev ? ' with one item to review (C-sections)' : ''}. ${L[6] >= 2 ? 'She started her application on Oct 11 and replied to the first text within 45 minutes.' : 'She has not received a message yet.'} Source: ${L[4]}.`,
+      nextStep: { 1: 'Send a first text now. Leads contacted within an hour reply far more often.', 2: 'Text her a link back to the application, starting at pregnancy history.', 3: L[8] === 'action' ? 'Call to rebook the missed consult this week.' : 'Send a reminder the day before the consult.', 4: 'Request medical records.', 5: 'Follow up on records review.' }[L[6]] || '',
+      flags, events: EVENTS.slice(0, nEv).reverse().map(([when, what, detail], i) => ({ when, what, detail, dot: `width:10px;height:10px;border-radius:50%;margin-top:4px;background:${i === 0 ? ROSE : '#d6d3d1'}` })),
+      attr: [{ k: 'Channel', v: L[4] }, { k: 'Campaign', v: L[4] === 'Unknown' ? 'No tag' : 'Moms 25-38' }, { k: 'Ad', v: L[4] === 'Unknown' ? '—' : 'Carousel · Compensation' }, { k: 'First visit', v: 'Oct 9 · mobile' }, { k: 'Pages viewed', v: '/compensation · /requirements · /faq' }, { k: 'Self-reported', v: L[4] === 'Unknown' ? 'friend' : L[4].toLowerCase() }],
+      text: () => toast('Text drafted to ' + L[1]), call: () => toast('Calling ' + L[1]), done: () => set({ done: { ...s.done, [L[0]]: !dn } }), doneLabel: dn ? 'Done ✓' : 'Mark done', doneStyle: `height:32px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid ${dn ? '#bbf7d0' : '#e7e5e4'};background:${dn ? '#f0fdf4' : '#fff'};color:${dn ? '#15803d' : '#1c1917'}` };
+    const ptabs = [['summary', 'Summary'], ['screener', 'Screener'], ['activity', 'Activity'], ['source', 'Source']].map(([k, label]) => ({ label, go: () => set({ ptab: k }), style: seg(s.ptab === k, false) }));
+
+    const cs = COORD[s.coordSel] || COORD.Maya;
+    const coords = Object.entries(COORD).map(([name, [l, reply, rate, overdue, share]]) => ({ go: () => set({ screen: 'coord', coordSel: name }), name, ini: name[0], leads: fmt(l), share: share + ' of leads', reply, rate, overdue, flag: overdue > 8 ? 'Needs support' : 'On track', flagStyle: overdue > 8 ? pill('#b45309', '#fffbeb', '#fde68a') : pill('#15803d', '#f0fdf4', '#bbf7d0') }));
+    const co = { name: s.coordSel, ini: s.coordSel[0], kpis: [{ label: 'Leads', value: fmt(cs[0]) }, { label: 'First reply', value: cs[1] }, { label: 'Qualified rate', value: cs[2] }, { label: 'Overdue', value: cs[3] }], leads: LEADS.filter(l => l[7] === s.coordSel && l[8] === 'action').map(l => ({ go: openLead(l[0]), name: l[1], stage: l[5], last: l[11] })) };
+
+    const zones = ['Pacific', 'Mountain', 'Central', 'Eastern'].map(z => ({ label: z, go: () => set({ form: { ...s.form, tz: z } }), style: chip(s.form.tz === z) }));
+    const milestones = [['application_submitted', 'Submitted an application', 'Earliest signal'], ['consult_attended', 'Attended a consult', 'Coordinator hand-off · recommended'], ['records', 'Reached medical records', 'Later, more certain'], ['accepted', 'Been accepted', 'Final stage, slowest to see']].map(([k, label, note]) => { const on = s.ms === k; return { label, note, go: () => { set({ ms: k }); if (s.view === 'app') toast('Saved. Every number now uses this definition.'); }, style: `display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 14px;border-radius:10px;cursor:pointer;color:inherit;border:1px solid ${on ? '#f4c6d3' : '#e7e5e4'};background:${on ? '#fdf2f5' : '#fff'}`, radio: `width:16px;height:16px;border-radius:50%;flex:none;border:${on ? '5px solid ' + ROSE : '1.5px solid #d6d3d1'};background:#fff` }; });
+    const connectors = [['Meta Ads', 'Facebook and Instagram spend by campaign and ad', 'Meta'], ['Google Ads', 'Search campaigns and daily spend', 'Google']].map(([name, note, k]) => { const on = s.conn[k]; return { ...logo(k, 38), name, note: on ? 'Synced today · ' + note : note, btn: on ? 'Connected' : 'Connect', go: () => set({ conn: { ...s.conn, [k]: !on } }), btnStyle: `height:32px;padding:0 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;${on ? 'border:1px solid #bbf7d0;background:#f0fdf4;color:#15803d' : 'border:0;background:' + ROSE + ';color:#fff'}` }; });
+    const files = FILES.map(([name, , note]) => { const on = !!s.files[name]; return { name, note, btn: on ? 'Loaded' : 'Waiting', pill: on ? pill('#15803d', '#f0fdf4', '#bbf7d0') : pill('#78716c', '#f5f5f4', '#e7e5e4'), dot: `width:8px;height:8px;border-radius:50%;flex:none;background:${on ? G : GR}` }; });
+    const team = [{ name: s.form.owner + ' (you)', role: 'Owner' }, ...(s.view === 'signup' ? [] : ['Maya', 'Dev', 'Priya', 'Tomas'].map(n => ({ name: n, role: 'Coordinator' }))), ...s.invites.map(e => ({ name: e, role: 'Invited' }))].map(t => ({ ...t, ini: t.name[0].toUpperCase(), av: 'width:30px;height:30px;border-radius:50%;background:#f5f5f4;border:1px solid #e7e5e4;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:none', pill: t.role === 'Owner' ? pill(ROSE, '#fdf2f5', '#f4c6d3') : t.role === 'Invited' ? pill('#b45309', '#fffbeb', '#fde68a') : pill('#57534e', '#f5f5f4', '#e7e5e4') }));
+    const step = s.step;
+    const steps = ['Account', 'Agency', 'Ad accounts', 'Data', 'Team'].map((label, i) => ({ label, mark: i < step ? '✓' : String(i + 1), dot: `width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;${i < step ? 'background:' + G + ';color:#fff' : i === step ? 'background:' + ROSE + ';color:#fff' : 'background:#fff;border:1px solid #e7e5e4;color:#78716c'}`, lbl: `font-size:13px;font-weight:${i === step ? 600 : 500};color:${i === step ? '#1c1917' : '#78716c'};white-space:nowrap` }));
+    const u = s.upload, key = 'sk_simbe_harbor_9f3a71c2d8e04b56';
+    const msgs = s.msgs.map(x => { const me = x.who === 'You'; return { ...x, wrap: `display:flex;justify-content:${me ? 'flex-end' : 'flex-start'};margin-bottom:12px`, bubble: me ? 'max-width:85%;background:#f5f5f4;border-radius:14px 14px 4px 14px;padding:10px 12px' : 'max-width:92%;background:#fff;border:1px solid #e7e5e4;border-radius:14px 14px 14px 4px;padding:12px', bars: (x.bars || []).map(b => ({ ...b, bar: bar(b.bar, ROSE) })), hasBars: !!(x.bars && x.bars.length), hasAction: !!x.action, hasSrc: !!(x.srcs && x.srcs.length), srcs: x.srcs || [] }; });
+
+    return {
+      isLogin: s.view === 'login', isSignup: s.view === 'signup', isApp: s.view === 'app', desktop: !m, mobile: m, owner, isCoord: !owner,
+      toApp: () => set({ view: 'app' }), toLogin: e => { e && e.preventDefault && e.preventDefault(); set({ view: 'login' }); }, toSignup: e => { e.preventDefault(); set({ view: 'signup', step: 0 }); }, noop: e => e.preventDefault(),
+      signupPad: m ? '20px 12px 40px' : '48px 24px', steps, stepTitle: ['Create your account', 'Set up your agency', 'Connect ad accounts', 'Load your data', 'Invite your coordinators'][step], stepSub: ['You will be the owner of this workspace.', 'This sets how Simbe counts success for your agency.', 'Match ad spend to the leads it produced.', 'Upload the seven exports from your CRM.', 'Coordinators get a daily list of who to contact.'][step],
+      st0: step === 0, st1: step === 1, st2: step === 2, st3: step === 3, st4: step === 4, nextLabel: step === 4 ? 'Open my dashboard' : step === 3 ? 'Load data' : 'Continue',
+      next: () => step === 4 ? set({ view: 'app', screen: '' }) : set({ step: step + 1 }), back: () => step === 0 ? set({ view: 'login' }) : set({ step: step - 1 }),
+      setOwner: e => set({ form: { ...s.form, owner: e.target.value } }), setEmail: e => set({ form: { ...s.form, email: e.target.value } }), setAgency: e => set({ form: { ...s.form, agency: e.target.value } }),
+      addAll: () => set({ files: Object.fromEntries(FILES.map(f => [f[0], 1])) }), zones, milestones, connectors, files, team, form: s.form,
+      inviteDraft: s.inviteDraft, onInvite: e => set({ inviteDraft: e.target.value }), sendInvite: () => { if (s.inviteDraft.trim()) { set({ invites: [...s.invites, s.inviteDraft.trim()], inviteDraft: '' }); if (s.view === 'app') toast('Invitation sent'); } },
+      nav, tabs, moreItems, roles, more: s.more && m, closeMore: () => set({ more: false }), initials: owner ? 'EH' : 'M', userName: owner ? 'Erin' : 'Maya', userRole: owner ? 'Owner' : 'Coordinator', crumb: LBL[act] || 'Simbe',
+      topbar: `height:56px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 ${m ? 14 : 24}px;background:#fff;border-bottom:1px solid #e7e5e4;position:sticky;top:0;z-index:20`,
+      mainStyle: `flex:1;width:100%;max-width:1200px;padding:${m ? '18px 14px 110px' : '28px 32px 110px'}`,
+      goLeads: goto('leads'), goChannels: goto('channels'), goCoords: goto('coords'),
+      s_week: screen === 'week', s_funnel: screen === 'funnel', s_channels: screen === 'channels', s_channel: screen === 'channel', s_leads: screen === 'leads', s_next: screen === 'next', s_coords: screen === 'coords', s_coord: screen === 'coord', s_data: screen === 'data', s_connect: screen === 'connect', s_settings: screen === 'settings',
+      ranges: [['30d', '30 days'], ['90d', '90 days'], ['12m', '12 months']].map(([k, label]) => ({ label, go: () => set({ range: k }), style: seg(s.range === k, true) })),
+      kpis, kpiGrid: `display:grid;grid-template-columns:repeat(${m ? 2 : 4},minmax(0,1fr));gap:12px;margin-bottom:16px`, weekGrid: m ? 'display:grid;gap:16px' : 'display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px',
+      actions, costBars, funnel, formBars, channels, ch, columns, colTabs, views, leadRows, search: s.search, onSearch: e => set({ search: e.target.value }),
+      showBoard: s.leadsView === 'board', showList: s.leadsView === 'list', leadsTitle: owner ? 'Pipeline' : 'My leads', leadCount: String(mine.length),
+      boardGrid: m ? 'display:grid;gap:12px' : `display:grid;grid-template-columns:repeat(${owner || screen === 'next' ? 4 : 4},minmax(0,1fr));gap:12px;align-items:start`,
+      queue, openCount: String(open), doneCount: totalCount - open, totalCount, progBar: bar((totalCount - open) / totalCount * 100, G),
+      coords, co, exports: FILES.map(([name, rows]) => ({ name, rows: fmt(rows) })),
+      keyShown: s.showKey ? key : 'sk_simbe_••••••••••••••••', keyBtn: s.showKey ? 'Hide' : 'Reveal', toggleKey: () => set({ showKey: !s.showKey }),
+      snippet: `{\n  "mcpServers": {\n    "simbe": {\n      "url": "https://mcp.simbe.app/harbor",\n      "headers": {\n        "Authorization": "Bearer ${s.showKey ? key : 'YOUR_API_KEY'}"\n      }\n    }\n  }\n}`,
+      tools: [['get_funnel', 'Leads and conversion by stage'], ['get_channel_performance', 'Leads, qualified, spend and cost by channel or campaign'], ['get_dropoff_reasons', 'Why leads leave, aggregated'], ['get_next_actions', 'Follow-ups due, by coordinator'], ['forecast_spend', 'Qualified surrogates for a spend change']].map(([name, desc]) => ({ name, desc })),
+      panelOpen: !!s.panel && s.view === 'app', lead, ptabs, pt_summary: s.ptab === 'summary', pt_screener: s.ptab === 'screener', pt_activity: s.ptab === 'activity', pt_source: s.ptab === 'source',
+      closePanel: () => set({ panel: '' }), prevLead: () => set({ panel: LEADS[(idx + LEADS.length - 1) % LEADS.length][0] }), nextLead: () => set({ panel: LEADS[(idx + 1) % LEADS.length][0] }),
+      prevLabel: m ? '' : 'Prev', nextLabel2: m ? '' : 'Next', closeLabel: m ? '' : 'Close',
+      panelStyle: `position:fixed;top:0;right:0;bottom:0;width:${m ? '100vw' : 'min(620px,100vw)'};background:#fff;border-left:1px solid #e7e5e4;box-shadow:-12px 0 40px rgba(0,0,0,.08);z-index:55;display:flex;flex-direction:column;animation:slidein .2s ease-out`,
+      panelTop: `display:grid;grid-template-columns:${m ? '1fr' : '1.1fr 1fr 0.9fr'};gap:20px;padding:16px 20px 20px;border-bottom:1px solid #f5f5f4;margin-bottom:16px`,
+      openUpload: () => set({ upload: 1 }), uploadOpen: u > 0, up1: u === 1, up2: u === 2, up3: u === 3, upTitle: ['', 'Upload a new snapshot', 'Validating files', 'Review changes'][u] || '',
+      upChoose: () => { set({ upload: 2 }); setTimeout(() => set({ upload: 3 }), 1200); }, upCancel: () => set({ upload: 0 }), upConfirm: () => { set({ upload: 0 }); toast('Snapshot replaced · no duplicates counted'); },
+      upRows: [{ a: 'Leads', b: '3,530 → 3,611 (+81)' }, { a: 'Duplicate rows', b: '0' }, { a: 'Files matched to Harbor', b: '7 of 7' }, { a: 'Screener answers', b: 'Encrypted' }],
+      modalWrap: `position:fixed;inset:0;background:rgba(28,25,23,.35);z-index:80;display:flex;justify-content:center;align-items:${m ? 'flex-end' : 'center'};padding:${m ? 0 : 24}px`,
+      modalBox: `background:#fff;width:100%;max-width:480px;padding:20px;border-radius:${m ? '18px 18px 0 0' : '16px'};box-shadow:0 20px 60px rgba(0,0,0,.18)`,
+      hasToast: !!s.toast, toast: s.toast, toastStyle: `position:fixed;left:50%;transform:translateX(-50%);bottom:${m ? 84 : 28}px;background:#1c1917;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:500;z-index:90;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);white-space:nowrap`,
+      open: s.open, showFab: !s.open && !s.panel && s.view === 'app' && !m, openAgent: () => set({ open: true, more: false }), closeAgent: () => set({ open: false }),
+      fabStyle: 'position:fixed;right:24px;bottom:24px;width:52px;height:52px;border-radius:50%;background:' + ROSE + ';color:#fff;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(190,58,95,.35);z-index:40',
+      agentStyle: m ? 'position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;z-index:60' : 'position:fixed;right:24px;bottom:24px;width:400px;height:min(640px,calc(100vh - 48px));background:#fff;border:1px solid #e7e5e4;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.15);display:flex;flex-direction:column;z-index:60;overflow:hidden',
+      msgs, noMsgs: !s.msgs.length, thinking: s.thinking, draft: s.draft, chips: s.chips.map(text => ({ text, go: () => this.ask(text) })),
+      onDraft: e => set({ draft: e.target.value }), send: e => { e.preventDefault(); this.ask(s.draft); }
+    };
+  }
+}
+</script>
+</body>
+</html>

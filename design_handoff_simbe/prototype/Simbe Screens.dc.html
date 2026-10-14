@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-557d5a23-e826-4631-a47f-35237176d718/styles.css">
+<style>body{margin:0;background:var(--color-bg)}a{color:var(--color-accent-700)}a:hover{color:var(--color-accent-600)}</style>
+</helmet>
+<div style="padding:40px;font-family:var(--font-body);color:var(--color-text)">
+  <h1 style="margin:0 0 4px;font-family:var(--font-heading);font-size:44px;letter-spacing:-.03em">Simbe screens</h1>
+  <p style="margin:0 0 32px;max-width:640px">Owner and coordinator views, desktop and mobile. Desktop uses a left sidebar, mobile a bottom tab bar. Spend and coordinator figures are sample data.</p>
+  <div style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;border-top:2px solid var(--color-divider);padding-top:12px;margin-bottom:16px">Desktop · 1280</div>
+  <div id="desk" style="display:flex;flex-wrap:wrap;gap:32px;margin-bottom:56px"></div>
+  <div style="font-size:12px;text-transform:uppercase;letter-spacing:.1em;border-top:2px solid var(--color-divider);padding-top:12px;margin-bottom:16px">Mobile · 390</div>
+  <div id="mob" style="display:flex;flex-wrap:wrap;gap:48px 40px"></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    const D = [['Sign in', 'view=login'], ['Sign up · agency', 'view=signup&step=1'], ['Sign up · load data', 'view=signup&step=3'], ['Owner · this week', ''], ['Owner · funnel', 'screen=funnel'], ['Owner · channels', 'screen=channels'], ['Owner · channel detail', 'screen=channel&channel=Facebook'], ['Owner · leads', 'screen=leads'], ['Lead detail', 'screen=leads&lead=L-4821'], ['Owner · coordinators', 'screen=coords'], ['Owner · coordinator detail', 'screen=coord&coord=Tomas'], ['Owner · data sources', 'screen=data'], ['Owner · upload snapshot', 'screen=data&upload=3'], ['Owner · connect Claude', 'screen=connect'], ['Owner · settings', 'screen=settings'], ['Coordinator · next actions', 'role=coord'], ['Coordinator · lead detail', 'role=coord&screen=leads&lead=L-4821'], ['Agent panel', 'open=1']];
+    const M = [['Sign in', 'view=login'], ['Sign up · agency', 'view=signup&step=1'], ['Sign up · load data', 'view=signup&step=3'], ['Owner · this week', ''], ['Owner · funnel', 'screen=funnel'], ['Owner · channels', 'screen=channels'], ['Owner · channel detail', 'screen=channel&channel=Facebook'], ['Owner · leads', 'screen=leads'], ['Lead detail', 'screen=leads&lead=L-4821'], ['Owner · coordinators', 'screen=coords'], ['Owner · more menu', 'more=1'], ['Owner · data sources', 'screen=data'], ['Owner · upload snapshot', 'screen=data&upload=3'], ['Owner · settings', 'screen=settings'], ['Coordinator · next actions', 'role=coord'], ['Coordinator · lead detail', 'role=coord&screen=leads&lead=L-4821'], ['Agent', 'open=1']];
+    const el = (tag, css, txt) => { const e = document.createElement(tag); e.style.cssText = css; if (txt) e.textContent = txt; return e; };
+    const browser = (url, q) => {
+      const win = el('div', 'width:768px;border:1px solid #c9c7c6;box-shadow:0 18px 50px rgba(32,30,29,.18);background:#fff');
+      const bar = el('div', 'height:36px;display:flex;align-items:center;gap:12px;padding:0 12px;background:#e6e4e3;border-bottom:1px solid #c9c7c6');
+      const dots = el('div', 'display:flex;gap:6px'); ['#ec6a5e', '#f4bf4f', '#61c554'].forEach(c => dots.appendChild(el('span', 'width:11px;height:11px;border-radius:50%;background:' + c)));
+      const addr = el('div', 'flex:1;height:22px;background:#fff;border-radius:6px;display:flex;align-items:center;padding:0 10px;font:12px system-ui;color:#555', 'app.simbe.io/harbor/' + (q.match(/screen=(\w+)/)?.[1] || (q.includes('view=') ? q.match(/view=(\w+)/)[1] : q.includes('role=coord') ? 'next' : 'week')));
+      bar.appendChild(dots); bar.appendChild(addr); win.appendChild(bar);
+      const box = el('div', 'width:768px;height:480px;overflow:hidden');
+      const f = el('iframe', 'width:1280px;height:800px;border:0;display:block;background:#f3f2f2;transform:scale(.6);transform-origin:0 0');
+      f.src = url; box.appendChild(f); win.appendChild(box); return win;
+    };
+    const phone = url => {
+      const body = el('div', 'width:390px;padding:12px;background:#201e1d;border-radius:54px;box-shadow:0 18px 50px rgba(32,30,29,.25)');
+      const screen = el('div', 'position:relative;width:390px;height:844px;border-radius:42px;overflow:hidden;background:#f3f2f2');
+      const status = el('div', 'height:47px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font:600 15px system-ui;color:#fff;background:#201e1d');
+      status.appendChild(el('span', '', '9:41')); status.appendChild(el('span', 'width:120px;height:32px;border-radius:20px;background:#000')); status.appendChild(el('span', 'font-size:12px', '5G ▮'));
+      const f = el('iframe', 'width:390px;height:763px;border:0;display:block');
+      f.src = url;
+      const home = el('div', 'height:34px;display:flex;align-items:center;justify-content:center;background:#f3f2f2');
+      home.appendChild(el('span', 'width:134px;height:5px;border-radius:3px;background:#201e1d'));
+      screen.appendChild(status); screen.appendChild(f); screen.appendChild(home); body.appendChild(screen);
+      const wrap = el('div', 'width:414px'); wrap.appendChild(body); return wrap;
+    };
+    const mk2 = (host, items, kind) => {
+      const root = document.getElementById(host); if (!root) return;
+      items.forEach(([t, q]) => {
+        const url = 'Simbe App v2.dc.html?' + q;
+        const cell = el('div', 'flex:none');
+        const lab = el('div', 'font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px', t + ' · ');
+        const a = el('a', ''); a.href = url; a.target = '_blank'; a.textContent = 'open'; lab.appendChild(a);
+        cell.appendChild(lab); cell.appendChild(kind === 'd' ? browser(url, q) : phone(url)); root.appendChild(cell);
+      });
+    };
+    const mk = (host, items, w, h, scale) => mk2(host, items, scale ? 'd' : 'm');
+    const _unused = (host, items, w, h, scale) => {
+      const root = document.getElementById(host);
+      if (!root) return;
+      items.forEach(([t, q]) => {
+        const url = 'Simbe App v2.dc.html?' + q;
+        const cell = document.createElement('div');
+        cell.style.cssText = 'flex:none;width:' + (scale ? w * scale : w) + 'px';
+        const lab = document.createElement('div');
+        lab.style.cssText = 'font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px';
+        lab.textContent = t + ' · ';
+        const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.textContent = 'open'; lab.appendChild(a);
+        const box = document.createElement('div');
+        box.style.cssText = 'overflow:hidden;border:2px solid var(--color-divider);width:' + (scale ? w * scale : w) + 'px;height:' + (scale ? h * scale : h) + 'px;box-sizing:content-box';
+        const f = document.createElement('iframe');
+        f.src = url;
+        f.style.cssText = 'width:' + w + 'px;height:' + h + 'px;border:0;display:block;background:#f3f2f2;' + (scale ? 'transform:scale(' + scale + ');transform-origin:0 0' : '');
+        box.appendChild(f); cell.appendChild(lab); cell.appendChild(box); root.appendChild(cell);
+      });
+    };
+    mk('desk', D, 1280, 840, 0.6);
+    mk('mob', M, 390, 800, 0);
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
