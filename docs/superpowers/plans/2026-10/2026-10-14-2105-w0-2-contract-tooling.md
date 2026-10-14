@@ -32,7 +32,8 @@
 | Create | `frontend/src/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` (+ `.test.tsx` each) |
 | Create | `frontend/src/mocks/{db.ts,browser.ts,server.ts,scenarios.ts,conformance.test.ts}`, `frontend/src/mocks/handlers/<domain>.ts` |
 | Create | `frontend/src/test/{setup.ts,mockApi.ts,mockApi.test.ts}`, `frontend/e2e/mock-smoke.spec.ts` |
-| Modify | `frontend/src/main.tsx` (start MSW in mock mode), `contracts/README.md` (CCR procedure), `Makefile` targets already stubbed |
+| Modify | `contracts/README.md` (CCR procedure), `Makefile` targets already stubbed |
+| Create | `frontend/src/mocks/bootstrap.ts` (`startMocks`, `MockChip`; consumed by W0-5's `main.tsx`) |
 
 ---
 
@@ -128,7 +129,7 @@ export async function uploadFiles<T = unknown>(path: string, files: File[]): Pro
 
 ## Task 3: Mock core — db, scenarios, server/browser, mockApi helper
 
-**Files:** `src/mocks/{db.ts,scenarios.ts,browser.ts,server.ts}`, `src/test/{setup.ts,mockApi.ts,mockApi.test.ts}`; Modify `src/main.tsx`.
+**Files:** `src/mocks/{db.ts,scenarios.ts,browser.ts,server.ts,bootstrap.ts}`, `src/test/{setup.ts,mockApi.ts,mockApi.test.ts}`. (`src/main.tsx` is owned by W0-5; this task only provides `startMocks()`.)
 **Interfaces — Produces:**
 ```ts
 // db.ts — in-memory state, reset(): void, persisted session in localStorage "simbe_mock_session" (mock only)
@@ -162,7 +163,7 @@ it("setViewport flips matchMedia and fires resize", () => {
 it("unhandled requests fail the test", async () => { await expect(fetch("/api/v1/nope")).rejects.toThrow(); });
 ```
 In the test setup, `db.session` defaults to the owner (`erin@harbor.test`) so default handlers authenticate; a helper `asRole("coordinator")` in `mockApi.ts` flips it.
-- [ ] **Step 2:** FAIL; **Step 3:** implement. `main.tsx`: `if (import.meta.env.VITE_API_MODE !== "real") { const { worker } = await import("@/mocks/browser"); await worker.start({ onUnhandledRequest: "bypass" }); }` then render; add a dev-only corner chip "Mock API · <scenario>". Generate the MSW service worker file: `npx msw init public/ --save`.
+- [ ] **Step 2:** FAIL; **Step 3:** implement. `src/mocks/bootstrap.ts`: `export async function startMocks(): Promise<void> { if (import.meta.env.VITE_API_MODE === "real") return; const { worker } = await import("./browser"); await worker.start({ onUnhandledRequest: "bypass" }); }` plus `export const MockChip` (dev-only corner chip "Mock API · <scenario>", rendered by W0-5's `main.tsx`). Generate the MSW service worker file: `npx msw init public/ --save`.
 - [ ] **Step 4:** pass. Commit.
 
 ---
