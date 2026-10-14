@@ -300,10 +300,21 @@ it "summarizes each coordinator" do
   expect(rows["Dana Ortiz"]).to include(leads: 4, share_pct: 40.0, qualified: 0, overdue: 2) # L4 nudge 8d, L3 rebook 3d
   expect(rows["Jess Kim"]).to include(leads: 3, qualified: 2, qualified_rate: 66.7)         # L1, L2, L9 → qualified L1, L2
   expect(rows["Priya Shah"]).to include(leads: 3, qualified: 1, overdue: 1)                  # L6, L7, L8; L7 text_back 2d
-  expect(rows["Dana Ortiz"][:first_reply_minutes]).to eq(20) # median of 120, 10, 20, 25 → (20+25)/2 = 22.5 → rounds to 23
+  expect(rows["Dana Ortiz"][:first_reply_minutes]).to eq(22.5) # median of 120, 10, 20, 25
+end
+it "flags needs_support above the threshold" do
+  stub_const("Leads::CoordinatorStats::NEEDS_SUPPORT_THRESHOLD", 1)
+  expect(described_class.call(agency: agency).index_by { _1[:name] }["Dana Ortiz"][:status]).to eq("needs_support")
+end
+it "is on_track at the default threshold of 8" do
+  expect(described_class.call(agency: agency).map { _1[:status] }.uniq).to eq(["on_track"])
+end
+it "returns detail with the leads needing action and 404s an unknown name" do
+  d = described_class.detail(agency: agency, name: "Dana Ortiz")
+  expect(d[:needs_action].map { _1[:name] }).to match_array(["L3 Alpha", "L4 Alpha", "L10 Alpha"])
+  expect { described_class.detail(agency: agency, name: "Nobody") }.to raise_error(ActiveRecord::RecordNotFound)
 end
 ```
-**Correction to make while implementing:** median of Dana's `[120, 10, 20, 25]` is `(20 + 25) / 2 = 22.5`; assert `first_reply_minutes` with `be_within(1).of(22.5)` and round to 1 decimal in the serializer. Add the needs-support test: stub `NEEDS_SUPPORT_THRESHOLD` to 1 → Dana `needs_support`; default → all `on_track`.
 - [ ] **Step 2:** FAIL; **Step 3:** implement; **Step 4:** pass. Commit.
 
 ---
