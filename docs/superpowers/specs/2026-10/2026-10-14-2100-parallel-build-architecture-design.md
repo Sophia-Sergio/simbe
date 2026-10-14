@@ -35,6 +35,6 @@ Splitting work finer than a screen/domain; microfrontends or separate deployable
 ## Acceptance criteria
 1. `test -f contracts/openapi/openapi.yaml && npx --yes @redocly/cli@1 lint contracts/openapi/openapi.yaml` exits 0 and `grep -c "operationId:" contracts/openapi/paths/*.yaml | awk -F: '{s+=$2} END {exit !(s>=38)}'` exits 0 (≥38 operations).
 2. Every lane plan lists `Owns`: `for f in docs/superpowers/plans/2026-10/*-lane-*.md; do grep -q '^\*\*Owns' "$f" || echo "missing Owns: $f"; done` prints nothing.
-3. No two lane plans claim the same owned path: `bash docs/superpowers/parallel/check-ownership.sh` exits 0 (script from `2102`/Wave 0 repo scaffold; also run in CI).
+3. No two lane plans claim the same owned path: `bash docs/superpowers/parallel/check-ownership.sh` exits 0 (the script ships with this spec set and is also run in CI by the `ownership-check` job added in Wave 0 repo scaffold).
 4. Wave-1 plans never edit shared files: `grep -lE "config/routes\.rb|router\.tsx|ISOLATION_ROUTES|src/api/(leads|metrics)\.ts" docs/superpowers/plans/2026-10/*-lane-*.md` prints nothing.
 5. `docs/superpowers/parallel/README.md` contains the lane matrix with, for every lane: ID, wave, depends-on, owner globs, plan link; `grep -c '^| [BFWI]' docs/superpowers/parallel/README.md` ≥ 30.
