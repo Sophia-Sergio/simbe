@@ -1,5 +1,7 @@
 # Snapshot Ingest Implementation Plan
 
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. Steps use checkbox (`- [ ]`) syntax. **Commit after every task** (`feat(ingest): task N – <title>`) after the task's checks (and `make verify` once it exists) pass.
 
 **Goal:** Validate and atomically load an agency's seven CSV exports into agency-tagged Postgres tables, idempotently, via service, rake task and owner-only API.
