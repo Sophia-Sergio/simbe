@@ -1,0 +1,38 @@
+messages:
+  post:
+    operationId: sendAgentMessage
+    tags: [agent]
+    summary: Ask Simbe a question; the assistant message is returned synchronously (up to ~45s)
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: '../schemas/agent.yaml#/SendMessageRequest' }, example: { text: Which channel costs the most per qualified lead? } } }
+    responses:
+      '201': { description: Answered, content: { application/json: { schema: { $ref: '../schemas/agent.yaml#/SendMessageResponse' }, example: { $ref: '../../examples/agent/answer.json' } } } }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422': { description: "empty_text | text_too_long", content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' } } } }
+      '502': { description: model_unavailable, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' }, example: { error: { code: model_unavailable, message: I couldn't reach the model. Try again. } } } } }
+conversation:
+  get:
+    operationId: getAgentConversation
+    tags: [agent]
+    summary: A conversation the caller owns
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/agent.yaml#/Conversation' } } } }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+suggestions:
+  get:
+    operationId: getAgentSuggestions
+    tags: [agent]
+    summary: Starter chips (owner 4, coordinator 3)
+    responses:
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/agent.yaml#/Suggestions' }, example: { suggestions: [Which channel costs the most per qualified lead?, Where do most applicants drop off?, How should I split next month's budget?, Who needs support on my team?] } } } }
+usage:
+  get:
+    operationId: getAgentUsage
+    tags: [agent]
+    summary: This month's token usage and estimated cost (owner)
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/agent.yaml#/Usage' }, example: { month: '2026-10', input_tokens: 42000, output_tokens: 6100, cost_cents: null } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }

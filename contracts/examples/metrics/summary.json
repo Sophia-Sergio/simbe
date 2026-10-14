@@ -1,0 +1,44 @@
+{
+  "snapshot": {
+    "id": "55555555-5555-4555-8555-555555555555",
+    "as_of": "2026-10-01T12:00:00.000Z"
+  },
+  "range": "30d",
+  "spend_source": "import",
+  "kpis": {
+    "leads": {
+      "value": 10,
+      "previous": null,
+      "delta": null
+    },
+    "qualified": {
+      "value": 3,
+      "previous": null,
+      "delta": null
+    },
+    "qualified_rate": {
+      "value": 30.0,
+      "previous": null,
+      "delta": null,
+      "low_sample": true
+    },
+    "cost_per_qualified": {
+      "value_cents": 28333,
+      "previous_cents": null,
+      "delta_cents": null
+    }
+  },
+  "biggest_leak": {
+    "from_stage": "Inquiry",
+    "to_stage": "Application",
+    "lost": 5,
+    "pct_lost": 50.0
+  },
+  "cost_by_channel": [
+    {
+      "channel": "Facebook",
+      "cost_per_qualified_cents": 15000,
+      "flag": "best"
+    }
+  ]
+}

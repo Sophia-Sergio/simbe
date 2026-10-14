@@ -1,0 +1,66 @@
+RowDiff:
+  type: object
+  required: [current, incoming, delta]
+  properties: { current: { type: integer }, incoming: { type: integer }, delta: { type: integer } }
+ReportIssue:
+  type: object
+  required: [code, message]
+  properties:
+    code: { type: string, enum: [missing_file, bad_headers, bad_value, duplicate_key, orphan_row, agency_mismatch, foreign_lead] }
+    file: { type: string }
+    row: { type: [integer, 'null'] }
+    message: { type: string }
+ReportWarning:
+  type: object
+  required: [code, count, message]
+  properties:
+    code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, source_aliases_normalized] }
+    count: { type: integer }
+    message: { type: string }
+Report:
+  type: object
+  required: [ok, errors, warnings, diff, checks]
+  properties:
+    ok: { type: boolean }
+    errors: { type: array, items: { $ref: '#/ReportIssue' } }
+    warnings: { type: array, items: { $ref: '#/ReportWarning' } }
+    ignored: { type: array, items: { type: string }, description: uploaded files that matched none of the seven names }
+    diff:
+      type: object
+      description: "Keys: leads, stage_events, contacts, screener_answers, web_sessions, appointments, applications"
+      additionalProperties: { $ref: '#/RowDiff' }
+    checks:
+      type: object
+      required: [files_matched, duplicates, screener_encrypted]
+      properties:
+        files_matched: { type: string, examples: ['7 of 7'] }
+        duplicates: { type: integer }
+        screener_encrypted: { type: boolean }
+    as_of: { $ref: './common.yaml#/Timestamp' }
+SnapshotUpload:
+  type: object
+  required: [id, report]
+  properties: { id: { type: string, format: uuid }, report: { $ref: '#/Report' } }
+Snapshot:
+  type: object
+  required: [id, as_of, loaded_at, row_counts]
+  properties:
+    id: { type: string, format: uuid }
+    as_of: { $ref: './common.yaml#/Timestamp' }
+    loaded_at: { $ref: './common.yaml#/Timestamp' }
+    row_counts:
+      type: object
+      additionalProperties: { type: integer }
+    warnings: { type: array, items: { $ref: '#/ReportWarning' } }
+SnapshotCurrent:
+  type: object
+  required: [snapshot, files]
+  properties:
+    snapshot: { oneOf: [{ $ref: '#/Snapshot' }, { type: 'null' }] }
+    files:
+      type: array
+      items: { type: object, required: [name, rows], properties: { name: { type: string }, rows: { type: integer } } }
+CommitResult:
+  type: object
+  required: [snapshot]
+  properties: { snapshot: { $ref: '#/Snapshot' } }

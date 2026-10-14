@@ -1,0 +1,120 @@
+{
+  "leads": [
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000007",
+      "name": "L7 Alpha",
+      "channel": "Unknown",
+      "status": {
+        "key": "text_back_now",
+        "label": "Text back now",
+        "tone": "danger"
+      },
+      "state": "CA",
+      "age": 27,
+      "date": "2026-09-29T10:00:00.000Z",
+      "coordinator": "Priya Shah",
+      "stage": "pre_screen",
+      "segments": [
+        "done",
+        "action",
+        "todo",
+        "todo",
+        "todo",
+        "todo"
+      ]
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000008",
+      "name": "L8 Alpha",
+      "channel": "Referral",
+      "status": {
+        "key": "on_track",
+        "label": "On track",
+        "tone": "success"
+      },
+      "state": "CA",
+      "age": 33,
+      "date": "2026-09-26T10:00:00.000Z",
+      "coordinator": "Priya Shah",
+      "stage": "records",
+      "segments": [
+        "done",
+        "done",
+        "done",
+        "done",
+        "current",
+        "todo"
+      ]
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000004",
+      "name": "L4 Alpha",
+      "channel": "Instagram",
+      "status": {
+        "key": "nudge",
+        "label": "Nudge",
+        "tone": "warning"
+      },
+      "state": "ID",
+      "age": 28,
+      "date": "2026-09-23T10:00:00.000Z",
+      "coordinator": "Dana Ortiz",
+      "stage": "application",
+      "segments": [
+        "done",
+        "done",
+        "action",
+        "todo",
+        "todo",
+        "todo"
+      ]
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000003",
+      "name": "L3 Alpha",
+      "channel": "Facebook",
+      "status": {
+        "key": "rebook",
+        "label": "Rebook",
+        "tone": "warning"
+      },
+      "state": "ID",
+      "age": 31,
+      "date": "2026-09-22T10:00:00.000Z",
+      "coordinator": "Dana Ortiz",
+      "stage": "consult",
+      "segments": [
+        "done",
+        "done",
+        "done",
+        "action",
+        "todo",
+        "todo"
+      ]
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000002",
+      "name": "L2 Alpha",
+      "channel": "Facebook",
+      "status": {
+        "key": "on_track",
+        "label": "On track",
+        "tone": "success"
+      },
+      "state": "CA",
+      "age": 29,
+      "date": "2026-09-21T10:00:00.000Z",
+      "coordinator": "Jess Kim",
+      "stage": "consult",
+      "segments": [
+        "done",
+        "done",
+        "done",
+        "current",
+        "todo",
+        "todo"
+      ]
+    }
+  ],
+  "next_cursor": null
+}

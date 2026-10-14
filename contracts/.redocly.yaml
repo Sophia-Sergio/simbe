@@ -1,0 +1,7 @@
+extends: [recommended]
+rules:
+  tag-description: off
+  info-license: off
+  no-server-example.com: off
+  operation-4xx-response: warn
+  no-invalid-media-type-examples: error

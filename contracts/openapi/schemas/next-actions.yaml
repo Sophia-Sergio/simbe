@@ -1,0 +1,31 @@
+QueueKey: { type: string, enum: [text_back_now, nudge_applications, rebook_consults, paused_due_back] }
+TaskItem:
+  type: object
+  required: [lead_id, name, age_minutes, age_label, reason, done]
+  properties:
+    lead_id: { type: string, format: uuid }
+    name: { type: string }
+    age_minutes: { type: integer }
+    age_label: { type: string, examples: [38m, 5h, 2d] }
+    reason: { type: string }
+    done: { type: boolean }
+Queue:
+  type: object
+  required: [key, title, hint, tone, count, items]
+  properties:
+    key: { $ref: '#/QueueKey' }
+    title: { type: string }
+    hint: { type: string }
+    tone: { type: string, enum: [danger, warning, violet, neutral] }
+    count: { type: integer, description: not-done items }
+    items: { type: array, items: { $ref: '#/TaskItem' } }
+NextActions:
+  type: object
+  required: [as_of, progress, queues]
+  properties:
+    as_of: { $ref: './common.yaml#/Timestamp' }
+    progress:
+      type: object
+      required: [done, total]
+      properties: { done: { type: integer }, total: { type: integer } }
+    queues: { type: array, minItems: 4, maxItems: 4, items: { $ref: '#/Queue' }, description: "Fixed order: text_back_now, nudge_applications, rebook_consults, paused_due_back" }

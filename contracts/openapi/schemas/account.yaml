@@ -1,0 +1,72 @@
+SignupRequest:
+  type: object
+  required: [user, agency]
+  properties:
+    user:
+      type: object
+      required: [name, email, password]
+      properties: { name: { type: string }, email: { type: string, format: email }, password: { type: string, minLength: 10 } }
+    agency:
+      type: object
+      required: [name, timezone, qualified_milestone]
+      properties:
+        name: { type: string }
+        timezone: { type: string, enum: [America/Los_Angeles, America/Denver, America/Chicago, America/New_York] }
+        qualified_milestone: { $ref: './common.yaml#/Milestone' }
+AgencyUpdate:
+  type: object
+  minProperties: 1
+  properties:
+    name: { type: string }
+    timezone: { type: string }
+    qualified_milestone: { $ref: './common.yaml#/Milestone' }
+Invitation:
+  type: object
+  required: [id, email, role, coordinator_name, status, expires_at]
+  properties:
+    id: { type: string, format: uuid }
+    email: { type: string, format: email }
+    role: { type: string, enum: [coordinator] }
+    coordinator_name: { type: string }
+    status: { type: string, enum: [pending, accepted, expired] }
+    expires_at: { $ref: './common.yaml#/Timestamp' }
+    accept_url: { type: string, description: "Only present in the create response (shown once)" }
+InvitationCreate:
+  type: object
+  required: [email, coordinator_name]
+  properties: { email: { type: string, format: email }, coordinator_name: { type: string } }
+InvitationPreview:
+  type: object
+  required: [agency_name, email]
+  properties: { agency_name: { type: string }, email: { type: string, format: email }, coordinator_name: { type: string } }
+InvitationAccept:
+  type: object
+  required: [name, password]
+  properties: { name: { type: string }, password: { type: string, minLength: 10 } }
+Team:
+  type: object
+  required: [users, invitations]
+  properties:
+    users: { type: array, items: { $ref: './auth.yaml#/User' } }
+    invitations: { type: array, items: { $ref: '#/Invitation' } }
+CoordinatorNames:
+  type: object
+  required: [names]
+  properties: { names: { type: array, items: { type: string } } }
+UnknownCoordinatorError:
+  allOf:
+    - $ref: './common.yaml#/Error'
+    - type: object
+      properties: { valid_names: { type: array, items: { type: string } } }
+AdPlatform: { type: string, enum: [meta, google] }
+AdConnection:
+  type: object
+  required: [platform, status, connected_at]
+  properties:
+    platform: { $ref: '#/AdPlatform' }
+    status: { type: string, enum: [connected] }
+    connected_at: { $ref: './common.yaml#/Timestamp' }
+AdConnections:
+  type: object
+  required: [connections]
+  properties: { connections: { type: array, items: { $ref: '#/AdConnection' } } }

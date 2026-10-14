@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Dana Ortiz",
+    "leads": 4,
+    "share_pct": 40.0,
+    "first_reply_minutes": 22.5,
+    "qualified": 0,
+    "qualified_rate": 0.0,
+    "overdue": 2,
+    "status": "on_track"
+  },
+  {
+    "name": "Jess Kim",
+    "leads": 3,
+    "share_pct": 30.0,
+    "first_reply_minutes": 30.0,
+    "qualified": 2,
+    "qualified_rate": 66.7,
+    "overdue": 0,
+    "status": "on_track"
+  },
+  {
+    "name": "Priya Shah",
+    "leads": 3,
+    "share_pct": 30.0,
+    "first_reply_minutes": 45.0,
+    "qualified": 1,
+    "qualified_rate": 33.3,
+    "overdue": 1,
+    "status": "on_track"
+  }
+]

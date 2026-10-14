@@ -1,0 +1,129 @@
+signup:
+  post:
+    operationId: signup
+    tags: [account]
+    security: []
+    summary: Create agency + owner and sign in
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: '../schemas/account.yaml#/SignupRequest' } } }
+    responses:
+      '201':
+        description: Created and signed in
+        content: { application/json: { schema: { $ref: '../schemas/auth.yaml#/Me' }, example: { $ref: '../../examples/auth/me-owner.json' } } }
+      '422':
+        description: "Codes: email_taken, weak_password, invalid_agency"
+        content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' }, example: { error: { code: email_taken, message: That email already has an account } } } }
+agency:
+  get:
+    operationId: getAgency
+    tags: [account]
+    summary: Current agency
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/auth.yaml#/Agency' }, example: { $ref: '../../examples/account/agency.json' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+  patch:
+    operationId: updateAgency
+    tags: [account]
+    summary: Update name, timezone or qualified definition (owner)
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AgencyUpdate' }, example: { qualified_milestone: records } } }
+    responses:
+      '200': { description: Updated, content: { application/json: { schema: { $ref: '../schemas/auth.yaml#/Agency' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
+team:
+  get:
+    operationId: getTeam
+    tags: [account]
+    summary: Users and pending invitations (owner)
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/Team' }, example: { $ref: '../../examples/account/team.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+invitations:
+  post:
+    operationId: createInvitation
+    tags: [account]
+    summary: Invite a coordinator (owner). No email provider yet - response carries accept_url.
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: '../schemas/account.yaml#/InvitationCreate' } } }
+    responses:
+      '201': { description: Created, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/Invitation' }, example: { $ref: '../../examples/account/invitation-created.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422':
+        description: "unknown_coordinator (with valid_names) or invalid email"
+        content: { application/json: { schema: { $ref: '../schemas/account.yaml#/UnknownCoordinatorError' }, example: { error: { code: unknown_coordinator, message: Pick an existing coordinator }, valid_names: [Dana Ortiz, Jess Kim, Priya Shah] } } }
+invitation_by_id:
+  delete:
+    operationId: deleteInvitation
+    tags: [account]
+    summary: Revoke a pending invitation (owner)
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses:
+      '204': { description: Revoked }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+invitation_preview:
+  get:
+    operationId: getInvitation
+    tags: [account]
+    security: []
+    summary: Public - who invited me (token from accept_url)
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/InvitationPreview' }, example: { agency_name: Harbor Surrogacy, email: maya@harbor.test, coordinator_name: Jess Kim } } } }
+      '410':
+        description: Expired or already used
+        content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' }, example: { error: { code: invitation_expired, message: This invitation has expired } } } }
+invitation_accept:
+  post:
+    operationId: acceptInvitation
+    tags: [account]
+    security: []
+    summary: Public - accept an invitation, create the coordinator and sign in
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: '../schemas/account.yaml#/InvitationAccept' } } }
+    responses:
+      '201': { description: Created and signed in, content: { application/json: { schema: { $ref: '../schemas/auth.yaml#/Me' }, example: { $ref: '../../examples/auth/me-coordinator.json' } } } }
+      '410': { description: Expired or used, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' } } } }
+      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
+coordinator_names:
+  get:
+    operationId: listCoordinatorNames
+    tags: [account]
+    summary: Coordinator names present in the agency's leads (owner)
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/CoordinatorNames' }, example: { names: [Dana Ortiz, Jess Kim, Priya Shah] } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+ad_connections:
+  get:
+    operationId: listAdConnections
+    tags: [account]
+    summary: Connected ad platforms (owner). Stub - no OAuth; connecting generates sample spend.
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AdConnections' }, example: { connections: [{ platform: meta, status: connected, connected_at: '2026-10-01T12:00:00.000Z' }] } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+  post:
+    operationId: connectAdPlatform
+    tags: [account]
+    summary: Connect a platform (idempotent)
+    requestBody:
+      required: true
+      content: { application/json: { schema: { type: object, required: [platform], properties: { platform: { $ref: '../schemas/account.yaml#/AdPlatform' } } } } }
+    responses:
+      '200': { description: Already connected, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AdConnection' } } } }
+      '201': { description: Connected, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AdConnection' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
+ad_connection_by_platform:
+  delete:
+    operationId: disconnectAdPlatform
+    tags: [account]
+    summary: Disconnect a platform
+    parameters: [{ name: platform, in: path, required: true, schema: { $ref: '../schemas/account.yaml#/AdPlatform' } }]
+    responses:
+      '204': { description: Disconnected }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }

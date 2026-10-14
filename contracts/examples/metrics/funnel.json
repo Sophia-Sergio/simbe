@@ -1,0 +1,75 @@
+{
+  "total": 10,
+  "stages": [
+    {
+      "key": "inquiry",
+      "label": "Inquiry",
+      "count": 10,
+      "pct_of_previous": null,
+      "pct_of_total": 100.0,
+      "qualified": false,
+      "exit_reasons": [
+        {
+          "reason": "age",
+          "count": 1
+        },
+        {
+          "reason": "bmi",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "key": "application",
+      "label": "Application",
+      "count": 5,
+      "pct_of_previous": 50.0,
+      "pct_of_total": 50.0,
+      "qualified": false,
+      "exit_reasons": []
+    },
+    {
+      "key": "consult_booked",
+      "label": "Consult booked",
+      "count": 4,
+      "pct_of_previous": 80.0,
+      "pct_of_total": 40.0,
+      "qualified": false,
+      "exit_reasons": []
+    },
+    {
+      "key": "consult_attended",
+      "label": "Attended consult",
+      "count": 3,
+      "pct_of_previous": 75.0,
+      "pct_of_total": 30.0,
+      "qualified": true,
+      "exit_reasons": []
+    },
+    {
+      "key": "records",
+      "label": "Records",
+      "count": 2,
+      "pct_of_previous": 66.7,
+      "pct_of_total": 20.0,
+      "qualified": false,
+      "exit_reasons": []
+    },
+    {
+      "key": "accepted",
+      "label": "Accepted",
+      "count": 1,
+      "pct_of_previous": 50.0,
+      "pct_of_total": 10.0,
+      "qualified": false,
+      "exit_reasons": []
+    }
+  ],
+  "form_dropoff": [
+    {
+      "section": "pregnancy_history",
+      "count": 1,
+      "pct": 100.0
+    }
+  ]
+}

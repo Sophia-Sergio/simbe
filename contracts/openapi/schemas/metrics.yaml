@@ -1,0 +1,157 @@
+Kpi:
+  type: object
+  required: [value, previous, delta]
+  properties:
+    value: { type: integer }
+    previous: { type: [integer, 'null'] }
+    delta: { type: [number, 'null'], description: "Percent change vs previous window; null when previous window had no leads" }
+RateKpi:
+  type: object
+  required: [value, previous, delta, low_sample]
+  properties:
+    value: { type: number, description: percent }
+    previous: { type: [number, 'null'] }
+    delta: { type: [number, 'null'], description: percentage points }
+    low_sample: { type: boolean, description: "true when fewer than 30 leads" }
+CostKpi:
+  type: object
+  required: [value_cents, previous_cents, delta_cents]
+  properties:
+    value_cents: { type: [integer, 'null'], description: "null when no spend or zero qualified" }
+    previous_cents: { type: [integer, 'null'] }
+    delta_cents: { type: [integer, 'null'] }
+Leak:
+  type: object
+  required: [from_stage, to_stage, lost, pct_lost]
+  properties: { from_stage: { type: string }, to_stage: { type: string }, lost: { type: integer }, pct_lost: { type: number } }
+SpendSource: { type: string, enum: [sample, import, connected, none] }
+CostFlag: { type: [string, 'null'], enum: [best, worst, null] }
+CostByChannel:
+  type: object
+  required: [channel, cost_per_qualified_cents, flag]
+  properties:
+    channel: { type: string }
+    cost_per_qualified_cents: { type: integer }
+    flag: { $ref: '#/CostFlag' }
+Summary:
+  type: object
+  required: [snapshot, range, spend_source, kpis, biggest_leak, cost_by_channel]
+  properties:
+    snapshot:
+      oneOf:
+        - type: object
+          required: [id, as_of]
+          properties: { id: { type: string, format: uuid }, as_of: { $ref: './common.yaml#/Timestamp' } }
+        - type: 'null'
+    range: { $ref: './common.yaml#/Range' }
+    spend_source: { $ref: '#/SpendSource' }
+    kpis:
+      type: object
+      required: [leads, qualified, qualified_rate, cost_per_qualified]
+      properties:
+        leads: { $ref: '#/Kpi' }
+        qualified: { $ref: '#/Kpi' }
+        qualified_rate: { $ref: '#/RateKpi' }
+        cost_per_qualified: { $ref: '#/CostKpi' }
+    biggest_leak: { oneOf: [{ $ref: '#/Leak' }, { type: 'null' }] }
+    cost_by_channel: { type: array, items: { $ref: '#/CostByChannel' } }
+ExitReason:
+  type: object
+  required: [reason, count]
+  properties: { reason: { type: string }, count: { type: integer } }
+FunnelStage:
+  type: object
+  required: [key, label, count, pct_of_previous, pct_of_total, qualified, exit_reasons]
+  properties:
+    key: { type: string, enum: [inquiry, application, consult_booked, consult_attended, records, accepted] }
+    label: { type: string }
+    count: { type: integer }
+    pct_of_previous: { type: [number, 'null'], description: null for the first row }
+    pct_of_total: { type: number }
+    qualified: { type: boolean, description: "true on the row matching the agency's qualified milestone" }
+    exit_reasons: { type: array, items: { $ref: '#/ExitReason' }, maxItems: 2 }
+FormDropoff:
+  type: object
+  required: [section, count, pct]
+  properties: { section: { type: string }, count: { type: integer }, pct: { type: number } }
+Funnel:
+  type: object
+  required: [total, stages, form_dropoff]
+  properties:
+    total: { type: integer }
+    stages: { type: array, items: { $ref: '#/FunnelStage' }, minItems: 6, maxItems: 6 }
+    form_dropoff: { type: array, items: { $ref: '#/FormDropoff' } }
+ChannelRow:
+  type: object
+  required: [channel, leads, qualified, rate, spend_cents, cost_per_qualified_cents, flag, low_sample]
+  properties:
+    channel: { type: string }
+    leads: { type: integer }
+    qualified: { type: integer }
+    rate: { type: number }
+    spend_cents: { type: [integer, 'null'] }
+    cost_per_qualified_cents: { type: [integer, 'null'] }
+    flag: { $ref: '#/CostFlag' }
+    low_sample: { type: boolean }
+Channels:
+  type: object
+  required: [rows, basis, insights]
+  properties:
+    rows: { type: array, items: { $ref: '#/ChannelRow' } }
+    basis: { type: string, enum: [cost, rate], description: "rate when no channel has spend" }
+    insights:
+      type: object
+      required: [unattributed, out_of_area]
+      properties:
+        unattributed:
+          type: object
+          required: [count, pct]
+          properties: { count: { type: integer }, pct: { type: number } }
+        out_of_area:
+          type: object
+          required: [count, pct, main_states]
+          properties: { count: { type: integer }, pct: { type: number }, main_states: { type: array, items: { type: string } } }
+Campaign:
+  type: object
+  required: [campaign, ads, leads, qualified, rate, spend_cents, cost_per_qualified_cents]
+  properties:
+    campaign: { type: string, description: '"(untagged)" when blank' }
+    ads: { type: integer }
+    leads: { type: integer }
+    qualified: { type: integer }
+    rate: { type: number }
+    spend_cents: { type: [integer, 'null'] }
+    cost_per_qualified_cents: { type: [integer, 'null'] }
+ChannelDetail:
+  type: object
+  required: [channel, kpis, campaigns]
+  properties:
+    channel: { type: string }
+    kpis:
+      type: object
+      required: [leads, qualified, rate, spend_cents, cost_per_qualified_cents]
+      properties:
+        leads: { type: integer }
+        qualified: { type: integer }
+        rate: { type: number }
+        spend_cents: { type: [integer, 'null'] }
+        cost_per_qualified_cents: { type: [integer, 'null'] }
+    campaigns: { type: array, items: { $ref: '#/Campaign' } }
+Recommendation:
+  type: object
+  required: [id, area, impact, title, why, cta, ask, score]
+  properties:
+    id: { type: string, enum: [funnel_leak, best_vs_worst_channel, unattributed, no_shows, coordinator_load] }
+    area: { type: string, enum: [process, ads, people] }
+    impact: { type: string, examples: ['5 leads stalled'] }
+    title: { type: string }
+    why: { type: string }
+    cta:
+      type: object
+      required: [label, route]
+      properties: { label: { type: string }, route: { type: string, examples: [/funnel] } }
+    ask:
+      type: object
+      required: [question]
+      properties: { question: { type: string } }
+    score: { type: integer }

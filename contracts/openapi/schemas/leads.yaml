@@ -1,0 +1,115 @@
+Segment: { type: string, enum: [done, action, closed, current, todo] }
+LeadCard:
+  type: object
+  required: [id, name, channel, status, state, age, date, coordinator, stage, segments]
+  properties:
+    id: { type: string, format: uuid }
+    name: { type: string }
+    channel: { type: string }
+    status: { $ref: './common.yaml#/Status' }
+    state: { type: [string, 'null'] }
+    age: { type: [integer, 'null'], description: "From the 'How old are you?' answer; the only decrypted screener value on cards" }
+    date: { $ref: './common.yaml#/Timestamp' }
+    coordinator: { type: [string, 'null'] }
+    stage: { $ref: './common.yaml#/Stage' }
+    segments: { type: array, items: { $ref: '#/Segment' }, minItems: 6, maxItems: 6 }
+BoardColumn:
+  type: object
+  required: [count, leads]
+  properties: { count: { type: integer }, leads: { type: array, maxItems: 25, items: { $ref: '#/LeadCard' } } }
+Board:
+  type: object
+  required: [columns]
+  properties:
+    columns:
+      type: object
+      required: [action_needed, in_application, consult, qualified]
+      properties:
+        action_needed: { $ref: '#/BoardColumn' }
+        in_application: { $ref: '#/BoardColumn' }
+        consult: { $ref: '#/BoardColumn' }
+        qualified: { $ref: '#/BoardColumn' }
+LeadList:
+  type: object
+  required: [leads, next_cursor]
+  properties:
+    leads: { type: array, items: { $ref: '#/LeadCard' } }
+    next_cursor: { type: [string, 'null'] }
+Contact:
+  type: object
+  required: [state, email, phone, age, channel, campaign, can_contact]
+  properties:
+    state: { type: [string, 'null'] }
+    email: { type: [string, 'null'] }
+    phone: { type: [string, 'null'], description: "Masked as •••-••••-1768 unless can_contact" }
+    age: { type: [integer, 'null'] }
+    channel: { type: string }
+    campaign: { type: [string, 'null'] }
+    can_contact: { type: boolean, description: "true only for the assigned coordinator (then phone is unmasked)" }
+Verdict: { type: string, enum: [met, review, not_met, unanswered] }
+ScreenerItem:
+  type: object
+  required: [question, verdict]
+  properties:
+    question: { type: string }
+    verdict: { $ref: '#/Verdict' }
+    answer: { type: string, description: "Present ONLY for the assigned coordinator. Never for owners." }
+ProcessStep:
+  type: object
+  required: [key, label, state, detail]
+  properties:
+    key: { type: string, enum: [screener, application, consult, records, accepted] }
+    label: { type: string }
+    state: { type: string, enum: [complete, ongoing, stopped, upcoming] }
+    detail: { type: [string, 'null'] }
+ActivityItem:
+  type: object
+  required: [at, kind, title, detail]
+  properties:
+    at: { $ref: './common.yaml#/Timestamp' }
+    kind: { type: string, enum: [stage, contact, application, appointment, visit] }
+    title: { type: string }
+    detail: { type: [string, 'null'] }
+LeadDetail:
+  type: object
+  required: [id, name, coordinator, stage, status, contact, consult, screener, process, activity, source, summary, queue, done]
+  properties:
+    id: { type: string, format: uuid }
+    name: { type: string }
+    coordinator: { type: [string, 'null'] }
+    stage: { $ref: './common.yaml#/Stage' }
+    status: { $ref: './common.yaml#/Status' }
+    contact: { $ref: '#/Contact' }
+    consult:
+      type: object
+      required: [status, scheduled_for]
+      properties:
+        status: { type: [string, 'null'], enum: [scheduled, attended, no_show, cancelled, null] }
+        scheduled_for: { type: [string, 'null'], format: date-time }
+    screener:
+      type: object
+      required: [counts, items]
+      properties:
+        counts:
+          type: object
+          required: [met, review, not_met, unanswered, total]
+          properties: { met: { type: integer }, review: { type: integer }, not_met: { type: integer }, unanswered: { type: integer }, total: { type: integer } }
+        items: { type: array, items: { $ref: '#/ScreenerItem' } }
+    process: { type: array, items: { $ref: '#/ProcessStep' }, minItems: 5, maxItems: 5 }
+    activity: { type: array, items: { $ref: '#/ActivityItem' }, description: newest first }
+    source:
+      type: object
+      required: [channel, campaign, ad, first_visit, pages_viewed, self_reported]
+      properties:
+        channel: { type: string }
+        campaign: { type: [string, 'null'] }
+        ad: { type: [string, 'null'] }
+        first_visit: { type: [string, 'null'], format: date-time }
+        pages_viewed: { type: integer }
+        self_reported: { type: 'null', description: "Not collected in the exports" }
+    summary:
+      type: object
+      required: [text, next_step]
+      properties: { text: { type: string }, next_step: { type: string } }
+    queue: { type: [string, 'null'], enum: [text_back_now, nudge_applications, rebook_consults, paused_due_back, null] }
+    done: { type: boolean }

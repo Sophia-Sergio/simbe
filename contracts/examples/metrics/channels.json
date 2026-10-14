@@ -1,0 +1,79 @@
+{
+  "rows": [
+    {
+      "channel": "Facebook",
+      "leads": 3,
+      "qualified": 2,
+      "rate": 66.7,
+      "spend_cents": 30000,
+      "cost_per_qualified_cents": 15000,
+      "flag": "best",
+      "low_sample": true
+    },
+    {
+      "channel": "Google",
+      "leads": 3,
+      "qualified": 0,
+      "rate": 0.0,
+      "spend_cents": 45000,
+      "cost_per_qualified_cents": null,
+      "flag": null,
+      "low_sample": true
+    },
+    {
+      "channel": "Instagram",
+      "leads": 1,
+      "qualified": 0,
+      "rate": 0.0,
+      "spend_cents": 10000,
+      "cost_per_qualified_cents": null,
+      "flag": null,
+      "low_sample": true
+    },
+    {
+      "channel": "Referral",
+      "leads": 1,
+      "qualified": 1,
+      "rate": 100.0,
+      "spend_cents": null,
+      "cost_per_qualified_cents": null,
+      "flag": null,
+      "low_sample": true
+    },
+    {
+      "channel": "TikTok",
+      "leads": 1,
+      "qualified": 0,
+      "rate": 0.0,
+      "spend_cents": null,
+      "cost_per_qualified_cents": null,
+      "flag": null,
+      "low_sample": true
+    },
+    {
+      "channel": "Unknown",
+      "leads": 1,
+      "qualified": 0,
+      "rate": 0.0,
+      "spend_cents": null,
+      "cost_per_qualified_cents": null,
+      "flag": null,
+      "low_sample": true
+    }
+  ],
+  "basis": "cost",
+  "insights": {
+    "unattributed": {
+      "count": 1,
+      "pct": 10.0
+    },
+    "out_of_area": {
+      "count": 0,
+      "pct": 0.0,
+      "main_states": [
+        "CA",
+        "ID"
+      ]
+    }
+  }
+}
