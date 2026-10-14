@@ -202,7 +202,8 @@ end
 ## Task 3: Lead detail (masking, screener, activity, summary)
 
 **Files:** Create `app/services/leads/{detail,masking,summarizer}.rb`, `app/serializers/lead_detail_serializer.rb`, `spec/services/leads/detail_spec.rb`.
-**Interfaces — Produces:** `Leads::Detail.call(user:, id:) → Hash` (raises `ActiveRecord::RecordNotFound` if outside the user's scope) with keys `id, name, coordinator, stage, status, contact: { state, email, phone, age, channel, campaign }, consult: { status, scheduled_for }, screener: { counts: {met, review, not_met, unanswered, total}, items: [{ question, verdict, answer? }] }, process: [{ key, label, state, detail }], activity: [{ at, kind, title, detail }], source: { channel, campaign, ad, first_visit, pages_viewed, self_reported: nil }, summary: { text, next_step }, queue: key|nil, done: bool`. `Leads::Masking.phone(raw) → "•••-••••-1768"` (last 4 digits, `nil` for blank).
+**Interfaces — Produces:** `Leads::Detail.call(user:, id:) → Hash` (raises `ActiveRecord::RecordNotFound` if outside the user's scope) with keys `id, name, coordinator, stage, status, contact: { state, email, phone, age, channel, campaign, can_contact }, consult: { status, scheduled_for }, screener: { counts: {met, review, not_met, unanswered, total}, items: [{ question, verdict, answer? }] }, process: [{ key, label, state, detail }], activity: [{ at, kind, title, detail }], source: { channel, campaign, ad, first_visit, pages_viewed, self_reported: nil }, summary: { text, next_step }, queue: key|nil, done: bool`. `Leads::Masking.phone(raw) → "•••-••••-1768"` (last 4 digits, `nil` for blank).
+`can_contact` is `true` only for the assigned coordinator (the UI enables Send text / Call / Mark done from it; `phone` is then the full number).
 Verdicts: `yes→met`, `review→review`, `no→not_met`, missing → `unanswered`. `total` = number of distinct questions in the agency's `screener_answers` (cap 10, ordered by frequency). `answer` only when `user.coordinator? && lead.coordinator_name == user.coordinator_name`.
 Process states: Screener `complete` when ≥1 answer and no `no` verdicts else `stopped` when closed with `not_eligible`; Application: `complete` (submitted), `ongoing` (started, `current_stage = application`), `stopped` if closed, else `upcoming`; Consult: `complete` (attended), `ongoing` (booked/scheduled/no_show and open), `stopped` closed, `upcoming`; Medical records: `complete`/`ongoing` (stage records)/`upcoming`; Accepted: `complete` when accepted. `detail` strings like `"Submitted Sep 24"`, `"40% · stopped at pregnancy history"`.
 Summarizer: deterministic text: `"<First> reached <furthest stage label> on <date>. <state-specific sentence>"` and `next_step` from the queue (`text_back_now` → "Text her back now — no message has been sent.", `nudge_applications` → "Nudge her to finish the application (<pct>% complete).", `rebook_consults` → "Offer a new consult time.", `paused_due_back` → "Reach out — her return date has passed.", else `"No action needed right now."`).
@@ -215,6 +216,7 @@ it "masks the phone for the owner and shows it to the assigned coordinator" do
   expect(owner_view[:contact][:phone]).to match(/\A•••-••••-\d{4}\z/)
   dana_view = described_class.call(user: dana, id: l4.id)
   expect(dana_view[:contact][:phone]).to eq(l4.phone)
+  expect([owner_view[:contact][:can_contact], dana_view[:contact][:can_contact]]).to eq([false, true])
 end
 it "shows raw answers only to the assigned coordinator" do
   l4 = Lead.find_by!(first_name: "L4")
