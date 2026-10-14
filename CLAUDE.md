@@ -6,7 +6,7 @@ Detailed rules live in `docs/conventions/`.
 ## Required reading
 
 At the start of **every session**, read every file listed in [`docs/conventions/README.md`](docs/conventions/README.md). They are binding.
-For product/UI questions read `design_handoff_simbe/README.md` (source of truth for UI) and `harbor-takehome/docs/data-model.md` (source of truth for data).
+For product/UI questions read `design_handoff_simbe/README.md` (layout, screens, behavior) and **`docs/design/brand.md`** (colors, fonts, shapes, logo from simbefamily.com — overrides the handoff's brand values) and `harbor-takehome/docs/data-model.md` (source of truth for data).
 
 ## Tool roles
 

@@ -1,7 +1,7 @@
 # Frontend
 
 - React 18 + TypeScript (strict) + Vite + Tailwind. Icons: `lucide-react`. Router: React Router. Server state: TanStack Query. Folder layout: `src/{api,components,features/<feature>,hooks,lib,routes,styles}`.
-- **Design is final** (`design_handoff_simbe/README.md`): tokens live in `tailwind.config.ts` / `src/styles/tokens.css` exactly as the handoff lists them. Do not invent colors, radii or spacing.
+- **Layout/behavior is final** (`design_handoff_simbe/README.md`). **Colors, type, radii and logo come from `docs/design/brand.md`** (taken from simbefamily.com) and override the handoff's brand values. Tokens live in `tailwind.config.ts` / `src/styles/tokens.css`. Do not invent colors, radii or spacing; the logo is `public/brand/simbe-mark.png`, never recolored.
 - **HTTP only through `src/api/`** using `jsonRequest` (CSRF/auth header, error envelope → `ApiError`). No `fetch` in components.
 - **Responsive**: breakpoint 860px. Mobile shell below it (top bar, bottom tab bar, bottom sheets, full-screen panels).
 - **Dialogs**: no native `alert/confirm/prompt`; never an overlay on top of an overlay. Toasts auto-dismiss after 2.6s.

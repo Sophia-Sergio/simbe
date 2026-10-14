@@ -18,7 +18,8 @@ Stand up the Simbe monorepo so every later feature drops into a working, tested,
 5. **Agency settings**: `name`, `slug` (unique, used in MCP URL), `timezone` (IANA; UI offers Pacific/Mountain/Central/Eastern), `qualified_milestone` ∈ `application_submitted | consult_attended | records | accepted` (default `consult_attended`).
 6. **API conventions**: JSON under `/api/v1`, error envelope `{error:{code,message}}`, plain-Ruby serializers.
 7. **Frontend shell**: implements the handoff shell exactly (sidebar sections by role, top bar search button, snapshot pill, mobile tab bar with Owner tabs Home/Pipeline/Channels/Ask/More and Coordinator tabs Next actions/My leads/Ask, More sheet). Routes exist for every screen but render a `ComingSoon` placeholder until their feature plan lands. The prototype-only "view as" toggle is **not** built.
-8. **Frontend infra**: `api/jsonRequest` + `ApiError`, TanStack Query, React Router, `useAsyncAction`, `Toast` (2.6s, dark, green check), `Modal`/`Sheet` primitives. Tokens copied verbatim from the handoff.
+8. **Frontend infra**: `api/jsonRequest` + `ApiError`, TanStack Query, React Router, `useAsyncAction`, `Toast` (2.6s, dark plum, green check), `Modal`/`Sheet` primitives.
+8a. **Brand**: colors, Inter + Outfit type, fully-rounded buttons/pills, 16–24px card radii and the interlocking-S logo come from `docs/design/brand.md` (simbefamily.com), not the handoff's brand values. The sidebar/auth/agent show `public/brand/simbe-mark.png` instead of the handoff's "S" tile.
 9. **Quality gates**: RuboCop omakase, Brakeman, bundler-audit, `npm audit`, ESLint, `tsc --noEmit`, `boundaries:check` rake, GitHub Actions running `make verify`.
 
 ## Non-goals
@@ -32,3 +33,4 @@ Password reset email, OAuth/SSO, MFA, invitations (plan 06), real ad connectors,
 5. `make web-test` passes, including shell tests: owner nav shows Insights/Operations/Agency sections; coordinator nav shows only Today; below 860px the bottom tab bar renders.
 6. `make e2e ARGS=smoke` signs in as a seeded owner and a seeded coordinator and saves desktop + mobile screenshots to `frontend/e2e/screenshots/`.
 7. `make verify` exits 0.
+8. `grep -rniE '#be3a5f|#9f2d4e|#fdf2f5|#1c1917' frontend/src frontend/tailwind.config.ts` prints nothing, and `test -f frontend/public/brand/simbe-mark.png` succeeds.
