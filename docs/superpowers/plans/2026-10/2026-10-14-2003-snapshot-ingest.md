@@ -141,7 +141,7 @@ end
 **Files:** Create `spec/support/export_builder.rb`, `spec/support/alpha_scenario.rb`, `spec/support/export_builder_spec.rb` (excluded from the default pattern? put at `spec/support_specs/export_builder_spec.rb`).
 
 **Interfaces — Produces:**
-- `ExportBuilder.new.lead(id:, created: "2025-09-01T10:00:00.000Z", source: "", campaign: nil, ad: nil, coordinator: "Jess Kim", state: "CA", stage: "pre_screen", outcome: "open", reason: nil, paused_until: nil, history: [..stages..], outbound_at: nil|"…", inbound_at: nil, application: nil|{started:, submitted:, pct:}, appointment: nil|{booked:, at:, status:}, screener: [[question, answer, "yes|review|no"]])` → chainable; `#write(dir)` writes the seven CSVs (exact headers) and returns `dir`.
+- `ExportBuilder.new.lead(id:, created: "2025-09-01T10:00:00.000Z", source: "", campaign: nil, ad: nil, coordinator: "Jess Kim", state: "CA", stage: "pre_screen", outcome: "open", reason: nil, paused_until: nil, history: [..stages..], outbound_at: nil|"…", inbound_at: nil, application: nil|{started:, submitted:, pct:, section: "review_and_sign"}, appointment: nil|{booked:, at:, status:}, screener: [[question, answer, "yes|review|no"]])` → chainable; `#write(dir)` writes the seven CSVs (exact headers) and returns `dir`.
 - `AlphaScenario.dir(version = :v1)` builds into `Dir.mktmpdir` and memoizes; `AlphaScenario::AS_OF` = `Time.utc(2026, 10, 1, 12)`.
 
 - [ ] **Step 1:** Implement `ExportBuilder` with Ruby `CSV.open` writing each file; every lead gets a `stage_history` row for each stage in `history` (timestamps = created + n days) and 10 screener answers by default (`"How old are you?"` etc.; use the 10 questions: age, citizenship, prior pregnancy, BMI, smoker, state of residence, support partner, income, criminal record, prior surrogacy — all `yes` unless overridden).
@@ -152,7 +152,7 @@ end
 | L1 | facebook | c-a | Jess Kim | inquiry,pre_screen,application,consult,records,accepted | submitted 100% | attended | accepted / accepted | 30 min |
 | L2 | fb | c-a | Jess Kim | inquiry,pre_screen,application,consult | submitted 100% | attended | open / consult | 60 min |
 | L3 | Facebook | c-a | Dana Ortiz | inquiry,pre_screen,application,consult | submitted 100% | no_show | open / consult | 120 min |
-| L4 | ig | c-b | Dana Ortiz | inquiry,pre_screen,application | started, 40%, not submitted | — | open / application | 10 min |
+| L4 | ig | c-b | Dana Ortiz | inquiry,pre_screen,application | started, 40%, last section `pregnancy_history`, not submitted | — | open / application | 10 min |
 | L5 | google | c-c | Dana Ortiz | inquiry,pre_screen | — | — | not_eligible / pre_screen (reason `age`) | 20 min |
 | L6 | Google | c-c | Priya Shah | inquiry,pre_screen | — | — | unresponsive / pre_screen | none |
 | L7 | "" | — | Priya Shah | inquiry,pre_screen | — | — | open / pre_screen | none |
