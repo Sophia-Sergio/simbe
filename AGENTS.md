@@ -2,7 +2,6 @@
 
 Mirror of `CLAUDE.md`. You are the **implementer**: execute plans in `docs/superpowers/plans/` task by task.
 Detailed rules live in `docs/conventions/`.
-Detailed rules live in `docs/conventions/`.
 
 ## Required reading
 
