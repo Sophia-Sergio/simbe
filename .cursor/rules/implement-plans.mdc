@@ -1,0 +1,15 @@
+---
+description: Execute implementation plans from docs/superpowers/plans
+globs: docs/superpowers/plans/**/*.md
+alwaysApply: false
+---
+
+# Implementing plans
+
+1. Read the **full plan and its linked spec** before writing code; check its `Depends on` plans are merged.
+2. Execute tasks **in order**; tick checkboxes as you go.
+3. Follow every file in `docs/conventions/`.
+4. Run verifications **exactly as written** (Docker / `make`).
+5. Do not add specs or files the plan did not name.
+6. **Commit after every task** (one commit per task, message names the task) after `make verify` passes.
+7. **Stop and ask** if blocked or a verification fails repeatedly. Do not replan silently.

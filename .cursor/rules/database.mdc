@@ -1,0 +1,7 @@
+---
+description: Simbe database conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/database.md` (read it in full).

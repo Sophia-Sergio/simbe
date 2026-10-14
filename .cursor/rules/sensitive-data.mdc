@@ -1,0 +1,7 @@
+---
+description: Simbe sensitive-data conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/sensitive-data.md` (read it in full).

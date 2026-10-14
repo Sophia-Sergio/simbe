@@ -1,0 +1,7 @@
+---
+description: Simbe ai-agent conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/ai-agent.md` (read it in full).

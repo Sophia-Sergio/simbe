@@ -1,0 +1,7 @@
+---
+description: Simbe security conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/security.md` (read it in full).
