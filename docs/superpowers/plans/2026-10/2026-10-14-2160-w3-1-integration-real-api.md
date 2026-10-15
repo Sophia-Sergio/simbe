@@ -52,9 +52,9 @@ end
 
 ---
 
-## Task 2: Contract coverage = 38/38
+## Task 2: Contract coverage = 39/39
 
-- [ ] **Step 1:** `make contract-coverage` must print `38/38 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `backend/spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
+- [ ] **Step 1:** `make contract-coverage` must print `39/39 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `backend/spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
 - [ ] **Step 2:** Add `backend/spec/contract/fixture_parity_spec.rb`: load Alpha, sign in as owner/coordinator, call each operation that has an example fixture under `contracts/examples/**`, and compare the real response to the fixture after normalizing ids, timestamps and tokens (`UUID`→`<uuid>`, ISO times→`<time>`). Operations with expected, documented differences (upload report contents, MCP key, agent answer) assert **shape equality** only (same keys and value types). Failures are listed in `docs/superpowers/parallel/integration-log.md` with the chosen resolution (code fix vs CCR).
 - [ ] **Step 3:** `make spec ARGS=spec/contract` → pass. Commit.
 
@@ -67,11 +67,15 @@ end
 
 ---
 
-## Task 4: Real-data run (Harbor + Lakeside)
+## Task 4: Real-data run (Harbor + Lakeside) through the sign-up upload
 
-- [ ] **Step 1:** Load real exports (local only; git-ignored): `docker compose run --rm -v "$PWD/harbor-takehome:/harbor-takehome:ro" api bundle exec rails "snapshot:load[harbor,/harbor-takehome/exports/harbor]"` and `…lakeside…`; `rails "spend:sample[harbor]"`, `…lakeside…`; create owners for both agencies in `db/seeds.rb`-style dev seeds (already seeded).
-- [ ] **Step 2:** Check numbers against the take-home facts: Harbor leads `3530`; qualified (attended consult) `496`; unattributed `29.6%`; out-of-area `14.9%`; Dana Ortiz `2252` leads (`63.8%`); Lakeside leads `29740`. Check endpoint latency (< 500 ms p95 on Lakeside for metrics/board).
-- [ ] **Step 3:** Walk the UI as Harbor owner and as a Harbor coordinator and as Lakeside owner (isolation: Lakeside owner never sees Harbor names); record findings and screenshots in `integration-log.md`. Commit.
+The only real data is `harbor-takehome/exports/` (local only, never committed) and owners load it **by uploading the seven CSVs during sign-up**; this task proves that path end to end against the independent oracle `backend/spec/real_data/golden.json` (`docs/conventions/real-data.md`).
+
+- [ ] **Step 1: Oracle is current:** `bin/golden-numbers --check` → `golden.json is up to date` (exports present locally).
+- [ ] **Step 2: Backend real-data specs:** `make spec ARGS="--tag real_data"` → every `:real_data` spec from B-INGEST, B-METRICS, B-LEADS, B-ACTIONS passes for **both** agencies (Harbor: *attended a consult*, Pacific; Lakeside: *reached records*, Central). Record timings (Lakeside import must be < 120 s).
+- [ ] **Step 3: Browser journey with real files** (Playwright `@real`, local, `E2E_API=real`, Rails running with Solid Queue in Puma): sign up `Harbor demo` → step 4 upload `harbor-takehome/exports/harbor/*.csv` → watch progress → open the dashboard and assert against golden: This week `3,530` leads / `496` qualified / `14.1%`; Funnel rows `3,530 / 918 / 579 / 496 / 400 / 300`; Channels `Facebook`, `Google`, … with `unattributed 29.6%` and `outside your main states 14.9%`; Pipeline column counts `90 / 11 / 15 / 321`; Coordinators: `Dana Ortiz 2,252 · 63.8%`, `overdue 19`; Next actions totals `6 / 22 / 3 / 3`. Repeat for **Lakeside** with `Reached medical records` + Central (leads `29,740` in Coordinators totals; This week 12m `14,860` leads / `2,487` qualified). Then sign up a **third** agency with **Harbor's files again** (Mountain, *Submitted an application*) and assert qualified = golden `qualified_all_time.application_submitted` = `674` while the first agency's numbers are unchanged (same data, many agencies, strict isolation).
+- [ ] **Step 4: Resilience:** start a Lakeside upload, reload the browser mid-`importing` → the page resumes at the same progress and finishes; stop the `api` container mid-import (`docker compose kill api`), restart → upload ends `failed` (or is swept to `failed` within 30 min), the agency's previous data is intact, and a fresh upload succeeds.
+- [ ] **Step 5:** Latency: metrics/board/next-actions/coordinators each < 500 ms on Lakeside (p95 over 20 calls). Walk the UI as Harbor owner, Harbor coordinator and Lakeside owner (isolation: Lakeside owner never sees Harbor names). Record findings and screenshots in `integration-log.md`. Commit.
 
 ---
 
@@ -79,12 +83,13 @@ end
 
 - [ ] **Step 1:** Add the `e2e-real` job: `docker compose up -d db api web`, `rails db:setup e2e:seed`, `E2E_API=real make e2e` (all lane e2e specs), upload screenshots as artifacts.
 - [ ] **Step 2:** All lane e2e specs pass against the real backend in both viewports (`make e2e` with `E2E_API=real`); anything failing becomes a fix PR (ownership relaxed), logged.
-- [ ] **Step 3:** `make verify` → exit 0; `make contract-coverage` → `38/38`. Commit; open PR. Hand off to W3-2/W3-3.
+- [ ] **Step 3:** `make verify` → exit 0; `make contract-coverage` → `39/39`. Commit; open PR. Hand off to W3-2/W3-3.
 
 ## Done when (acceptance commands)
 ```bash
-make contract-coverage                                   # 38/38 operations exercised
+make contract-coverage                                   # 39/39 operations exercised
 make spec ARGS="spec/contract spec/security spec/isolation"
+bin/golden-numbers --check && make spec ARGS="--tag real_data"   # real exports present locally; both agencies vs the oracle
 E2E_API=real make e2e                                    # every lane e2e spec, desktop + mobile
 docker compose exec api bundle exec rails e2e:seed && docker compose exec api bundle exec rails e2e:seed   # idempotent
 make verify

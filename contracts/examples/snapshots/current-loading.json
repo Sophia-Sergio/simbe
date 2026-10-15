@@ -1,0 +1,14 @@
+{
+  "snapshot": null,
+  "files": [],
+  "pending": {
+    "upload_id": "66666666-6666-4666-8666-666666666666",
+    "status": "committing",
+    "progress": {
+      "phase": "importing",
+      "pct": 46,
+      "rows_done": 24000,
+      "rows_total": 52000
+    }
+  }
+}

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Fails when anything that must never be committed is tracked: the sample exports (health-like data),
+# env files, key material, or CSVs outside the synthetic fixtures. Run by CI (`guards` job) and `make verify`.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+bad=0
+report() { # label, matches
+  if [ -n "$2" ]; then echo "FORBIDDEN ($1):"; echo "$2" | sed 's/^/  /'; bad=1; fi
+}
+report "sample exports" "$(git ls-files | grep -E 'harbor-takehome/exports/(harbor|lakeside)/' || true)"
+report "env files"      "$(git ls-files | grep -E '(^|/)\.env(\.|$)' | grep -vE '\.env\.example$' || true)"
+report "key material"   "$(git ls-files | grep -E '(^|/)(master\.key)$|\.(pem|key|p12)$' || true)"
+report "csv outside backend/spec/fixtures or contracts" "$(git ls-files '*.csv' | grep -Ev '^(backend/spec/fixtures/|contracts/)' || true)"
+[ "$bad" -eq 0 ] && echo "guard ok: no exports, env files, keys or stray CSVs tracked"
+exit "$bad"

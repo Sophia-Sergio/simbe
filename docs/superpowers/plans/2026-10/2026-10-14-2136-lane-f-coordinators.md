@@ -30,6 +30,7 @@ export const feature: FeatureModule = {
 3. Stat formatting: first reply with `formatDuration` (`22.5` → `23m`), qualified rate `formatPct`, overdue integer.
 4. Detail rows (`needs_action`) open the lead panel (`useLeadPanel().open(lead_id)`); coordinator names are URL-encoded in links.
 5. Guard is declarative (`handle.roles: ["owner"]`) — coordinators are redirected by the app core; test only that a coordinator render of the route never fires the API (the guard handles it).
+- **Loading state (async uploads):** when the data is empty *and* `useCurrentSnapshot().data?.pending` is non-null, render `<LoadingYourData progress={pending.progress} />` instead of the empty state; when there is no snapshot and nothing pending, the owner gets the "Load your data" link to `/data` (coordinators: "Ask your agency owner to load data"). Test both with `?mock=loading` and `?mock=empty`.
 
 ## Responsive acceptance
 - **Desktop:** auto-fill grid `minmax(260px, 1fr)` of person cards (avatar, name, `N leads · X% of leads`, status pill, three stats); detail with back link, 4 KPIs and a "Leads needing action" list.

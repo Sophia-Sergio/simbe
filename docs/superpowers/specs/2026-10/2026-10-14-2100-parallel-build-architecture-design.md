@@ -33,7 +33,7 @@ Re-slice the app (desktop + mobile web) into **independent lanes** that many age
 Splitting work finer than a screen/domain; microfrontends or separate deployables; changing any product decision in the eight feature specs; contract versioning beyond `/api/v1`.
 
 ## Acceptance criteria
-1. `test -f contracts/openapi/openapi.yaml && npx --yes @redocly/cli@1 lint contracts/openapi/openapi.yaml` exits 0 and `grep -c "operationId:" contracts/openapi/paths/*.yaml | awk -F: '{s+=$2} END {exit !(s>=38)}'` exits 0 (≥38 operations).
+1. `test -f contracts/openapi/openapi.yaml && npx --yes @redocly/cli@1 lint contracts/openapi/openapi.yaml` exits 0 and `grep -c "operationId:" contracts/openapi/paths/*.yaml | awk -F: '{s+=$2} END {exit !(s>=39)}'` exits 0 (≥39 operations).
 2. Every lane plan lists `Owns`: `for f in docs/superpowers/plans/2026-10/*-lane-*.md; do grep -q '^\*\*Owns' "$f" || echo "missing Owns: $f"; done` prints nothing.
 3. No two lane plans claim the same owned path: `bash docs/superpowers/parallel/check-ownership.sh` exits 0 (the script ships with this spec set and is also run in CI by the `ownership-check` job added in Wave 0 repo scaffold).
 4. Wave-1 plans never edit shared files: `grep -lE "config/routes\.rb|router\.tsx|ISOLATION_ROUTES|src/api/(leads|metrics)\.ts" docs/superpowers/plans/2026-10/*-lane-*.md` prints nothing.

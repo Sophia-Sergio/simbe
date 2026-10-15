@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Writes this worktree's .env so its Docker stack cannot touch another checkout's:
+# own compose project (containers, network, volumes), own databases, and host ports
+# left to Docker (no fixed 3000/5173/5434 to collide on). Run once per linked worktree:
+#   make worktree-env      (or it is run for you by `bin/lane start`)
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+common="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
+main_root="$(dirname "$common")"
+
+if [ "$root" = "$main_root" ]; then
+  echo "This is the main checkout; worktree-env is for linked worktrees only." >&2
+  exit 1
+fi
+
+name="$(basename "$root")"
+slug="$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9\n' '-' | sed 's/-*$//')"
+db="simbe_wt_$(echo "$slug" | tr '-' '_')"
+
+if [ ! -f "$main_root/.env" ]; then
+  echo "No .env in the main checkout ($main_root); create it from .env.example first." >&2
+  exit 1
+fi
+
+managed='^(COMPOSE_PROJECT_NAME|POSTGRES_DB|API_PORTS|WEB_PORTS|DB_PORTS|E2E_BASE_URL)='
+{
+  grep -Ev "$managed" "$main_root/.env" || true
+  cat <<VARS
+COMPOSE_PROJECT_NAME=simbe-wt-$slug
+POSTGRES_DB=$db
+API_PORTS=3000
+WEB_PORTS=5173
+DB_PORTS=5432
+VARS
+} > "$root/.env"
+
+echo "Wrote $root/.env"
+echo "  compose project: simbe-wt-$slug"
+echo "  database:        $db"
+echo "  host ports:      assigned by Docker (see \`make ports\` once the stack is up)"

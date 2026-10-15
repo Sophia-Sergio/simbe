@@ -28,6 +28,7 @@ export const feature: FeatureModule = {
 3. Subtitle `<weekday Month D> · most urgent first` formatted from `as_of` in the agency time zone.
 4. Fixture `contracts/examples/next-actions/next-actions.json` (four queues, counts 1/1/1/1, progress 0/4); a coordinator session in the mock shows only Dana's three items (L4, L3, L10).
 5. "You're all caught up" empty state when `progress.done === progress.total && total > 0`; empty-queue wells show a muted "Nothing here".
+- **Loading state (async uploads):** when the data is empty *and* `useCurrentSnapshot().data?.pending` is non-null, render `<LoadingYourData progress={pending.progress} />` instead of the empty state; when there is no snapshot and nothing pending, the owner gets the "Load your data" link to `/data` (coordinators: "Ask your agency owner to load data"). Test both with `?mock=loading` and `?mock=empty`.
 
 ## Responsive acceptance
 - **Desktop:** header (title + open pill + subtitle) with the progress card on the right; four queue wells in a row (`grid-cols-4`), each with colored dot, title, count pill, hint, task cards.

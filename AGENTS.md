@@ -37,6 +37,10 @@ Rails 8 API-only (`backend/`) · PostgreSQL 16 · React + TypeScript + Vite + Ta
 8. **UI is not done until seen**: run the app and look at desktop (>=860px) and mobile (<860px) screenshots against `design_handoff_simbe/screenshots/`.
 9. **Single-flight actions**: a clicked mutation cannot run twice (`useAsyncAction` on the front, idempotency/lock on the back).
 
+## Parallel lanes (many agents)
+
+The build is split into 32 independent lanes: [`docs/superpowers/parallel/README.md`](docs/superpowers/parallel/README.md) (matrix, lane rules) and [`playbook.md`](docs/superpowers/parallel/playbook.md) (how to run them with Cursor, OpenCode and Claude Code). Use `bin/lane start <LANE>` / `check` / `pr` / `status` / `stop`. Touch **only** the files in your lane plan's `Owns` list; shared changes go through a Contract Change Request. The only real data is `harbor-takehome/exports/` (local-only; golden numbers in `backend/spec/real_data/golden.json`; see `docs/conventions/real-data.md`).
+
 ## Testing
 
 RSpec + FactoryBot (backend), Vitest + Testing Library + Playwright (frontend). One owner spec per HTTP path (request spec); no duplicate service specs. See `docs/conventions/testing.md`.
