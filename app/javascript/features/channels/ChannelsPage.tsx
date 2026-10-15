@@ -17,6 +17,10 @@ import { formatInt, formatMoney, formatPct } from "@/lib/format"
 
 type Row = Channels["rows"][number]
 
+const leadsLabel = (count: number) => `${formatInt(count)} ${count === 1 ? "lead" : "leads"}`
+/** 0 -> "0%", 0.4 -> "0.4%", 10 -> "10%": a share below 1% must not round to a misleading "0%". */
+const share = (value: number) => formatPct(value, value > 0 && value < 1 ? 1 : 0)
+
 function CostPill({ row }: { row: Row }) {
   if (row.cost_per_qualified_cents === null) return <span className="text-ink-muted">—</span>
   const tone = row.flag === "best" ? "success" : row.flag === "worst" ? "danger" : "neutral"
@@ -59,7 +63,7 @@ export function ChannelsPage() {
       </div>
     )
   }
-  if (channels.isError) {
+  if (channels.isError && !channels.data) {
     return (
       <div className="flex flex-col gap-5">
         {header}
@@ -68,7 +72,7 @@ export function ChannelsPage() {
     )
   }
 
-  const { rows, basis, insights } = channels.data
+  const { rows, basis, insights } = channels.data!
   if (rows.length === 0) {
     const pending = snapshot.data?.pending
     return (
@@ -101,10 +105,10 @@ export function ChannelsPage() {
       key: "channel",
       header: "Channel",
       render: (row) => (
-        <span className="flex items-center gap-2.5 font-medium text-ink">
+        <Link to={`/channels/${encodeURIComponent(row.channel)}?range=${range}`} className="flex items-center gap-2.5 font-medium text-ink">
           <ChannelTile channel={row.channel} size={28} />
           {row.channel}
-        </span>
+        </Link>
       ),
     },
     { key: "leads", header: "Leads", align: "right", render: (row) => formatInt(row.leads) },
@@ -132,7 +136,7 @@ export function ChannelsPage() {
                 <span className="min-w-0">
                   <span className="block truncate text-[14px] font-semibold text-ink">{row.channel}</span>
                   <span className="block text-[12px] text-ink-muted">
-                    {formatInt(row.leads)} leads · {formatPct(row.rate)} qualified
+                    {leadsLabel(row.leads)} · {formatPct(row.rate)} qualified
                   </span>
                 </span>
               </span>
@@ -146,14 +150,14 @@ export function ChannelsPage() {
       </section>
       <div className="grid gap-3 md:grid-cols-2">
         <section className="rounded-card border border-line bg-surface p-4">
-          <p className="text-[14px] font-semibold text-ink">{formatPct(insights.unattributed.pct, 0)} of leads have no source</p>
+          <p className="text-[14px] font-semibold text-ink">{share(insights.unattributed.pct)} of leads have no source</p>
           <p className="mt-1 text-[13px] text-ink-secondary">
             {formatInt(insights.unattributed.count)} {insights.unattributed.count === 1 ? "lead" : "leads"} arrived without a channel. Tag your ads so they can be attributed.
           </p>
         </section>
         <section className="rounded-card border border-line bg-surface p-4">
           <p className="text-[14px] font-semibold text-ink">
-            {formatPct(insights.out_of_area.pct, 0)} of leads are outside your main states
+            {share(insights.out_of_area.pct)} of leads are outside your main states
           </p>
           <p className="mt-1 text-[13px] text-ink-secondary">
             {formatInt(insights.out_of_area.count)} {insights.out_of_area.count === 1 ? "lead" : "leads"} from outside {insights.out_of_area.main_states.join(", ") || "your main states"}.

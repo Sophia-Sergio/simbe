@@ -31,7 +31,7 @@ it("marks the worst channel danger and shows a dash without a cost", async () =>
   const worst = await screen.findByRole("row", { name: /Google/ })
   expect(within(worst).getByText("$900")).toHaveClass("bg-danger-bg")
   const referral = screen.getByRole("row", { name: /Referral/ })
-  expect(within(referral).getAllByText("—").length).toBeGreaterThan(0)
+  expect(within(referral).getAllByRole("cell")[5]).toHaveTextContent("—")
 })
 
 it("shows the ranked-by-rate note when basis is rate", async () => {
@@ -71,4 +71,22 @@ it("shows an error with retry", async () => {
   mockApi({ "GET /api/v1/metrics/channels": () => Response.json({ code: "boom", message: "x" }, { status: 500 }) })
   renderWithProviders(<ChannelsPage />)
   expect(await screen.findByRole("alert")).toHaveTextContent(/could not load/i)
+})
+
+it("uses the singular for one lead on a phone card", async () => {
+  renderWithProviders(<ChannelsPage />, { viewport: 390 })
+  const referral = await screen.findByRole("button", { name: /Referral/ })
+  expect(referral).toHaveTextContent("1 lead ·")
+  expect(referral).not.toHaveTextContent("1 leads")
+})
+
+it("does not round a share below 1% to 0%", async () => {
+  mockApi({ "GET /api/v1/metrics/channels": { ...channelsFixture, insights: { ...channelsFixture.insights, out_of_area: { count: 2, pct: 0.4, main_states: ["CA"] } } } })
+  renderWithProviders(<ChannelsPage />)
+  expect(await screen.findByText("0.4% of leads are outside your main states")).toBeInTheDocument()
+})
+
+it("the channel name is a real link (keyboard and screen-reader friendly)", async () => {
+  renderWithProviders(<ChannelsPage />, { route: "/channels?range=90d" })
+  expect(await screen.findByRole("link", { name: "Facebook" })).toHaveAttribute("href", "/channels/Facebook?range=90d")
 })
