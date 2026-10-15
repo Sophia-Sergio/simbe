@@ -39,7 +39,7 @@ flowchart LR
 ```
 
 **Recommended sequence:** 1 → 2 → (3 ∥ 4 ∥ 7 in parallel worktrees) → (5 after 3, 6 after 4) → 8.
-Plans that run in parallel touch different files, but all append to `config/routes.rb`, `spec/support/isolation.rb` and `app/javascript/routes/router.tsx` — merge in order and resolve those append-only conflicts by keeping both sides.
+Plans that run in parallel touch different files, but in the original single-track plan set they all appended to shared route/isolation/router files; the lane plans replace that with per-pack route files and per-lane `feature.ts` registration (no shared-file edits) — merge in order and resolve those append-only conflicts by keeping both sides.
 
 ## How to implement a plan (Cursor or OpenCode)
 
