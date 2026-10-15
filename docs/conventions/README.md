@@ -5,6 +5,8 @@ Source of truth for project rules. `.cursor/rules/` mirrors them. Read every fil
 | File | Topic |
 |------|-------|
 | [development.md](./development.md) | Docker Compose workflow, `make` targets, env |
+| [worktrees.md](./worktrees.md) | One worktree + one isolated Docker stack per lane |
+| [ci.md](./ci.md) | The CI jobs, local parity (`make verify`), deploys |
 | [testing.md](./testing.md) | RSpec / Vitest / Playwright: one owner per behaviour |
 | [database.md](./database.md) | UUID keys, indexes, N+1, snapshot-replace pattern |
 | [multi-tenancy.md](./multi-tenancy.md) | Agency isolation rules and the isolation spec |
