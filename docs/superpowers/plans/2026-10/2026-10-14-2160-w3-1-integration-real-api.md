@@ -52,9 +52,9 @@ end
 
 ---
 
-## Task 2: Contract coverage = 38/38
+## Task 2: Contract coverage = 39/39
 
-- [ ] **Step 1:** `make contract-coverage` must print `38/38 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `backend/spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
+- [ ] **Step 1:** `make contract-coverage` must print `39/39 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `backend/spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
 - [ ] **Step 2:** Add `backend/spec/contract/fixture_parity_spec.rb`: load Alpha, sign in as owner/coordinator, call each operation that has an example fixture under `contracts/examples/**`, and compare the real response to the fixture after normalizing ids, timestamps and tokens (`UUID`→`<uuid>`, ISO times→`<time>`). Operations with expected, documented differences (upload report contents, MCP key, agent answer) assert **shape equality** only (same keys and value types). Failures are listed in `docs/superpowers/parallel/integration-log.md` with the chosen resolution (code fix vs CCR).
 - [ ] **Step 3:** `make spec ARGS=spec/contract` → pass. Commit.
 
@@ -79,11 +79,11 @@ end
 
 - [ ] **Step 1:** Add the `e2e-real` job: `docker compose up -d db api web`, `rails db:setup e2e:seed`, `E2E_API=real make e2e` (all lane e2e specs), upload screenshots as artifacts.
 - [ ] **Step 2:** All lane e2e specs pass against the real backend in both viewports (`make e2e` with `E2E_API=real`); anything failing becomes a fix PR (ownership relaxed), logged.
-- [ ] **Step 3:** `make verify` → exit 0; `make contract-coverage` → `38/38`. Commit; open PR. Hand off to W3-2/W3-3.
+- [ ] **Step 3:** `make verify` → exit 0; `make contract-coverage` → `39/39`. Commit; open PR. Hand off to W3-2/W3-3.
 
 ## Done when (acceptance commands)
 ```bash
-make contract-coverage                                   # 38/38 operations exercised
+make contract-coverage                                   # 39/39 operations exercised
 make spec ARGS="spec/contract spec/security spec/isolation"
 E2E_API=real make e2e                                    # every lane e2e spec, desktop + mobile
 docker compose exec api bundle exec rails e2e:seed && docker compose exec api bundle exec rails e2e:seed   # idempotent
