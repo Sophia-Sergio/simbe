@@ -328,28 +328,40 @@ def require_lane_agent(project_dir):
         sys.exit(f"gate: {cfg} must define the headless `lane` agent (merge the opencode.json PR first, then `git rebase origin/main` in the worktree)")
 
 def cmd_run(a):
-    """Hand a lane to OpenCode 2.x headlessly under the `lane` agent from opencode.json: deny by default, commits stay local, nothing can be published."""
+    """Hand a lane to OpenCode 2.x headlessly under the `lane` agent from opencode.json: deny by default, commits stay local, nothing can be published.
+    Records the run in the conductor state: running -> verifying (with the session id), or blocked on the tripwire."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
-    model = a.model or os.environ.get("LANE_MODEL")
-    if not model: sys.exit("gate: pass --model provider/model (or set LANE_MODEL). List them: opencode models")
+    model = a.model or os.environ.get("LANE_MODEL") or load_state()["models"].get(tier_of(l["id"]))
+    if not model: sys.exit(f"gate: pass --model provider/model (or set LANE_MODEL, or `bin/lane state set-models {tier_of(l['id'])}=provider/model`). List them: opencode models")
     require_lane_agent(wt)
     extra = ("\n\nGATED RUN RULES (enforced by permissions): you cannot push, open PRs, touch remotes, run fly/gh, or leave this worktree. "
              "Commit locally after every plan task with the plan's message pattern. When finished, stop and print a short summary: tasks done, "
-             "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it.")
+             "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it. "
+             "Your shell is allowlisted (git add/commit/status/diff/log, make, bin/rails, bundle, npm/npx/node, docker compose, ...); anything else, "
+             "including shell redirection to write files, is denied: create and change files with your edit tool.")
     extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
-    prompt = prompt_for(l) + extra
-    before = main_state()
+    # A fix round (--session) sends the reviewer's findings instead of the lane prompt; the gated-run rules always follow.
+    prompt = (open(a.prompt_file).read().strip() if a.prompt_file else prompt_for(l)) + extra
     cmd = [opencode_bin(), "run", "--standalone", "--auto", "--agent", "lane", "--format", "json", "--title", f"{l['id']} gated run", "-m", model] + (["--session", a.session] if a.session else []) + [prompt]
     print("$ (cd %s && %s)" % (wt, " ".join(c if " " not in c else repr(c[:60] + "…") for c in cmd)))
     if a.dry_run: return
-    log = os.path.join(gd, f"opencode.{int(__import__('time').time())}.jsonl")
+    log = os.path.join(gd, f"opencode.{int(time.time())}.jsonl")
+    update_lane(l["id"], phase="running", model=model, log=log)
+    before, timed_out, code = main_state(), False, None
     with open(log, "w") as f:
-        r = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None)
-    after = main_state()
+        # stdin=DEVNULL: `opencode run` waits for EOF on a non-TTY stdin, so an inherited open pipe or socket hangs it forever.
+        try: code = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None).returncode
+        except subprocess.TimeoutExpired: timed_out = True
+    after, sid = main_state(), session_id(log) or a.session or ""
     if before != after:
+        update_lane(l["id"], phase="blocked", session=sid, blocked_reason=f"tripwire: the main checkout changed during the run {before} -> {after}")
         print(f"TRIPWIRE: the main checkout changed during the run (HEAD/branch/status {before} -> {after}). The agent worked outside its worktree. STOP and inspect before anything else.")
         sys.exit(3)
-    print(f"opencode exited {r.returncode}; event log: {log}\nNext: bin/lane review {l['id']}")
+    update_lane(l["id"], phase="verifying", session=sid)
+    if timed_out:
+        print(f"opencode timed out after {a.timeout} min; partial commits stay in the worktree; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
+        sys.exit(4)
+    print(f"opencode exited {code}; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
 
 def sh_in(wt, *cmd, check=False):
     r = subprocess.run(cmd, cwd=wt, text=True, capture_output=True)
@@ -592,6 +604,18 @@ def cmd_next(a):
     if a.json: print(json.dumps(out)); return
     for k in out: print(f"{k:<14}{ls[k]['wave']:<6}{tier_of(k):<7}{ls[k]['rel']}")
 
+def session_id(log):
+    """The OpenCode session id from a `--format json` event log (every event carries `sessionID`)."""
+    with open(log) as f:
+        for line in f:
+            line = line.strip()
+            if not line.startswith("{"): continue
+            try: e = json.loads(line)
+            except ValueError: continue
+            sid = e.get("sessionID") or (e.get("part") or {}).get("sessionID")
+            if sid: return sid
+    return None
+
 def cmd_stop(a):
     l = get_lane(a.lane)
     path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
@@ -614,7 +638,7 @@ def main():
     r = sub.add_parser("pr"); r.add_argument("--lane"); r.add_argument("--base", default="origin/main"); r.add_argument("--draft", action="store_true"); r.add_argument("--skip-gate", action="store_true", help="NOT recommended: bypass the reviewer approval"); r.add_argument("--no-auto-merge", dest="auto_merge", action="store_false", help="leave the merge to a human"); r.add_argument("--dry-run", action="store_true"); r.set_defaults(f=cmd_pr)
     sub.add_parser("status").set_defaults(f=cmd_status)
     g = sub.add_parser("graph"); g.add_argument("--file"); g.add_argument("--write", action="store_true"); g.add_argument("--check", action="store_true"); g.set_defaults(f=cmd_graph)
-    u = sub.add_parser("run"); u.add_argument("lane"); u.add_argument("--model"); u.add_argument("--session"); u.add_argument("--timeout", type=int, default=120, help="minutes"); u.add_argument("--dry-run", action="store_true"); u.set_defaults(f=cmd_run)
+    u = sub.add_parser("run"); u.add_argument("lane"); u.add_argument("--model"); u.add_argument("--session"); u.add_argument("--timeout", type=float, default=120, help="minutes"); u.add_argument("--prompt-file", help="fix round: send this file (the findings) instead of the lane prompt"); u.add_argument("--dry-run", action="store_true"); u.set_defaults(f=cmd_run)
     k = sub.add_parser("canary"); k.add_argument("--model"); k.add_argument("--profile", choices=["gated", "interactive"], default="gated"); k.add_argument("--timeout", type=int, default=6); k.add_argument("--dry-run", action="store_true"); k.set_defaults(f=cmd_canary)
     v = sub.add_parser("review"); v.add_argument("lane"); v.add_argument("--base", default="origin/main"); v.set_defaults(f=cmd_review)
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
