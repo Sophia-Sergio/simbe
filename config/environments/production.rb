@@ -104,6 +104,6 @@ Rails.application.configure do
 
     # Screener answers are health data (docs/conventions/sensitive-data.md): a deploy with a missing
     # key must fail at boot, not at the first encrypted write in the middle of an import.
-    %w[AR_ENCRYPTION_PRIMARY_KEY AR_ENCRYPTION_KEY_DERIVATION_SALT].each { |name| ENV.fetch(name) }
+    %w[AR_ENCRYPTION_PRIMARY_KEY AR_ENCRYPTION_KEY_DERIVATION_SALT].each { |name| ENV.fetch(name).presence or raise KeyError, "#{name} is blank" }
   end
 end

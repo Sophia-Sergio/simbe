@@ -1,3 +1,4 @@
+require "json"
 require "yaml"
 require "uri"
 require "tmpdir"
@@ -54,6 +55,24 @@ RSpec.describe "CI pipeline" do
     expect(smoke["shell"]).to eq("bash")
     expect(smoke["run"]).to include('|| { echo "SPA shell missing"; exit 1; }')
     expect(smoke["run"]).not_to include("&& echo \"GET / returned")
+  end
+
+  it "requires exactly the CI jobs (by display name) that bin/setup-github lists, so a rename cannot block every merge" do
+    listed = JSON.parse(File.read(root.join("bin/setup-github"))[/^ci_checks='(.+)'$/, 1])
+    names = workflow.fetch("jobs").transform_values { |job| job["name"] }
+    optional = names.values_at("deploy", "e2e_real", "ownership_check")
+    expect(listed).to match_array(names.values - optional)
+  end
+
+  it "keeps the nightly run from cancelling a push run (separate concurrency groups per event)" do
+    expect(workflow.fetch("concurrency").fetch("group")).to include("github.event_name")
+  end
+
+  it "checks that the gitleaks allowlist is a single [allowlist] table (the pinned gitleaks ignores [[allowlists]])" do
+    toml = File.read(root.join(".gitleaks.toml"))
+    expect(toml).to match(/^\[allowlist\]$/)
+    expect(toml).not_to match(/^\[\[allowlists\]\]/)
+    expect(toml).to match(/commits = \["\h{40}"\]/)
   end
 
   describe "bin/lane-id-from-branch" do

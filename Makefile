@@ -17,7 +17,7 @@ e2e: ; npx playwright test $(ARGS)                  # Playwright runs on the hos
 contract: ; npm run contract
 types: ; npm run types
 # The task is defined by W0-3 (backend core); until it lands this is a no-op so verify and CI stay green.
-contract-coverage: ; docker compose exec -e RAILS_ENV=test web sh -c 'if bundle exec rake -T contract:coverage | grep -q contract:coverage; then bundle exec rake contract:coverage; else echo "contract:coverage not defined yet (W0-3)"; fi'
+contract-coverage: ; docker compose exec -e RAILS_ENV=test web sh -c 'if bundle exec rake -P 2>/dev/null | grep -qx "rake contract:coverage"; then bundle exec rake contract:coverage; else echo "contract:coverage not defined yet (W0-3)"; fi'
 ownership: ; bin/lane check
 verify:
 	bash docs/superpowers/parallel/check-ownership.sh
