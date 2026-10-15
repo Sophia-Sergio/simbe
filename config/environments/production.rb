@@ -15,8 +15,13 @@ Rails.application.configure do
   # Turn on fragment caching in view templates.
   config.action_controller.perform_caching = true
 
+  # Serve the Vite build (public/vite) and the rest of public/ from Rails/Thruster.
+  # Fly sets RAILS_SERVE_STATIC_FILES=true (it is also baked into the image env).
+  config.public_file_server.enabled = ENV["RAILS_SERVE_STATIC_FILES"].present?
+
   # Cache assets for far-future expiry since they are all digest stamped.
-  config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
+  # Vite hashes the filenames under public/vite/assets, so they can be cached immutably.
+  config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}, immutable" }
 
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
@@ -40,6 +45,14 @@ Rails.application.configure do
   # Prevent health checks from clogging up the logs.
   config.silence_healthcheck_path = "/up"
 
+  # One structured (JSON) line per request. Lograge omits raw params by default; only the
+  # request id and time are added. Sensitive keys stay filtered (see filter_parameters below).
+  config.lograge.enabled = true
+  config.lograge.formatter = Lograge::Formatters::Json.new
+  config.lograge.custom_options = lambda do |event|
+    { request_id: event.payload[:request_id], time: event.time }
+  end
+
   # Don't log any deprecations.
   config.active_support.report_deprecations = false
 
@@ -55,7 +68,7 @@ Rails.application.configure do
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  config.action_mailer.default_url_options = { host: URI(ENV.fetch("APP_URL", "https://simbe.fly.dev")).host }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {
@@ -76,12 +89,21 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # docs/conventions/sensitive-data.md: credentials and lead health data never reach the logs.
+  # (Also set globally by config/initializers/filter_parameter_logging.rb; reinforced here so the
+  # production environment is safe even if that initializer changes.)
+  config.filter_parameters += %i[password token answer email phone key]
+
+  # Production boot checks. `assets:precompile` (image build) runs with SECRET_KEY_BASE_DUMMY and no real
+  # configuration, so the checks are skipped there; every real boot must have them.
+  unless ENV["SECRET_KEY_BASE_DUMMY"]
+    # Host-header injection / DNS rebinding guard: only our own host is served. Fly's health check
+    # hits the machine directly, so /up is exempt.
+    config.hosts = [ URI(ENV.fetch("APP_URL")).host ]
+    config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+    # Screener answers are health data (docs/conventions/sensitive-data.md): a deploy with a missing
+    # key must fail at boot, not at the first encrypted write in the middle of an import.
+    %w[AR_ENCRYPTION_PRIMARY_KEY AR_ENCRYPTION_KEY_DERIVATION_SALT].each { |name| ENV.fetch(name).presence or raise KeyError, "#{name} is blank" }
+  end
 end

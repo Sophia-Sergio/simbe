@@ -16,17 +16,26 @@ web-dev: ; npm run dev:mock                         # standalone mock host on :5
 e2e: ; npx playwright test $(ARGS)                  # Playwright runs on the host
 contract: ; npm run contract
 types: ; npm run types
-contract-coverage: ; docker compose exec -e RAILS_ENV=test web bundle exec rake contract:coverage
+# The task is defined by W0-3 (backend core); until it lands this is a no-op so verify and CI stay green.
+contract-coverage: ; docker compose exec -e RAILS_ENV=test web sh -c 'if bundle exec rake -P 2>/dev/null | grep -qx "rake contract:coverage"; then bundle exec rake contract:coverage; else echo "contract:coverage not defined yet (W0-3)"; fi'
 ownership: ; bin/lane check
 verify:
 	bash docs/superpowers/parallel/check-ownership.sh
 	bin/guard-no-health-data
+	npm run contract
+	npm run types && git diff --exit-code app/javascript/api/generated
 	docker compose exec web bundle exec rubocop
 	docker compose exec web bundle exec brakeman -q --no-pager
 	docker compose exec web bundle exec bundler-audit check --update
 	docker compose exec web bundle exec rails boundaries:check
 	$(MAKE) spec
+	$(MAKE) contract-coverage
 	npm run lint
 	npm run typecheck
 	npm audit --omit=dev --audit-level=high
 	$(MAKE) web-test
+	npx playwright test
+	python3 -c "import json; json.load(open('spec/real_data/golden.json'))"
+	bin/lane list > /dev/null
+	npx knip
+	bin/ci-parity

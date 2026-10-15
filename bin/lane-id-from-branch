@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Prints the lane id for a lane branch: lane/W0-7-ci-cd-pipeline -> W0-7, lane/B-INGEST-importer -> B-INGEST.
+# Ids look like W0-1, W0-4A, W3-1, B-INGEST, F-WEEK; the slug after the id is free text, so match the id explicitly.
+set -euo pipefail
+branch="${1:?usage: lane-id-from-branch <lane/ID-slug>}"
+id="$(printf '%s' "$branch" | sed -nE 's#^lane/(W[0-9]+-[0-9]+[A-Z]?|[A-Z]+-[A-Z]+)-.*#\1#p')"
+[ -n "$id" ] || { echo "not a lane branch: $branch" >&2; exit 1; }
+printf '%s\n' "$id"

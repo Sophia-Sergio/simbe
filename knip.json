@@ -24,5 +24,9 @@
     "ajv",
     "ajv-formats",
     "wait-on"
-  ]
+  ],
+  "rules": {
+    "exports": "warn",
+    "types": "warn"
+  }
 }

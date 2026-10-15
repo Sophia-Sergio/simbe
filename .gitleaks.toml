@@ -1,0 +1,19 @@
+# Used by the nightly/CI gitleaks scan (GITLEAKS_CONFIG in ci.yml). Extends the default ruleset.
+title = "simbe gitleaks"
+
+[extend]
+useDefault = true
+
+# gitleaks-action v2.3.9 installs gitleaks 8.24.3, which reads ONE top-level [allowlist] table
+# (a plural [[allowlists]] is silently ignored) and compares commits by full SHA.
+[allowlist]
+description = "Known false positives: the old design-handoff prototype HTML (generic-api-key, commit 84fcc2c) and the fake keys in the MCP mock handler; non-secret dummy AR Encryption keys used by CI and the image build."
+commits = ["84fcc2c7f11d5e3c57acab673b862497dba4fd55"]
+paths = [
+  '''design_handoff_simbe/prototype/Simbe App v2\.dc\.html''',
+  '''app/javascript/mocks/handlers/mcp\.ts''',
+]
+regexes = [
+  '''ci-(primary|deterministic)-key-[0-9a-f]+''',
+  '''ci-salt-[0-9a-f]+''',
+]

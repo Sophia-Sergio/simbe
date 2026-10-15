@@ -1,0 +1,42 @@
+name: Contract Change Request
+description: Request a change to the OpenAPI contract (a field, endpoint or example). Use the `ccr` label.
+title: "ccr: "
+labels: ["ccr"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A CCR changes `contracts/**` and the regenerated API types, plus the matching mock handler/hook.
+        It jumps the review queue; every open lane rebases after it merges. Do **not** hack around a
+        missing field in a lane — open a CCR instead.
+  - type: input
+    id: what
+    attributes:
+      label: What field or endpoint
+      description: The exact path/field/schema in `contracts/openapi`.
+      placeholder: "GET /api/v1/leads → add `qualified_at` (string, date-time, nullable)"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: The product/behavior reason. What breaks without it?
+    validations:
+      required: true
+  - type: input
+    id: lanes
+    attributes:
+      label: Affected lanes
+      description: Which lane plans depend on this change?
+      placeholder: "F-LEADS, B-LEADS, F-WEEK"
+    validations:
+      required: true
+  - type: textarea
+    id: diff
+    attributes:
+      label: Proposed schema diff
+      description: The change to `contracts/openapi/openapi.yaml` (and any example updates).
+      render: yaml
+    validations:
+      required: true

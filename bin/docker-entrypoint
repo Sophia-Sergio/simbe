@@ -1,0 +1,5 @@
+#!/bin/bash -e
+
+# Migrations run once per deploy in Fly's `release_command` (fly.toml), never from the app process:
+# a machine restart must not race a migration. This only makes jemalloc/LD_PRELOAD and exec work.
+exec "${@}"

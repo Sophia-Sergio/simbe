@@ -1,0 +1,15 @@
+---
+description: Simbe lane rules (parallel build ownership and workflow)
+globs:
+alwaysApply: true
+---
+
+Follow `docs/superpowers/parallel/README.md` (lane rules) and `docs/conventions/worktrees.md` (read them in full). The binding rules for every lane:
+
+1. **Read your lane plan and touch only its `Owns` files.** Your plan lives in `docs/superpowers/plans/2026-10/`. If a needed change is outside `Owns`, stop and file a **Contract Change Request** (issue form, label `ccr`) or a **Lane blocked** issue (label `blocked`) — do not work around it.
+2. **Commit after each task** with the plan's message pattern (one commit per task, message names the task).
+3. **Before a PR:** run the plan's **Done when** commands, `make verify`, and `bin/lane check`, then **stop**: the orchestrator reviews, approves and runs `bin/lane pr` (agents never publish; see `docs/superpowers/parallel/review-gate.md`). Report the command outputs and desktop + mobile screenshots.
+4. **Never edit shared files** (the feature registry, the shell, `contracts/**`, other lanes' files, W0 scaffolding). File a CCR instead.
+5. **Never run `docker compose down -v` outside your own worktree.** Compose stacks are per worktree; get this worktree's ports with `make ports` — never hardcode 3000/5173.
+6. **Playwright and mock mode run on the host** (Node 22, no Docker): `npm run dev:mock`, `npx vitest run`, `npx playwright test`.
+7. **Sensitive data:** never commit exports, `.env`, or keys; never paste real rows into prompts, issues, logs or PRs ([`docs/conventions/sensitive-data.md`](../../docs/conventions/sensitive-data.md), [`real-data.md`](../../docs/conventions/real-data.md)).

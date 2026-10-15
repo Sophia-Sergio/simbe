@@ -1,64 +1,323 @@
-# Minimal pipeline for the scaffold. W0-7 replaces it with the full one (guards, contract, e2e, image build, deploy).
 name: CI
 
 on:
   pull_request:
+    types: [ opened, synchronize, reopened, labeled ]   # `labeled`: the `e2e` label starts the real-API run
   push:
-    branches: [main]
+    branches: [ main ]
+  schedule:
+    - cron: "0 7 * * *"   # nightly e2e_real
 
 permissions:
   contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  # Per event kind, so the nightly run can never cancel the pending run of a push to main (which deploys).
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "22"
+  # Non-secret dummy keys so Active Record Encryption works in CI (never use these anywhere else).
+  AR_ENCRYPTION_PRIMARY_KEY: ci-primary-key-0123456789abcdef0123456789abcdef
+  AR_ENCRYPTION_DETERMINISTIC_KEY: ci-deterministic-key-0123456789abcdef01234567
+  AR_ENCRYPTION_KEY_DERIVATION_SALT: ci-salt-0123456789abcdef0123456789abcdef
 
 jobs:
-  ruby:
-    name: Ruby
+  contract:
+    name: Contract
     runs-on: ubuntu-latest
-    services:
-      db:
-        image: postgres:16
-        env:
-          POSTGRES_USER: simbe
-          POSTGRES_PASSWORD: simbe
-          POSTGRES_DB: simbe_development
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U simbe" --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      RAILS_ENV: test
-      DATABASE_URL: postgres://simbe:simbe@localhost:5432/simbe_development
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci   # ci-only
+      - name: Bundle and lint the OpenAPI contract (validates every example)   # parity
+        run: npm run contract
+      - name: Generated API types are up to date   # parity
+        run: npm run types && git diff --exit-code app/javascript/api/generated
+      - name: No two lanes own the same files   # parity
+        run: bash docs/superpowers/parallel/check-ownership.sh
+
+  brakeman:
+    name: Brakeman
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
-        with:
-          bundler-cache: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci --no-audit --no-fund # the SPA request spec builds the Vite entrypoint
-      - run: bin/rails db:prepare
-      - run: bundle exec rubocop
-      - run: bin/rails zeitwerk:check boundaries:check
-      - run: bundle exec rspec
+        with: { bundler-cache: true }
+      - run: bundle exec brakeman -q --no-pager   # parity
 
-  js:
-    name: JS
+  bundler_audit:
+    name: Bundler audit
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with: { bundler-cache: true }
+      - run: bundle exec bundler-audit check --update   # parity
+
+  npm_audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}" }
+      - run: npm audit --omit=dev --audit-level=high   # parity
+
+  knip:
+    name: Unused frontend code
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci   # ci-only
+      - run: npx knip   # parity
+
+  lint_backend:
+    name: Lint backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RUBOCOP_CACHE_ROOT: tmp/rubocop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with: { bundler-cache: true }
+      - uses: actions/cache@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npx vitest run
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+          path: tmp/rubocop
+          key: rubocop-${{ runner.os }}-${{ hashFiles('.ruby-version', '.rubocop.yml', 'Gemfile.lock') }}
+      - run: bundle exec rubocop --format github --format simple   # parity
+      - name: Architecture boundaries
+        env: { DATABASE_URL: "postgres://unused:unused@127.0.0.1/unused" }
+        run: bundle exec rails boundaries:check   # parity
+
+  lint_frontend:
+    name: Lint frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci   # ci-only
+      - run: npm run lint   # parity
+      - run: npm run typecheck   # parity
+
+  test_backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
+        ports: [ "5432:5432" ]
+        options: --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev   # ci-only
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with: { bundler-cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - name: Install JS deps (Vite builds the test assets) and bundle the OpenAPI contract for conformance checks
+        run: npm ci && npm run contract   # ci-only
+      - name: RSpec (OpenAPI conformance on)   # parity
+        env:
+          RAILS_ENV: test
+          # database.yml swaps the LAST path segment for the test database name: the URL must carry a path.
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/simbe
+        shell: bash   # pipefail: a failing coverage task must fail the step
+        run: |
+          bundle exec rails db:create db:schema:load
+          bundle exec rspec
+      - name: OpenAPI contract coverage   # parity
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/simbe
+        shell: bash
+        # The task is defined by W0-3 (backend core); until it lands the step reports that and passes.
+        run: |
+          if bundle exec rake -P 2>/dev/null | grep -qx 'rake contract:coverage'; then
+            bundle exec rake contract:coverage | tee contract-coverage.txt
+          else
+            echo "contract:coverage not defined yet (W0-3)" | tee contract-coverage.txt
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: contract-coverage, path: contract-coverage.txt, if-no-files-found: ignore }
+
+  test_frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci   # ci-only
+      - name: Vitest (includes mock-conformance against the contract)   # parity
+        run: npm test
+
+  e2e_mock:
+    name: E2E (mock API, desktop + mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci && npx playwright install --with-deps chromium   # ci-only
+      - name: Start the standalone mock host (no Rails, no Docker)   # ci-only
+        run: |
+          npm run dev:mock &
+          npx --yes wait-on http://127.0.0.1:5173 --timeout 60000
+      - name: Playwright (desktop + mobile projects)   # parity
+        env: { E2E_BASE_URL: "http://127.0.0.1:5173" }
+        run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: e2e-screenshots
-          path: e2e/screenshots
+          name: e2e-mock-screenshots
+          path: |
+            e2e/screenshots
+            e2e/test-results
           if-no-files-found: ignore
+
+  e2e_real:
+    name: E2E (real API)
+    # main, nightly, or PRs labelled `e2e`; not required until Wave 3 (W3-1) flips continue-on-error off
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
+        ports: [ "5432:5432" ]
+        options: --health-cmd="pg_isready -U postgres" --health-interval=10s --health-timeout=5s --health-retries=5
+    env:
+      RAILS_ENV: development
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/simbe_e2e
+      E2E_STUB_ANTHROPIC: "1"
+      E2E_API: real
+    steps:
+      - run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev   # ci-only
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with: { bundler-cache: true }
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci && npx playwright install --with-deps chromium   # ci-only
+      - name: Prepare database and seed the Alpha dataset
+        run: bundle exec rails db:create db:schema:load db:seed e2e:seed   # ci-only
+      - name: Generate a synthetic Harbor-shaped export (3,500 leads) for the upload-at-signup journey
+        run: python3 bin/generate-sample-export --out e2e/fixtures/synthetic --leads 3500 --seed 7   # ci-only
+      - name: Build assets and start Rails (Solid Queue in Puma serves the SPA and the API)   # ci-only
+        run: |
+          bin/vite build
+          SOLID_QUEUE_IN_PUMA=true bundle exec rails server -b 127.0.0.1 -p 3000 &
+          npx --yes wait-on http://127.0.0.1:3000/up --timeout 90000
+      - name: "Playwright against the real API (real-exports journeys are skipped - the exports are never in CI)"
+        env: { E2E_BASE_URL: "http://127.0.0.1:3000", E2E_SYNTHETIC_DIR: "e2e/fixtures/synthetic" }
+        run: npx playwright test --grep-invert @real   # ci-only
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: e2e-real-screenshots, path: "e2e/screenshots\ne2e/test-results", if-no-files-found: ignore }
+
+  guards:
+    name: Guards (no health data or secrets committed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: No exports, env files or stray CSVs are tracked   # parity
+        run: bin/guard-no-health-data
+      - name: CI and `make verify` agree (bin/ci-parity)   # ci-only
+        run: bin/ci-parity
+      - name: Golden-numbers oracle is valid JSON and lane tooling loads   # parity
+        run: |
+          python3 -c "import json; json.load(open('spec/real_data/golden.json'))"
+          bin/lane list > /dev/null
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  ownership_check:
+    name: Lane ownership
+    if: github.event_name == 'pull_request' && startsWith(github.head_ref, 'lane/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Changed files are inside the lane's Owns list   # ci-only
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          lane="$(bin/lane-id-from-branch "$HEAD_REF")"
+          bin/lane check --lane "$lane" --base "origin/$BASE_REF"
+
+  docker_build:
+    name: Production image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with: { context: ., push: false, load: true, tags: "simbe:ci", cache-from: "type=gha", cache-to: "type=gha,mode=max" }
+      - name: No source maps ship in the image
+        run: |
+          docker run --rm --entrypoint sh simbe:ci -c 'if find /rails/public -name "*.map" | grep -q .; then echo "source maps found in /rails/public"; exit 1; fi'   # ci-only
+
+  deploy:
+    name: Deploy to Fly.io
+    needs: [contract, brakeman, bundler_audit, npm_audit, knip, lint_backend, lint_frontend, test_backend, test_frontend, e2e_mock, guards, docker_build]
+    # Every job of THIS run must have passed: `needs` without always() already guarantees it.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1.6
+      - name: Deploy to Fly.io
+        env: { FLY_API_TOKEN: "${{ secrets.FLY_API_TOKEN }}" }
+        run: flyctl deploy --remote-only --depot --depot-scope=app --ha=false --app simbe --release-command-timeout 20m   # ci-only
+      - name: Health checks (API, SPA shell, API auth boundary)   # ci-only
+        shell: bash   # pipefail: a missing SPA shell must fail the step
+        run: |
+          base="https://simbe.fly.dev"
+          for i in $(seq 1 20); do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 "$base/up" || true)
+            [ "$code" = "200" ] && { echo "GET /up returned 200"; break; }
+            echo "attempt ${i}: HTTP ${code:-failed}"; sleep 3
+            [ "$i" = "20" ] && { echo "/up did not return 200"; exit 1; }
+          done
+          curl -fsS "$base/" | grep -qi '<div id="root">' || { echo "SPA shell missing"; exit 1; }
+          echo "GET / returned the SPA shell"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" "$base/api/v1/me")
+          # 404 is accepted until W0-3 (backend core) adds /api/v1/me; tighten to 401 only after it merges.
+          { [ "$code" = "401" ] || [ "$code" = "404" ]; } || { echo "GET /api/v1/me returned ${code}, expected 401 (or 404 before W0-3)"; exit 1; }
+          echo "GET /api/v1/me returned 401"

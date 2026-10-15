@@ -1,0 +1,35 @@
+name: Lane blocked
+description: A lane plan needs a file or change outside its Owns list. Use the `blocked` label.
+title: "blocked: "
+labels: ["blocked"]
+body:
+  - type: input
+    id: lane
+    attributes:
+      label: Lane id
+      description: The lane that is blocked.
+      placeholder: "F-WEEK"
+    validations:
+      required: true
+  - type: textarea
+    id: blocker
+    attributes:
+      label: Blocker
+      description: What is stopping the lane? Include the failing command/output.
+    validations:
+      required: true
+  - type: input
+    id: file
+    attributes:
+      label: File outside Owns needed
+      description: The exact path that is outside the lane's `Owns` list (or "ownership change needed").
+      placeholder: "app/javascript/app/registry.ts"
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed resolution
+      description: A Contract Change Request, an ownership change, or a specific change to another lane's file.
+    validations:
+      required: false

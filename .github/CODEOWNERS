@@ -1,0 +1,7 @@
+# Code owners. Reviews are requested automatically for the paths below.
+# The plan's lane-ownership rules are enforced separately by CI's `ownership_check` job.
+
+/contracts/ @Sophia-Sergio
+/.github/ @Sophia-Sergio
+/docs/superpowers/parallel/ @Sophia-Sergio
+/db/ @Sophia-Sergio
