@@ -1,5 +1,7 @@
 # Parallel build architecture: lanes, contracts and extension points — Design
 
+> **Layout superseded by [`2300-rails-monolith-and-packs`](./2026-10-14-2300-rails-monolith-and-packs-design.md):** the app is one Rails monolith with embedded React (`vite_rails`) and backend packs; paths below were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`). Product and process decisions here still stand.
+
 **Status:** Approved for planning · **Depends on:** the 8 feature specs/plans (`2000`–`2014`), which stay as the **detail reference** · **Plans:** `plans/2026-10/2026-10-14-21xx-*` (Wave 0–3, indexed in `../../parallel/README.md`)
 
 ## Goal
