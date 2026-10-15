@@ -32,14 +32,14 @@
 | Create | `app/javascript/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` (+ `.test.tsx` each) |
 | Create | `app/javascript/mocks/{db.ts,browser.ts,server.ts,scenarios.ts,conformance.test.ts}`, `app/javascript/mocks/handlers/<domain>.ts` |
 | Create | `app/javascript/test/{setup.ts,mockApi.ts,mockApi.test.ts}`, `e2e/mock-smoke.spec.ts` |
-| Modify | `contracts/README.md` (CCR procedure), `Makefile` targets already stubbed |
+| Modify | `contracts/README.md` (CCR procedure); `make contract` / `make types` already exist (W0-1) |
 | Create | `app/javascript/mocks/bootstrap.ts` (`startMocks`, `MockChip`; consumed by W0-5's `main.tsx`) |
 
 ---
 
 ## Task 1: Bundle, lint, generate types
 
-- [ ] **Step 1:** `make contract` (script from W0-1) → bundle + lint exit 0. **Step 2:** `make types` generates `app/javascript/api/generated/schema.d.ts`; commit it. **Step 3:** CI job `contract` already diff-checks it.
+- [ ] **Step 1:** `npm run contract` (script from W0-1, runs on the host with Node 22 — no Docker) → bundle + lint exit 0. **Step 2:** `make types` generates `app/javascript/api/generated/schema.d.ts`; commit it. **Step 3:** CI job `contract` already diff-checks it.
 - [ ] **Step 4:** `app/javascript/api/types.ts`:
 ```ts
 import type { components } from "./generated/schema";
@@ -129,7 +129,7 @@ export async function uploadFiles<T = unknown>(path: string, files: File[]): Pro
 
 ## Task 3: Mock core — db, scenarios, server/browser, mockApi helper
 
-**Files:** `app/javascript/mocks/{db.ts,scenarios.ts,browser.ts,server.ts,bootstrap.ts}`, `app/javascript/test/{setup.ts,mockApi.ts,mockApi.test.ts}`. (`app/javascript/main.tsx` is owned by W0-5; this task only provides `startMocks()`.)
+**Files:** `app/javascript/mocks/{db.ts,scenarios.ts,browser.ts,server.ts,bootstrap.ts}`, `app/javascript/test/{setup.ts,mockApi.ts,mockApi.test.ts}`. (The React entrypoint `app/javascript/entrypoints/application.tsx` is owned by W0-1/W0-5; this task only provides `startMocks()` and `MockChip`.)
 **Interfaces — Produces:**
 ```ts
 // db.ts — in-memory state, reset(): void, persisted session in localStorage "simbe_mock_session" (mock only)
@@ -163,7 +163,7 @@ it("setViewport flips matchMedia and fires resize", () => {
 it("unhandled requests fail the test", async () => { await expect(fetch("/api/v1/nope")).rejects.toThrow(); });
 ```
 In the test setup, `db.session` defaults to the owner (`erin@harbor.test`) so default handlers authenticate; a helper `asRole("coordinator")` in `mockApi.ts` flips it.
-- [ ] **Step 2:** FAIL; **Step 3:** implement. `app/javascript/mocks/bootstrap.ts`: `export async function startMocks(): Promise<void> { if (import.meta.env.VITE_API_MODE === "real") return; const { worker } = await import("./browser"); await worker.start({ onUnhandledRequest: "bypass" }); }` plus `export const MockChip` (dev-only corner chip "Mock API · <scenario>", rendered by W0-5's `main.tsx`). Generate the MSW service worker file: `npx msw init public/ --save`.
+- [ ] **Step 2:** FAIL; **Step 3:** implement. `app/javascript/mocks/bootstrap.ts`: `export async function startMocks(): Promise<void> { if (import.meta.env.VITE_API_MODE === "real") return; const { worker } = await import("./browser"); await worker.start({ onUnhandledRequest: "bypass" }); }` plus `export const MockChip` (dev-only corner chip "Mock API · <scenario>", rendered by W0-5's entrypoint). **The MSW service worker file is generated into the mock host's own public dir, never into Rails' `public/`** (so it can never ship in the production image): `npx msw init app/javascript/mock-host/public --save=false`, committed. `startMocks()` runs in two situations: the standalone **mock host** (`npm run dev:mock`, always mock) and the Rails-embedded dev server when `VITE_API_MODE=mock` is set in `.env` (default `real` there).
 - [ ] **Step 4:** pass. Commit.
 
 ---
@@ -258,7 +258,7 @@ it.each(ops.filter(({ op }) => op.responses["200"] ?? op.responses["201"]))("$me
 
 ## Task 9: Mock-mode smoke, docs, finish
 
-- [ ] **Step 1: e2e** `e2e/mock-smoke.spec.ts`: with the Rails `api` container stopped (`docker compose stop api`), open `/` in mock mode and assert the page loads without network errors (the app shell is not built yet: assert the MSW worker is active by `await page.evaluate(() => fetch("/api/v1/me").then(r => r.status))` → `401`, sign in via `fetch` POST `/api/v1/session` with `erin@harbor.test`, then `/api/v1/metrics/summary?range=30d` → `200` and `kpis.leads.value === 10`).
+- [ ] **Step 1: e2e** `e2e/mock-smoke.spec.ts`: (Playwright `mock-*` projects against `npm run dev:mock`; **no Rails and no Docker running**) open `/` and assert the page loads without network errors (the app shell is not built yet: assert the MSW worker is active by `await page.evaluate(() => fetch("/api/v1/me").then(r => r.status))` → `401`, sign in via `fetch` POST `/api/v1/session` with `erin@harbor.test`, then `/api/v1/metrics/summary?range=30d` → `200` and `kpis.leads.value === 10`).
 - [ ] **Step 2: Docs** — append to `contracts/README.md`: the CCR procedure (branch `ccr/<topic>`, only `contracts/**` + regenerated `schema.d.ts`, label `ccr`, add/adjust mock handler + hook in the same PR if the change affects them — in that case the PR is allowed to touch `app/javascript/api/**` and `app/javascript/mocks/**`).
 - [ ] **Step 3: Acceptance** (from spec `2101`): run commands 1–4 and 6; paste output in the PR.
 - [ ] **Step 4:** `make verify` → exit 0. Commit; open PR.
