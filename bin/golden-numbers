@@ -147,13 +147,15 @@ def agency(d, slug):
     out["outcomes"] = dict(C.Counter(f["outcome"] for f in facts.values()))
     out["no_show_latest_appointment"] = sum(1 for f in facts.values() if f["latest_appt"] and f["latest_appt"]["status"] == "no_show")
 
+    # coordinator stats cover ALL leads in the snapshot (the endpoint has no range parameter)
+    allf = list(facts.values())
     co = {}
-    for name in sorted({f["coord"] for f in w}):
-        mine = [f for f in w if f["coord"] == name]
+    for name in sorted({f["coord"] for f in allf}):
+        mine = [f for f in allf if f["coord"] == name]
         frm = [f["frm"] for f in mine if f["frm"] is not None]
-        co[name] = {"leads": len(mine), "share_pct": rate(len(mine), len(w)), "qualified": qn(mine, milestone), "qualified_rate": rate(qn(mine, milestone), len(mine)),
+        co[name] = {"leads": len(mine), "share_pct": rate(len(mine), len(allf)), "qualified": qn(mine, milestone), "qualified_rate": rate(qn(mine, milestone), len(mine)),
                     "first_reply_minutes_median": rd(statistics.median(frm), 1) if frm else None, "overdue": overdue.get(name, 0)}
-    out["coordinators_12m"] = dict(sorted(co.items(), key=lambda kv: -kv[1]["leads"]))
+    out["coordinators_all_time"] = dict(sorted(co.items(), key=lambda kv: -kv[1]["leads"]))
     return out
 
 def main():

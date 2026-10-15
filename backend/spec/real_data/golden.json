@@ -237,7 +237,7 @@
         "paused": 37
       },
       "no_show_latest_appointment": 53,
-      "coordinators_12m": {
+      "coordinators_all_time": {
         "Dana Ortiz": {
           "leads": 2252,
           "share_pct": 63.8,
@@ -503,37 +503,37 @@
         "paused": 192
       },
       "no_show_latest_appointment": 448,
-      "coordinators_12m": {
+      "coordinators_all_time": {
         "Alex Rivera": {
-          "leads": 8506,
-          "share_pct": 57.2,
-          "qualified": 1377,
-          "qualified_rate": 16.2,
+          "leads": 16895,
+          "share_pct": 56.8,
+          "qualified": 2876,
+          "qualified_rate": 17.0,
           "first_reply_minutes_median": 182.0,
           "overdue": 88
         },
-        "Sam Patel": {
-          "leads": 2151,
-          "share_pct": 14.5,
-          "qualified": 352,
-          "qualified_rate": 16.4,
-          "first_reply_minutes_median": 161.0,
-          "overdue": 25
-        },
         "Jordan Wu": {
-          "leads": 2110,
-          "share_pct": 14.2,
-          "qualified": 404,
-          "qualified_rate": 19.1,
-          "first_reply_minutes_median": 139.0,
+          "leads": 4340,
+          "share_pct": 14.6,
+          "qualified": 844,
+          "qualified_rate": 19.4,
+          "first_reply_minutes_median": 137.0,
           "overdue": 19
         },
+        "Sam Patel": {
+          "leads": 4303,
+          "share_pct": 14.5,
+          "qualified": 742,
+          "qualified_rate": 17.2,
+          "first_reply_minutes_median": 159.0,
+          "overdue": 25
+        },
         "Taylor Brooks": {
-          "leads": 2093,
+          "leads": 4202,
           "share_pct": 14.1,
-          "qualified": 354,
+          "qualified": 710,
           "qualified_rate": 16.9,
-          "first_reply_minutes_median": 192.0,
+          "first_reply_minutes_median": 198.0,
           "overdue": 23
         }
       }
