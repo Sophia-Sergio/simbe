@@ -15,4 +15,6 @@ docker compose exec api bundle exec rails console
 ```
 
 Env: copy `.env.example` to `.env` (git-ignored). `ANTHROPIC_API_KEY` is reused from the sibling project `../personal/appketing/.env` — copy the value, never commit it.
+**Exception for frontend lanes** (mock mode needs no backend): with Node 22 installed, a frontend-only lane may run `npm ci`, `npm run dev`, `npx vitest`, `npx playwright test`, `npm run typecheck` and `npm run lint` **directly in `frontend/`** with `VITE_API_MODE=mock` — no Docker stack at all (this is how 13 frontend lanes run side by side on one laptop). `make verify` and anything touching Rails, Postgres or the real API still go through Docker (and each worktree gets its own stack via `bin/worktree-env`; see [worktrees.md](./worktrees.md)).
+
 Plans must write verification steps with `docker compose exec api bundle exec …` or a `make` target.
