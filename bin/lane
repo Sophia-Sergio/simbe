@@ -147,9 +147,16 @@ def cmd_pr(a):
     if not a.skip_gate: require_approval(l)
     cmd_check(argparse.Namespace(lane=l["id"], base=a.base, ccr=False))
     if a.dry_run:
-        print("dry run: would push, open the PR, post the `claude-review` status on the reviewed commit" + (" and enable auto-merge (squash)" if a.auto_merge else "")); return
-    sh("git", "push", "-u", "origin", "HEAD", capture=False)
-    body = f"""## Lane {l['id']} (wave {l['wave']})
+        print("dry run: would push, open or update the PR, post the `claude-review` status on the reviewed commit" + (" and enable auto-merge (squash)" if a.auto_merge else "")); return
+    branch = sh("git", "branch", "--show-current")
+    existing = open_pr_for(branch)
+    if existing:
+        # A fix round or a rebase after approval: update the same PR; the lease refuses to clobber commits we have not seen.
+        sh("git", "push", "--force-with-lease", "origin", f"HEAD:refs/heads/{branch}", capture=False)
+        url = existing["url"]; print(f"updated {url}")
+    else:
+        sh("git", "push", "-u", "origin", "HEAD", capture=False)
+        body = f"""## Lane {l['id']} (wave {l['wave']})
 
 Plan: `{l['rel']}`
 
@@ -162,11 +169,11 @@ Plan: `{l['rel']}`
 
 ## Outputs / screenshots
 """
-    for lab, col in (("lane", "0E8A16"), (f"wave-{l['wave']}", "1D76DB")):
-        sh("gh", "label", "create", lab, "--color", col, check=False)
-    cmd = ["gh", "pr", "create", "--base", "main", "--title", f"{l['id']}: {l['title'].split(' — ')[0]}", "--body", body, "--label", f"lane,wave-{l['wave']}"]
-    if a.draft: cmd.append("--draft")
-    url = sh(*cmd); print(url)
+        for lab, col in (("lane", "0E8A16"), (f"wave-{l['wave']}", "1D76DB")):
+            sh("gh", "label", "create", lab, "--color", col, check=False)
+        cmd = ["gh", "pr", "create", "--base", "main", "--title", f"{l['id']}: {l['title'].split(' — ')[0]}", "--body", body, "--label", f"lane,wave-{l['wave']}"]
+        if a.draft: cmd.append("--draft")
+        url = sh(*cmd); print(url)
     # The reviewer's approval is bound to the exact commit: publish it as the `claude-review` commit status that branch protection requires.
     head, repo = sh("git", "rev-parse", "HEAD"), sh("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
     ap = json.load(open(os.path.join(gate_dir(l), "approved.json"))) if os.path.exists(os.path.join(gate_dir(l), "approved.json")) else {}
@@ -176,6 +183,7 @@ Plan: `{l['rel']}`
     if a.auto_merge and not a.draft:
         r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash", "--delete-branch"], text=True, capture_output=True)
         print("auto-merge enabled (merges when the required checks are green)" if r.returncode == 0 else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
+    update_lane(l["id"], phase="ci", pr=url, head=head)
 
 def lane_states(ls):
     """lane -> (state, link) from GitHub: merged / PR open / draft PR / in progress / not started."""
@@ -615,6 +623,11 @@ def session_id(log):
             sid = e.get("sessionID") or (e.get("part") or {}).get("sessionID")
             if sid: return sid
     return None
+
+def open_pr_for(branch):
+    """The open PR whose head is `branch` ({number, url}), or None."""
+    prs = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "open", "--json", "number,url") or "[]")
+    return prs[0] if prs else None
 
 def cmd_stop(a):
     l = get_lane(a.lane)
