@@ -6,7 +6,7 @@ ReportIssue:
   type: object
   required: [code, message]
   properties:
-    code: { type: string, enum: [missing_file, bad_headers, bad_value, duplicate_key, orphan_row, agency_mismatch, foreign_lead] }
+    code: { type: string, enum: [missing_file, bad_headers, bad_value, duplicate_key, orphan_row, agency_mismatch] }
     file: { type: string }
     row: { type: [integer, 'null'] }
     message: { type: string }
@@ -15,7 +15,7 @@ ReportWarning:
   required: [code, count, message]
   properties:
     code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, source_aliases_normalized] }
-    count: { type: integer }
+    count: { type: integer, description: "stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails)" }
     message: { type: string }
 Report:
   type: object
@@ -37,10 +37,26 @@ Report:
         duplicates: { type: integer }
         screener_encrypted: { type: boolean }
     as_of: { $ref: './common.yaml#/Timestamp' }
+UploadStatus: { type: string, enum: [validating, validated, committing, committed, failed, cancelled, expired], description: "validated = validation finished (report.ok may still be false); failed = unexpected job error (see error)" }
+Phase: { type: string, enum: [storing, parsing, validating, importing, computing, finalizing] }
+Progress:
+  type: object
+  required: [phase, pct]
+  properties:
+    phase: { $ref: '#/Phase' }
+    pct: { type: integer, minimum: 0, maximum: 100 }
+    rows_done: { type: integer }
+    rows_total: { type: integer }
 SnapshotUpload:
   type: object
-  required: [id, report]
-  properties: { id: { type: string, format: uuid }, report: { $ref: '#/Report' } }
+  required: [id, status, progress, report, snapshot, error]
+  properties:
+    id: { type: string, format: uuid }
+    status: { $ref: '#/UploadStatus' }
+    progress: { oneOf: [{ $ref: '#/Progress' }, { type: 'null' }] }
+    report: { oneOf: [{ $ref: '#/Report' }, { type: 'null' }], description: present once status is validated or later }
+    snapshot: { oneOf: [{ $ref: '#/Snapshot' }, { type: 'null' }], description: present once status is committed }
+    error: { oneOf: [{ type: object, required: [code, message], properties: { code: { type: string }, message: { type: string } } }, { type: 'null' }] }
 Snapshot:
   type: object
   required: [id, as_of, loaded_at, row_counts]
@@ -54,13 +70,16 @@ Snapshot:
     warnings: { type: array, items: { $ref: '#/ReportWarning' } }
 SnapshotCurrent:
   type: object
-  required: [snapshot, files]
+  required: [snapshot, pending, files]
   properties:
     snapshot: { oneOf: [{ $ref: '#/Snapshot' }, { type: 'null' }] }
+    pending:
+      description: an upload of this agency that is validating or committing right now (drives the "Loading your data" banner)
+      oneOf:
+        - type: object
+          required: [upload_id, status, progress]
+          properties: { upload_id: { type: string, format: uuid }, status: { $ref: '#/UploadStatus' }, progress: { oneOf: [{ $ref: '#/Progress' }, { type: 'null' }] } }
+        - type: 'null'
     files:
       type: array
       items: { type: object, required: [name, rows], properties: { name: { type: string }, rows: { type: integer } } }
-CommitResult:
-  type: object
-  required: [snapshot]
-  properties: { snapshot: { $ref: '#/Snapshot' } }

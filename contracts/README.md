@@ -34,3 +34,7 @@ npx @redocly/cli@1 lint contracts/dist/openapi.bundled.yaml --config contracts/.
 ## Naming deviations from the first-draft plans
 
 `GET /leads/board` (board) vs `GET /leads` (list/search); `GET /invitations/{token}/preview` (public preview) vs `DELETE /invitations/{id}`; `GET /ad_connections` and `GET /coordinator_names` return objects (`{connections: []}`, `{names: []}`).
+
+## Snapshot uploads are asynchronous (real exports are up to 69 MB / ~625k rows)
+
+`POST /snapshot_uploads` stores the files and returns `201` immediately (`status: validating`); validation and the replace-in-one-transaction import run as background jobs. Clients poll `GET /snapshot_uploads/{id}` (status `validating → validated → committing → committed`, `progress {phase, pct, rows_done, rows_total}`, `report`, `snapshot`, `error`); `POST …/commit` returns `202`; `GET /snapshots/current` carries `pending` so any screen can show "Loading your data…". The same CSVs may be uploaded by any number of agencies: the API never inspects other agencies' data (no `foreign_lead` error).

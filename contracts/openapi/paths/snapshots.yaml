@@ -2,7 +2,7 @@ snapshot_uploads:
   post:
     operationId: createSnapshotUpload
     tags: [snapshots]
-    summary: Upload the seven CSVs and get a validation report (owner). Files matched by basename.
+    summary: Store the uploaded CSVs and start validation in the background (owner). Files matched by basename. Poll GET /snapshot_uploads/{id}.
     requestBody:
       required: true
       content:
@@ -13,16 +13,30 @@ snapshot_uploads:
             properties: { files: { type: array, items: { type: string, format: binary } } }
     responses:
       '201':
-        description: Stored and validated (report.ok may be false)
+        description: Files stored; validation queued (status validating)
+        content: { application/json: { schema: { $ref: '../schemas/snapshots.yaml#/SnapshotUpload' }, example: { $ref: '../../examples/snapshots/upload-created.json' } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '413': { description: Upload larger than 250 MB, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' } } } }
+snapshot_upload_by_id:
+  get:
+    operationId: getSnapshotUpload
+    tags: [snapshots]
+    summary: Status, progress and (when ready) the validation report of an upload (owner; poll every ~1s while validating/committing)
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses:
+      '200':
+        description: OK
         content:
           application/json:
             schema: { $ref: '../schemas/snapshots.yaml#/SnapshotUpload' }
             examples:
+              validating: { value: { $ref: '../../examples/snapshots/upload-created.json' } }
               ok: { value: { $ref: '../../examples/snapshots/upload-ok.json' } }
               errors: { value: { $ref: '../../examples/snapshots/upload-errors.json' } }
+              committing: { value: { $ref: '../../examples/snapshots/upload-committing.json' } }
+              committed: { value: { $ref: '../../examples/snapshots/upload-committed.json' } }
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
-      '413': { description: Upload larger than 250 MB, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' } } } }
-snapshot_upload_by_id:
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
   delete:
     operationId: cancelSnapshotUpload
     tags: [snapshots]
@@ -35,20 +49,22 @@ snapshot_upload_commit:
   post:
     operationId: commitSnapshotUpload
     tags: [snapshots]
-    summary: Replace the agency's data with this snapshot (single transaction, single-flight)
+    summary: Queue the replace of the agency's data with this snapshot (one transaction, single-flight per agency). Poll GET /snapshot_uploads/{id} until committed.
     parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
     responses:
-      '200': { description: Replaced, content: { application/json: { schema: { $ref: '../schemas/snapshots.yaml#/CommitResult' }, example: { $ref: '../../examples/snapshots/commit.json' } } } }
+      '202': { description: Accepted - committing, content: { application/json: { schema: { $ref: '../schemas/snapshots.yaml#/SnapshotUpload' }, example: { $ref: '../../examples/snapshots/upload-committing.json' } } } }
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
-      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '409':
+        description: "already_in_progress (a load for this agency is running) or not_validated (validation has not finished)"
+        content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' }, example: { error: { code: already_in_progress, message: A load is already running } } } }
       '422':
-        description: invalid_snapshot - the report still has errors
+        description: invalid_snapshot - the report has errors
         content: { application/json: { schema: { allOf: [{ $ref: '../schemas/common.yaml#/Error' }, { type: object, properties: { report: { $ref: '../schemas/snapshots.yaml#/Report' } } }] } } }
 snapshots_current:
   get:
     operationId: getCurrentSnapshot
     tags: [snapshots]
-    summary: Latest snapshot (any role; coordinators only need as_of)
+    summary: Latest snapshot plus any upload in flight (any role; coordinators only need as_of)
     responses:
       '200':
         description: OK
@@ -57,5 +73,6 @@ snapshots_current:
             schema: { $ref: '../schemas/snapshots.yaml#/SnapshotCurrent' }
             examples:
               loaded: { value: { $ref: '../../examples/snapshots/current.json' } }
-              empty: { value: { snapshot: null, files: [] } }
+              empty: { value: { snapshot: null, pending: null, files: [] } }
+              loading: { value: { $ref: '../../examples/snapshots/current-loading.json' } }
       '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
