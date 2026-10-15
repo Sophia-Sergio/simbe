@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+"""Helper for running many agents on the parallel lane plans.
+
+  bin/lane list                         lanes, waves, plans
+  bin/lane start F-WEEK [--slug x]      worktree + branch + isolated docker env + agent prompt
+  bin/lane check [--lane ID]            ownership check (files changed vs base must be inside the lane's Owns)
+  bin/lane pr [--draft]                 check, push, open the PR with the lane checklist
+  bin/lane status                       who is doing what (branches/PRs from GitHub)
+  bin/lane stop F-WEEK                  tear down the worktree's docker stack and remove the worktree
+
+Guide: docs/superpowers/parallel/playbook.md
+"""
+import argparse, os, re, subprocess, sys, glob, json
+
+def sh(*cmd, cwd=None, check=True, capture=True):
+    r = subprocess.run(cmd, cwd=cwd, text=True, capture_output=capture)
+    if check and r.returncode != 0:
+        sys.exit(f"command failed: {' '.join(cmd)}\n{r.stderr or r.stdout}")
+    return (r.stdout or "").strip() if capture else ""
+
+ROOT = sh("git", "rev-parse", "--show-toplevel")
+COMMON = os.path.realpath(os.path.join(ROOT, sh("git", "-C", ROOT, "rev-parse", "--git-common-dir")))
+MAIN_ROOT = os.path.dirname(COMMON)
+PLANS = os.path.join(ROOT, "docs/superpowers/plans/2026-10")
+
+def expand(g):
+    m = re.search(r"\{([^{}]*)\}", g)
+    if not m:
+        return [g]
+    return [x for part in m.group(1).split(",") for x in expand(g[:m.start()] + part + g[m.end():])]
+
+def glob_re(g):
+    out, i = "", 0
+    while i < len(g):
+        if g.startswith("**/", i): out += "(?:.*/)?"; i += 3
+        elif g.startswith("**", i): out += ".*"; i += 2
+        elif g[i] == "*": out += "[^/]*"; i += 1
+        elif g[i] == "?": out += "[^/]"; i += 1
+        else: out += re.escape(g[i]); i += 1
+    return re.compile("^" + out + "$")
+
+def lanes():
+    found = {}
+    for path in sorted(glob.glob(os.path.join(PLANS, "*.md"))):
+        text = open(path).read()
+        lane = re.search(r"^\*\*Lane:\*\*\s+(\S+)", text, re.M)
+        if not lane:
+            continue
+        wave = re.search(r"\*\*Wave:\*\*\s+(\d)", text)
+        owns = re.search(r"^\*\*Owns:\*\*(.*)$", text, re.M)
+        title = text.splitlines()[0].lstrip("# ").strip()
+        found[lane.group(1)] = dict(id=lane.group(1), path=path, rel=os.path.relpath(path, ROOT),
+            wave=int(wave.group(1)) if wave else 0, title=title,
+            owns=[x for g in re.findall(r"`([^`]+)`", owns.group(1) if owns else "") for x in expand(g)],
+            slug=re.sub(r"^\d{4}-\d{2}-\d{2}-\d{4}-", "", os.path.basename(path)[:-3]))
+    return found
+
+def get_lane(lane_id):
+    ls = lanes()
+    key = next((k for k in ls if k.lower() == lane_id.lower()), None)
+    if not key:
+        sys.exit(f"unknown lane {lane_id!r}; try: bin/lane list")
+    return ls[key]
+
+def current_lane():
+    branch = sh("git", "branch", "--show-current")
+    m = re.match(r"lane/([A-Za-z0-9-]+?)-[a-z0-9]", branch)
+    cands = [k for k in lanes() if branch.startswith(f"lane/{k}-")]
+    if not cands:
+        sys.exit(f"cannot infer the lane from branch {branch!r} (expected lane/<LANE-ID>-<slug>); pass --lane")
+    return max(cands, key=len)
+
+PROMPT = """Implement `@{rel}`.
+
+Read first: the plan, the spec it links, every file in `docs/conventions/`, `docs/design/brand.md` and
+`docs/superpowers/parallel/README.md` ({rules}).
+Touch ONLY the files in the plan's `Owns` list. Follow the plan's overrides to its "detail reference" tasks exactly.
+Commit after each task with the message pattern in the plan. Before opening a PR run the plan's "Done when" commands,
+`make verify` and `bin/lane check`; then `bin/lane pr`. Paste command outputs and desktop+mobile screenshots in the PR.
+Your docker stack is isolated (see `make ports`); never touch other worktrees' stacks.
+Stop and ask if blocked, or if a needed change is outside your lane (file a Contract Change Request or ask for an ownership change)."""
+
+def prompt_for(l):
+    rules = "frontend lane rules" if l["id"].startswith("F-") else "backend lane rules" if l["id"].startswith("B-") else "lane rules"
+    return PROMPT.format(rel=l["rel"], rules=rules)
+
+def cmd_list(a):
+    print(f"{'LANE':<14}{'WAVE':<6}PLAN")
+    for l in sorted(lanes().values(), key=lambda x: (x["wave"], x["id"])):
+        print(f"{l['id']:<14}{l['wave']:<6}{l['rel']}")
+
+def cmd_start(a):
+    l = get_lane(a.lane)
+    slug = a.slug or l["slug"].replace("lane-", "").replace(l["id"].lower() + "-", "")[:40]
+    branch = f"lane/{l['id']}-{slug}"
+    path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
+    steps = [["git", "fetch", "origin"],
+             ["git", "worktree", "add", path, "-b", branch, a.base]]
+    for s in steps:
+        print("$", " ".join(s))
+        if not a.dry_run:
+            sh(*s, cwd=MAIN_ROOT)
+    print(f"$ (cd {path} && bin/worktree-env)")
+    if not a.dry_run:
+        if not os.path.exists(os.path.join(MAIN_ROOT, ".env")):
+            sys.exit("no .env in the main checkout; copy .env.example and set ANTHROPIC_API_KEY first")
+        sh("bash", os.path.join(path, "bin/worktree-env"), cwd=path)
+        open(os.path.join(path, ".lane-prompt.md"), "w").write(prompt_for(l) + "\n")
+    print(f"\nLane {l['id']} (wave {l['wave']}) -> {path}\nBranch: {branch}\n")
+    print("Next: open that folder in Cursor, or `cd` there and run `opencode` / `claude`; paste:\n")
+    print(prompt_for(l))
+
+def changed_files(base):
+    tracked = sh("git", "diff", "--name-only", base).splitlines()
+    untracked = sh("git", "ls-files", "--others", "--exclude-standard").splitlines()
+    return sorted(set(tracked + untracked))
+
+def cmd_check(a):
+    lid = a.lane or current_lane()
+    l = get_lane(lid)
+    labels = os.environ.get("PR_LABELS", "") + (" ccr" if a.ccr else "")
+    pats = [glob_re(g) for g in l["owns"]]
+    bad = []
+    for f in changed_files(a.base):
+        if any(p.match(f) for p in pats): continue
+        if f == l["rel"]: continue                                   # own plan checkboxes
+        if "ccr" in labels and (f.startswith("contracts/") or f.startswith("frontend/src/api/generated/")): continue
+        bad.append(f)
+    if bad:
+        print(f"OUTSIDE LANE {l['id']}:")
+        for f in bad: print("  ", f)
+        sys.exit(1)
+    print(f"ok: all changes are inside lane {l['id']}")
+
+def cmd_pr(a):
+    l = get_lane(a.lane or current_lane())
+    cmd_check(argparse.Namespace(lane=l["id"], base=a.base, ccr=False))
+    sh("git", "push", "-u", "origin", "HEAD", capture=False)
+    body = f"""## Lane {l['id']} (wave {l['wave']})
+
+Plan: `{l['rel']}`
+
+## Checklist (paste outputs below)
+- [ ] The plan's **Done when** commands pass (outputs pasted)
+- [ ] `make verify` is green
+- [ ] `bin/lane check` is clean (only files in the plan's `Owns` list changed)
+- [ ] Desktop (1280x800) and mobile (390x844) screenshots attached and compared with the design handoff and `docs/design/brand.md` (UI lanes)
+- [ ] No contract change needed (otherwise a separate `ccr` PR)
+
+## Outputs / screenshots
+"""
+    for lab, col in (("lane", "0E8A16"), (f"wave-{l['wave']}", "1D76DB")):
+        sh("gh", "label", "create", lab, "--color", col, check=False)
+    cmd = ["gh", "pr", "create", "--base", "main", "--title", f"{l['id']}: {l['title'].split(' — ')[0]}", "--body", body, "--label", f"lane,wave-{l['wave']}"]
+    if a.draft: cmd.append("--draft")
+    print(sh(*cmd))
+
+def cmd_status(a):
+    prs = json.loads(sh("gh", "pr", "list", "--state", "all", "--limit", "300", "--json", "headRefName,state,url,isDraft"))
+    heads = sh("git", "ls-remote", "--heads", "origin", "lane/*").splitlines()
+    branches = [h.split("refs/heads/")[1] for h in heads if "refs/heads/" in h]
+    print(f"{'LANE':<14}{'WAVE':<6}{'STATE':<16}LINK")
+    for l in sorted(lanes().values(), key=lambda x: (x["wave"], x["id"])):
+        pre = f"lane/{l['id']}-"
+        mine = [p for p in prs if p["headRefName"].startswith(pre)]
+        if any(p["state"] == "MERGED" for p in mine): state, link = "merged", next(p["url"] for p in mine if p["state"] == "MERGED")
+        elif any(p["state"] == "OPEN" for p in mine):
+            p = next(p for p in mine if p["state"] == "OPEN"); state, link = ("draft PR" if p["isDraft"] else "PR open"), p["url"]
+        elif any(b.startswith(pre) for b in branches): state, link = "in progress", next(b for b in branches if b.startswith(pre))
+        else: state, link = "not started", ""
+        print(f"{l['id']:<14}{l['wave']:<6}{state:<16}{link}")
+
+def cmd_stop(a):
+    l = get_lane(a.lane)
+    path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
+    if not os.path.isdir(path): sys.exit(f"no worktree at {path}")
+    dirty = sh("git", "-C", path, "status", "--porcelain")
+    unpushed = sh("git", "-C", path, "log", "--oneline", "@{u}..", check=False) if sh("git", "-C", path, "rev-parse", "--abbrev-ref", "@{u}", check=False) else "unpublished"
+    if (dirty or unpushed) and not a.force:
+        sys.exit("worktree has uncommitted or unpushed work; commit/push it or pass --force")
+    print(f"$ (cd {path} && docker compose down -v --remove-orphans)")
+    sh("docker", "compose", "down", "-v", "--remove-orphans", cwd=path, check=False)
+    sh("git", "worktree", "remove", "--force", path, cwd=MAIN_ROOT)
+    print("removed", path)
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("list").set_defaults(f=cmd_list)
+    s = sub.add_parser("start"); s.add_argument("lane"); s.add_argument("--slug"); s.add_argument("--base", default="origin/main"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(f=cmd_start)
+    c = sub.add_parser("check"); c.add_argument("--lane"); c.add_argument("--base", default="origin/main"); c.add_argument("--ccr", action="store_true"); c.set_defaults(f=cmd_check)
+    r = sub.add_parser("pr"); r.add_argument("--lane"); r.add_argument("--base", default="origin/main"); r.add_argument("--draft", action="store_true"); r.set_defaults(f=cmd_pr)
+    sub.add_parser("status").set_defaults(f=cmd_status)
+    t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
+    a = p.parse_args(); a.f(a)
+
+if __name__ == "__main__":
+    main()
