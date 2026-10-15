@@ -5,7 +5,7 @@ Goal: nothing built by an agent reaches GitHub, or gets built on by the next lan
 ## 1. Principles
 
 1. **Evidence over claims.** An agent saying "tests pass" counts for nothing; I re-run the plan's commands and read the output.
-2. **Agents cannot publish.** OpenCode runs with a locked-down permission set: no `git push`, no `gh`, no remotes, no `fly`, no writes outside its worktree. It can only commit locally. Pushing and opening PRs is done by `bin/lane pr`, which refuses without a recorded human approval for the **exact commit**.
+2. **Agents cannot publish.** OpenCode runs with a locked-down permission set: no `git push`, no `gh`, no remotes, no `fly`, no writes outside its worktree. It can only commit locally. Pushing and opening PRs is done by `bin/lane pr`, which refuses without a recorded approval for the **exact commit**: your batch "go" (`bin/lane approve --by <you>`), or the conductor's re-approval of a post-approval fix that stays inside the lane's `Owns` and passed G2 plus a delta review (§2, G5).
 3. **One step at a time, widening only when earned** (trust ladder, §5).
 4. **You decide what ships.** I never push without your explicit "go": per lane at the pilot, **per batch** from trust level 1 (§5). Only lanes you approved in a batch merge automatically (squash auto-merge on green required checks).
 5. **Everything is auditable**: event logs, review reports and approvals live in `.superpowers/gate/<LANE>/` (git-ignored, local).
@@ -43,7 +43,7 @@ If a lane fails G2/G3 twice, I stop and tell you why instead of continuing.
 | Level | Rule | Move up when |
 |---|---|---|
 | **0 – Pilot** | One lane at a time, starting with **W0-1** (the scaffold everything depends on). I show you the full G2 evidence and G3 findings; you approve each push | The first 2 lanes passed with ≤ 1 fix round and no hard stops, and the canary still passes |
-| **1 – Small batch** | Up to 3 independent lanes in parallel (different packs/features); one combined report, **one approval per batch** (`go` / `go except <LANE>`), auto-merge on green | 5 more lanes merged with no post-merge regressions on `main` |
+| **1 – Small batch** | Up to 3 independent lanes in parallel (different packs/features; set `bin/lane state set-caps max_running=3 max_waiting=3`, the defaults are 4/4); one combined report, **one approval per batch** (`go` / `go except <LANE>`), auto-merge on green | 5 more lanes merged with no post-merge regressions on `main` |
 | **2 – Wave batch** | A whole wave (e.g. the 5 backend lanes) in parallel; I review each, you approve per wave with per-lane evidence available | Wave 1 merged green; W3-1 integration passes |
 
 Any hard stop, post-merge regression or canary failure drops us one level.

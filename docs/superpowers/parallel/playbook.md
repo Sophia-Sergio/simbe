@@ -2,7 +2,7 @@
 
 How to actually run the 32 lanes with the three tools, in what order, with how many agents, and how to keep it orderly. Lane list and rules: [`README.md`](./README.md). Everything below uses `bin/lane` (start, check, pr, status, stop).
 
-> **Controlled handoffs:** when Claude Code hands lanes to OpenCode, follow the [review gate](./review-gate.md): locked-down headless runs, independent verification, a recorded human approval before anything is pushed, and a trust ladder that starts with one lane at a time.
+> **Controlled handoffs:** when Claude Code hands lanes to OpenCode, follow the [review gate](./review-gate.md): locked-down headless runs, independent verification, a recorded approval (your batch "go") before anything is pushed, and a trust ladder that starts with one lane at a time.
 
 ## 1. The idea in one paragraph
 
@@ -126,7 +126,7 @@ Caps (`bin/lane state set-caps`): 4 running, 5 Docker stacks (non-`F-*` lanes), 
 
 ## 7. Keeping it orderly
 
-- **Tracking:** `bin/lane status` (from GitHub) is the source of truth; every lane has exactly one branch `lane/<ID>-<slug>` and one PR. No shared status file to conflict on.
+- **Tracking:** `bin/lane status` (from GitHub) is the source of truth; every lane has exactly one branch `lane/<ID>-<slug>` and one PR. The conductor's phase/session/attempt state lives in one git-ignored file in the main checkout (`bin/lane state show`), written under a lock, so parallel `bin/lane` processes never clobber each other; it is not tracked by git and never conflicts.
 - **History:** one commit per plan task (`feat(<lane>): task N – …`); PRs are squash-merged, so `main` has one commit per lane.
 - **Specs/plans travel with code**: plans' checkboxes may be ticked in the lane's PR (allowed outside `Owns`); don't edit other plans.
 - **Conflicts:** `routes`, nav, isolation, rack_attack are per-lane files, so conflicts should not occur; if one does, it's a lane-definition bug — stop and report it.
