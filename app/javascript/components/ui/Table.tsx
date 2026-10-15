@@ -15,6 +15,9 @@ const ALIGN: Record<"left" | "center" | "right", string> = {
   right: "text-right",
 }
 
+// List cards are 16px per docs/design/brand.md (rounded-row), not the 20px card radius.
+const CARD_CLASS = "w-full rounded-row border border-line bg-surface p-3 text-left shadow-card"
+
 function cellValue<T>(row: T, column: Column<T>): ReactNode {
   if (column.render) return column.render(row)
   const value = (row as Record<string, unknown>)[column.key]
@@ -22,8 +25,8 @@ function cellValue<T>(row: T, column: Column<T>): ReactNode {
 }
 
 /**
- * Semantic table on desktop; stacked `renderCard` rows below 860px.
- * Clickable rows are keyboard-operable (`<tr tabIndex=0>` + Enter).
+ * Semantic table on desktop (wrapped so it scrolls sideways, not the page);
+ * stacked `renderCard` rows below 860px. Clickable rows/cards are keyboard-operable.
  */
 export function Table<T>({
   columns,
@@ -47,9 +50,15 @@ export function Table<T>({
       <div className="flex flex-col gap-2">
         {rows.length === 0 ? (
           <p className="px-1 py-4 text-center text-[13px] text-ink-muted">{emptyText}</p>
+        ) : onRowClick ? (
+          rows.map((row) => (
+            <button key={rowKey(row)} type="button" onClick={() => onRowClick(row)} className={CARD_CLASS}>
+              {renderCard(row)}
+            </button>
+          ))
         ) : (
           rows.map((row) => (
-            <div key={rowKey(row)} className="rounded-card border border-line bg-surface p-3 shadow-card">
+            <div key={rowKey(row)} className={CARD_CLASS}>
               {renderCard(row)}
             </div>
           ))
@@ -59,58 +68,64 @@ export function Table<T>({
   }
 
   return (
-    <table className="w-full border-collapse text-[13px]">
-      <thead>
-        <tr className="bg-app text-[12px] font-medium text-ink-muted">
-          {columns.map((column) => (
-            <th
-              key={column.key}
-              scope="col"
-              style={column.width ? { width: column.width } : undefined}
-              className={`px-4 py-2.5 font-medium ${ALIGN[column.align ?? "left"]}`}
-            >
-              {column.header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.length === 0 ? (
-          <tr>
-            <td colSpan={columns.length} className="px-4 py-6 text-center text-[13px] text-ink-muted">
-              {emptyText}
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-[13px]">
+        <thead>
+          <tr className="bg-app text-[12px] font-medium text-ink-muted">
+            {columns.map((column) => (
+              <th
+                key={column.key}
+                scope="col"
+                style={column.width ? { width: column.width } : undefined}
+                className={`px-4 py-2.5 font-medium ${ALIGN[column.align ?? "left"]}`}
+              >
+                {column.header}
+              </th>
+            ))}
           </tr>
-        ) : (
-          rows.map((row) => (
-            <tr
-              key={rowKey(row)}
-              role="row"
-              tabIndex={onRowClick ? 0 : undefined}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-              onKeyDown={
-                onRowClick
-                  ? (event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault()
-                        onRowClick(row)
-                      }
-                    }
-                  : undefined
-              }
-              className={`border-t border-line-subtle ${
-                onRowClick ? "cursor-pointer hover:bg-app focus:bg-app focus:outline-none" : ""
-              }`}
-            >
-              {columns.map((column) => (
-                <td key={column.key} className={`px-4 py-3 text-ink-secondary ${ALIGN[column.align ?? "left"]}`}>
-                  {cellValue(row, column)}
-                </td>
-              ))}
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length} className="px-4 py-6 text-center text-[13px] text-ink-muted">
+                {emptyText}
+              </td>
             </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+          ) : (
+            rows.map((row) => (
+              <tr
+                key={rowKey(row)}
+                role="row"
+                tabIndex={onRowClick ? 0 : undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => {
+                        if (event.target === event.currentTarget) onRowClick(row)
+                      }
+                    : undefined
+                }
+                onKeyDown={
+                  onRowClick
+                    ? (event) => {
+                        if (event.key === "Enter" && event.target === event.currentTarget) {
+                          event.preventDefault()
+                          onRowClick(row)
+                        }
+                      }
+                    : undefined
+                }
+                className={`border-t border-line-subtle ${onRowClick ? "cursor-pointer hover:bg-app focus:bg-app" : ""}`}
+              >
+                {columns.map((column) => (
+                  <td key={column.key} className={`px-4 py-3 text-ink-secondary ${ALIGN[column.align ?? "left"]}`}>
+                    {cellValue(row, column)}
+                  </td>
+                ))}
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }

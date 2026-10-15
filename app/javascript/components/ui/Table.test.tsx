@@ -28,6 +28,49 @@ it("does not make rows focusable without onRowClick", () => {
   expect(screen.getByRole("row", { name: /Facebook/ })).not.toHaveAttribute("tabindex")
 })
 
+it("keeps the global focus ring on clickable rows", () => {
+  render(<Table columns={columns} rows={rows} rowKey={(row) => row.id} onRowClick={() => {}} />)
+  expect(screen.getByRole("row", { name: /Facebook/ }).className).not.toContain("focus:outline-none")
+})
+
+it("ignores a click or Enter on a nested control", async () => {
+  const onRowClick = vi.fn()
+  render(
+    <Table
+      columns={[{ key: "name", header: "Channel", render: () => <button type="button">act</button> }]}
+      rows={rows}
+      rowKey={(row) => row.id}
+      onRowClick={onRowClick}
+    />,
+  )
+  const control = screen.getByRole("button", { name: "act" })
+  await userEvent.click(control)
+  fireEvent.keyDown(control, { key: "Enter" })
+  expect(onRowClick).not.toHaveBeenCalled()
+})
+
+it("opens a card below 860px when onRowClick is set", async () => {
+  setViewport(390)
+  const onRowClick = vi.fn()
+  render(
+    <Table
+      columns={columns}
+      rows={rows}
+      rowKey={(row) => row.id}
+      onRowClick={onRowClick}
+      renderCard={(row) => <span>card {row.name}</span>}
+    />,
+  )
+  await userEvent.click(screen.getByRole("button", { name: /card Facebook/ }))
+  expect(onRowClick).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }))
+})
+
+it("wraps the table so it can scroll horizontally instead of the page", () => {
+  setViewport(390)
+  render(<Table columns={columns} rows={rows} rowKey={(row) => row.id} />)
+  expect(screen.getByRole("table").parentElement).toHaveClass("overflow-x-auto")
+})
+
 it("uses renderCard below 860px", () => {
   setViewport(390)
   render(
