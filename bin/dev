@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+# Non-Docker dev: start Rails and the Vite dev server from Procfile.dev when
+# foreman is available; otherwise just Rails (vite_rails auto-builds on request).
+if command -v foreman >/dev/null 2>&1; then
+  exec foreman start -f Procfile.dev "$@"
+else
+  exec ./bin/rails server "$@"
+fi
