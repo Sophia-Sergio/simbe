@@ -6,7 +6,7 @@
 **Owns:** `frontend/src/api/**`, `frontend/src/mocks/**`, `frontend/src/test/mockApi.ts`, `frontend/src/test/setup.ts`, `frontend/e2e/mock-smoke.spec.ts`, `contracts/README.md`, `contracts/.redocly.yaml`
 **Depends on (merged):** W0-1
 **Unblocks:** every frontend lane (hooks + mocks), W0-5
-**Goal:** Executable contract: `make contract`, generated types, `client.ts`, typed hooks for all 38 operations, a stateful MSW mock of the whole API, conformance tests, and the `mockApi` test helper.
+**Goal:** Executable contract: `make contract`, generated types, `client.ts`, typed hooks for all 39 operations, a stateful MSW mock of the whole API, conformance tests, and the `mockApi` test helper.
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2101-api-contract-and-mocks-design.md`
 
 ## Global Constraints
