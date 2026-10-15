@@ -2,7 +2,7 @@ import { act } from "@testing-library/react"
 import uploadCommitted from "@contracts/examples/snapshots/upload-committed.json"
 import uploadOk from "@contracts/examples/snapshots/upload-ok.json"
 import { mockApi } from "@/test/mockApi"
-import { useSnapshotUpload } from "./snapshots"
+import { useCurrentSnapshot, useSnapshotUpload } from "./snapshots"
 import { renderHookWithQuery } from "./testUtils"
 
 const ID = "66666666-6666-4666-8666-666666666666"
@@ -79,6 +79,41 @@ it("stops polling once the upload is committed", async () => {
   await until(() => result.current.state === "done")
   expect(result.current.state).toBe("done")
   const settled = polls
+  await flush(2000)
+  expect(polls).toBe(settled)
+})
+
+it("useCurrentSnapshot refetches every 2s while an upload is pending", async () => {
+  vi.useFakeTimers()
+  let calls = 0
+  mockApi({
+    "GET /api/v1/snapshots/current": () => {
+      calls += 1
+      return json({ snapshot: null, files: [], pending: { upload_id: ID, status: "validating", progress: { phase: "parsing", pct: 10 } } })
+    },
+  })
+  renderHookWithQuery(() => useCurrentSnapshot())
+  await flush(0)
+  expect(calls).toBe(1)
+  await flush(2100)
+  expect(calls).toBeGreaterThanOrEqual(2)
+})
+
+it("stops polling when the hook unmounts", async () => {
+  vi.useFakeTimers()
+  let polls = 0
+  mockApi({
+    "GET /api/v1/snapshots/current": { snapshot: null, files: [], pending: { upload_id: ID, status: "validating", progress: { phase: "parsing", pct: 10 } } },
+    [`GET /api/v1/snapshot_uploads/${ID}`]: () => {
+      polls += 1
+      return json({ ...created, progress: { phase: "parsing", pct: 10 } })
+    },
+  })
+  const { unmount } = renderHookWithQuery(() => useSnapshotUpload())
+  await until(() => polls >= 1)
+  const settled = polls
+  expect(settled).toBeGreaterThanOrEqual(1)
+  unmount()
   await flush(2000)
   expect(polls).toBe(settled)
 })
