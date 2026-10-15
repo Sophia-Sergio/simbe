@@ -22,6 +22,8 @@ gem "rack-attack"
 gem "anthropic"
 # Structured request logs [https://github.com/roidrage/lograge]
 gem "lograge"
+# CSV parsing; no longer a default gem as of Ruby 3.4 [https://github.com/ruby/csv]
+gem "csv"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]

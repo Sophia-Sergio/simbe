@@ -101,6 +101,7 @@ GEM
       bigdecimal
       rexml
     crass (1.0.7)
+    csv (3.3.6)
     date (3.6.0)
     db-query-matchers (0.15.0)
       activesupport (>= 4.0)
@@ -383,6 +384,7 @@ DEPENDENCIES
   bootsnap
   brakeman
   bundler-audit
+  csv
   db-query-matchers
   debug
   factory_bot_rails

@@ -40,6 +40,15 @@ module App
     concerns = Dir["#{root}/app/packs/*/app/services/concerns"]
     config.autoload_paths.concat(concerns); config.eager_load_paths.concat(concerns)
 
+    # Screener answers are health data (docs/conventions/sensitive-data.md): encrypted at rest.
+    # Keys come from .env (.env.example); tests fall back to fixed, non-secret keys.
+    config.active_record.encryption.primary_key =
+      ENV["AR_ENCRYPTION_PRIMARY_KEY"].presence || ("test-primary-key" if Rails.env.test?)
+    config.active_record.encryption.deterministic_key =
+      ENV["AR_ENCRYPTION_DETERMINISTIC_KEY"].presence || ("test-deterministic-key" if Rails.env.test?)
+    config.active_record.encryption.key_derivation_salt =
+      ENV["AR_ENCRYPTION_KEY_DERIVATION_SALT"].presence || ("test-key-derivation-salt" if Rails.env.test?)
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files
