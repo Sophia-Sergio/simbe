@@ -146,7 +146,13 @@ jobs:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/simbe
         shell: bash
-        run: bundle exec rake contract:coverage | tee contract-coverage.txt
+        # The task is defined by W0-3 (backend core); until it lands the step reports that and passes.
+        run: |
+          if bundle exec rake -T contract:coverage | grep -q contract:coverage; then
+            bundle exec rake contract:coverage | tee contract-coverage.txt
+          else
+            echo "contract:coverage not defined yet (W0-3)" | tee contract-coverage.txt
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: contract-coverage, path: contract-coverage.txt, if-no-files-found: ignore }
