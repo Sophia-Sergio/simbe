@@ -31,7 +31,7 @@ export function AgencySwitcher({ agency, collapsed }: { agency: Agency; collapse
     )
   }
   return (
-    <div className="flex items-center gap-2.5 rounded-card border border-line px-3 py-2">
+    <div className="flex items-center gap-2 rounded-card border border-line px-2.5 py-2">
       {tile}
       <div className="min-w-0 flex-1">
         <p title={agency.name} className="truncate text-[13px] font-semibold text-ink">

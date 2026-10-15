@@ -45,7 +45,7 @@ export function Sidebar({ nav, agency, user, collapsed, onToggle, onSignOut }: S
         </div>
         {toggle}
       </div>
-      <div className="px-3 pb-2">
+      <div className="px-2.5 pb-2">
         <AgencySwitcher agency={agency} collapsed={collapsed} />
       </div>
       <nav aria-label="Primary" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
