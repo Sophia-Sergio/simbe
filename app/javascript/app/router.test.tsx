@@ -63,7 +63,6 @@ it("renders a route inside the shell with role-filtered nav, one overlay and ord
   expect(nav.queryByText("C")).toBeNull()
   expect(screen.getAllByTestId("overlay")).toHaveLength(1)
   expect(screen.getByTestId("p1")).toContainElement(screen.getByTestId("p2"))
-  expect(within(shell).getByRole("heading", { level: 1 })).toHaveTextContent("Alpha")
 })
 
 it("redirects a coordinator away from an owner-only route without rendering it", async () => {
@@ -95,6 +94,13 @@ it("sends an anonymous visitor to sign-in with ?next and serves public routes wi
 it("serves a public route without a session", async () => {
   mount("/public", { role: null })
   expect(await screen.findByText("public screen")).toBeInTheDocument()
+})
+
+// The desktop shell has no page title (the sidebar shows where you are); the mobile top bar does.
+it("passes the deepest matched route's handle.title to the shell", async () => {
+  mount("/a", { width: 500 })
+  await screen.findByText("screen A")
+  expect(within(document.querySelector("[data-shell]") as HTMLElement).getAllByText("Alpha").length).toBeGreaterThan(0)
 })
 
 it("switches shell by viewport", async () => {
