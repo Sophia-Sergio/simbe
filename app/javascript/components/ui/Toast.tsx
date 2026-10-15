@@ -1,15 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { Check } from "lucide-react"
 
-export type ToastTone = "success"
-export type ToastState = { id: number; message: string; tone?: ToastTone }
+type ToastTone = "success"
+type ToastState = { id: number; message: string; tone?: ToastTone }
 
 type ToastContextValue = { show: (message: string, opts?: { tone?: ToastTone }) => void }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
-export const TOAST_DURATION = 2600
+const DURATION = 2600
 
 export function useToast(): ToastContextValue {
   const context = useContext(ToastContext)
@@ -27,7 +28,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     counter.current += 1
     setToast({ id: counter.current, message, tone: opts?.tone })
     // Replacing the current toast always restarts the timer.
-    timer.current = setTimeout(() => setToast(null), TOAST_DURATION)
+    timer.current = setTimeout(() => setToast(null), DURATION)
   }, [])
 
   useEffect(
@@ -42,22 +43,33 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <Toast toast={toast} />
+      <ToastRegion toast={toast} />
     </ToastContext.Provider>
   )
 }
 
-export function Toast({ toast }: { toast: ToastState | null }) {
-  if (!toast) return null
-  return (
+/**
+ * The live region is always mounted (empty while idle) so assistive tech announces content that
+ * changes in place — inserting `role="status"` already holding its text is often not announced.
+ * It is portaled to `<body>` because `useLockBody` marks `#root` inert/aria-hidden while a
+ * dialog is open, which would otherwise hide a toast fired from inside the dialog.
+ */
+function ToastRegion({ toast }: { toast: ToastState | null }) {
+  if (typeof document === "undefined") return null
+  return createPortal(
     <div
       role="status"
       aria-live="polite"
       data-testid="toast"
-      className="fixed bottom-[84px] left-1/2 z-50 flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-2 rounded-full bg-dark px-4 py-2.5 text-[14px] font-medium text-white shadow-toast md:bottom-[28px]"
+      className={
+        toast
+          ? "fixed bottom-[84px] left-1/2 z-50 flex max-w-[calc(100vw-32px)] -translate-x-1/2 items-center gap-2 rounded-full bg-dark px-4 py-2.5 text-[14px] font-medium text-white shadow-toast md:bottom-[28px]"
+          : "sr-only"
+      }
     >
-      <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />
-      <span>{toast.message}</span>
-    </div>
+      {toast && <Check aria-hidden className="h-4 w-4 shrink-0 text-success" />}
+      <span>{toast?.message ?? ""}</span>
+    </div>,
+    document.body,
   )
 }

@@ -1,20 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
 import { ToastProvider, useToast } from "./Toast"
+import { restoreMatchMedia, setViewport } from "./test-utils"
 
-function setViewport(width: number): void {
-  window.matchMedia = ((query: string) => ({
-    matches: /min-width:\s*860px/.test(query) ? width >= 860 : false,
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => true,
-  })) as unknown as typeof window.matchMedia
-  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: width })
-  window.dispatchEvent(new Event("resize"))
-}
+afterEach(() => restoreMatchMedia())
 
 function Probe() {
   const { show } = useToast()
@@ -42,13 +30,49 @@ it("shows, replaces and auto-dismisses after 2.6s", () => {
     expect(screen.getByRole("status")).toHaveTextContent("B")
 
     act(() => vi.advanceTimersByTime(2599))
-    expect(screen.queryByRole("status")).not.toBeNull()
+    expect(screen.getByRole("status")).toHaveTextContent("B")
 
     act(() => vi.advanceTimersByTime(2))
-    expect(screen.queryByRole("status")).toBeNull()
+    expect(screen.getByRole("status")).toHaveTextContent("")
   } finally {
     vi.useRealTimers()
   }
+})
+
+it("keeps an empty live region mounted while idle", () => {
+  render(
+    <ToastProvider>
+      <Probe />
+    </ToastProvider>,
+  )
+  // A live region inserted already holding its text is often not announced, so the
+  // region must exist before the first toast and only its content may change.
+  const region = screen.getByRole("status")
+  expect(region).toHaveTextContent("")
+  expect(region).toHaveAttribute("aria-live", "polite")
+  expect(region).toHaveClass("sr-only")
+})
+
+it("portals the live region to document.body so a locked dialog cannot hide it", () => {
+  const root = document.createElement("div")
+  root.id = "root"
+  document.body.append(root)
+
+  render(
+    <ToastProvider>
+      <Probe />
+    </ToastProvider>,
+    { container: root },
+  )
+  // useLockBody marks #root aria-hidden (and inert) while a dialog is open.
+  root.setAttribute("aria-hidden", "true")
+
+  fireEvent.click(screen.getByText("a"))
+  const region = screen.getByRole("status")
+  expect(root.contains(region)).toBe(false)
+  expect(region).toHaveTextContent("A")
+
+  root.remove()
 })
 
 it("sits above the tab bar on mobile", () => {
