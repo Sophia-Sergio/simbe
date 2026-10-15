@@ -9,6 +9,7 @@
     "dev": "bin/vite dev",
     "dev:mock": "vite --config vite.mock.config.ts --port 5173 --host 127.0.0.1",
     "build": "bin/vite build",
+    "pretest": "npm run contract",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/javascript e2e --no-error-on-unmatched-pattern",
