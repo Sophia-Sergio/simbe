@@ -1,12 +1,13 @@
 # Parallel build: waves, lanes and how to run many agents at once
 
-The app (desktop + mobile web) is split into **31 lanes** that agents implement concurrently. Design rationale: [`../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md`](../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md). The earlier feature plans (`2001`–`2014`) remain the **detail library**: lane plans point at their tasks and list the overrides.
+The app (desktop + mobile web) is split into **32 lanes** that agents implement concurrently. **How to run them with Cursor, OpenCode and Claude Code: [`playbook.md`](./playbook.md).** Helper: `bin/lane` (`list`, `start`, `check`, `pr`, `status`, `stop`). Design rationale: [`../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md`](../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md). The earlier feature plans (`2001`–`2014`) remain the **detail library**: lane plans point at their tasks and list the overrides.
 
 ```mermaid
 flowchart LR
   S[W0-1 scaffold] --> C[W0-2 contract+mocks]
   S --> B0[W0-3 backend core]
   S --> K1[W0-4A kit primitives]
+  S --> CI[W0-7 CI/CD + deploy]
   K1 --> K2[W0-4B kit data-viz]
   C --> A[W0-5 app core]
   K1 --> A
@@ -36,6 +37,7 @@ flowchart LR
 | W0-5 app core | 0 | W0-2, W0-4A | [2109](../plans/2026-10/2026-10-14-2109-w0-5-app-core.md) |
 | W0-6A desktop shell | 0 | W0-5 | [2110](../plans/2026-10/2026-10-14-2110-w0-6a-shell-desktop.md) |
 | W0-6B mobile shell | 0 | W0-5 | [2111](../plans/2026-10/2026-10-14-2111-w0-6b-shell-mobile.md) |
+| W0-7 CI/CD pipeline, production image, Fly deploy, agent tooling | 0 | W0-1 | [2201](../plans/2026-10/2026-10-14-2201-w0-7-ci-cd-pipeline.md) |
 | B-INGEST importer + upload API | 1 | Wave 0 backend | [2120](../plans/2026-10/2026-10-14-2120-lane-b-ingest.md) |
 | B-METRICS metrics + recommendations | 1 | Wave 0 backend | [2121](../plans/2026-10/2026-10-14-2121-lane-b-metrics.md) |
 | B-LEADS list, board, detail | 1 | Wave 0 backend | [2122](../plans/2026-10/2026-10-14-2122-lane-b-leads.md) |
@@ -65,13 +67,19 @@ flowchart LR
 | Phase | Concurrent agents | Notes |
 |---|---|---|
 | W0-1 | 1 | everyone waits for this (docker, Rails, Vite, extension points) |
-| after W0-1 | 4 | W0-2, W0-3, W0-4A (+ W0-4B right after 4A) |
+| after W0-1 | 5 | W0-2, W0-3, W0-4A, W0-7 (+ W0-4B right after 4A) |
 | after W0-5 | 2 more | W0-6A and W0-6B in parallel |
 | Wave 1 | **18** | 5 backend + 13 frontend lanes (frontend needs no backend: it runs on the mock API) |
 | Wave 2 | 2 | B-AGENT, B-MCP (B-MCP may already start in Wave 1) |
 | Wave 3 | 3 | W3-1 first, then W3-2 ∥ W3-3 |
 
 Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B components) can be split across more agents.
+
+## Real data and uploads (read `docs/conventions/real-data.md`)
+
+- The **only real data** is `harbor-takehome/exports/{harbor,lakeside}/` (8 MB and 69 MB, local only, never committed). Owners load it by **uploading the seven CSVs at sign-up (wizard step 4)** or later in Data sources; the same files may be uploaded by any number of agencies, each isolated by `agency_id`.
+- Uploads are **asynchronous** (jobs on Solid Queue inside Puma, progress polled by the UI, `pending` on `/snapshots/current`), because the Lakeside import is ~625k rows.
+- Three data sources, three jobs: **Alpha** (exact hand-computed specs, contract examples, mocks) · **golden numbers** (`backend/spec/real_data/golden.json`, computed independently by `bin/golden-numbers`; the oracle for the real exports) · **real exports** (`:real_data` specs and `@real` e2e journeys, auto-skipped when absent, never in CI). Synthetic volume data for CI: `bin/generate-sample-export`.
 
 ## Frontend lane rules (binding for every `F-*` plan)
 
@@ -83,12 +91,14 @@ Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B comp
 6. **Brand = `docs/design/brand.md`.** Tokens only (no raw hex), Inter/Outfit, pill buttons, plum text, un-tinted logo; icons from `lucide-react`.
 7. **Single-flight and dialogs.** Mutations via `useAsyncAction`; no native `alert/confirm/prompt`; no overlay on an overlay (use `ConfirmInline`).
 8. **Privacy.** Render raw screener answers only when the API response includes them; never persist passwords/tokens/keys in storage.
-9. **Done = checklist in your plan's "Done when" block**, outputs pasted in the PR, `make verify` green, `bin/pr-ownership` clean.
+9. **Loading state:** every data screen shows `LoadingYourData` while `useCurrentSnapshot().pending` is non-null; empty state otherwise (see the lane plan).
+10. **Done = checklist in your plan's "Done when" block**, outputs pasted in the PR, `make verify` green, `bin/pr-ownership` clean.
 
 ## Backend lane rules (binding for every `B-*` plan)
 
+0. Heavy work (parsing, imports) never runs in a request: it runs in jobs on the `ingest` queue; the API returns immediately and the client polls.
 1. Routes in `backend/config/routes/<lane>.rb`; isolation entries in `backend/spec/support/isolation/<lane>.rb`; Rack::Attack throttles in `backend/config/rack_attack/<lane>.rb`. No migrations (schema shipped in W0-3).
-2. Test data through `AlphaScenario.load!` (and `AlphaSpend.load!`), never the CSV importer (except B-INGEST for its own specs).
+2. Test data through `AlphaScenario.load!` (and `AlphaSpend.load!`), never the CSV importer (except B-INGEST for its own specs). Lanes with real-data checks add a `:real_data` spec that compares against `Golden.agency(slug)` using `RealData.load!`.
 3. Every request spec runs with OpenAPI conformance on; payloads equal `contracts/examples/**` where the plan says so.
 4. Tenancy and privacy rules from `docs/conventions/` are tested in the lane (404 across agencies/coordinators, no raw answers in JSON/logs).
 
