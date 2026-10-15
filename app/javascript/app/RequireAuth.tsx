@@ -8,11 +8,13 @@ import { useAuth } from "./auth/useAuth"
  * single replace-redirect to /signin (with the attempted path in ?next) when anonymous.
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { status } = useAuth()
+  const { status, signedOut } = useAuth()
   const location = useLocation()
 
   if (status === "loading") return <Skeleton className="h-screen w-full" />
   if (status === "anonymous") {
+    // A deliberate sign-out lands on a bare /signin: there is no page to come back to.
+    if (signedOut) return <Navigate to="/signin" replace />
     return <Navigate to={`/signin?next=${encodeURIComponent(location.pathname)}`} replace />
   }
   return <>{children}</>

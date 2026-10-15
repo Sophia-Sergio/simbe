@@ -12,6 +12,8 @@ export type Auth = {
   user: User | null
   agency: Agency | null
   role: Role | null
+  /** True after a deliberate sign-out, until the next sign-in; RequireAuth then skips ?next. */
+  signedOut: boolean
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
 }
@@ -32,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInMutation = useSignIn()
   const signOutMutation = useSignOut()
   const [expired, setExpired] = useState(false)
+  const [signedOut, setSignedOut] = useState(false)
 
   // Latest-mutation refs keep the signIn/signOut context identities stable across renders.
   const signInRef = useRef(signInMutation.mutateAsync)
@@ -58,9 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     await signInRef.current({ email, password }) // seeds the ["me"] cache on success
     setExpired(false)
+    setSignedOut(false)
   }, [])
 
   const signOut = useCallback(async () => {
+    setSignedOut(true) // before the cache clears, so RequireAuth never sees anonymous without it
     try {
       await signOutRef.current() // clears the whole query cache onSettled, even on failure
     } catch {
@@ -80,10 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: status === "authenticated" && data ? data.user : null,
       agency: status === "authenticated" && data ? data.agency : null,
       role: status === "authenticated" && data ? data.user.role : null,
+      signedOut,
       signIn,
       signOut,
     }),
-    [status, data, signIn, signOut],
+    [status, data, signedOut, signIn, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
