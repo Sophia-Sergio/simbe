@@ -1,6 +1,10 @@
+import type { ReactNode } from "react"
 import { CircleCheck, CircleX, TriangleAlert } from "lucide-react"
 import { formatInt } from "@/lib/format"
 
+// Local shape of the upload validation report. There is no `app/javascript/api` yet
+// (W0-2/W0-5); replace this with the generated types once they exist — see
+// contracts/openapi/schemas/snapshots.yaml (`UploadReport`).
 export type ReportError = { code: string; file?: string | null; row?: number | null; message: string }
 export type ReportWarning = { code: string; count: number; message: string }
 export type ReportCounts = { current: number; incoming: number; delta: number }
@@ -23,6 +27,18 @@ function errorLabel(error: ReportError): string {
   return `${where}${error.message}`
 }
 
+/** A check row: green check when the check passed, red cross when it failed. */
+function CheckRow({ ok, children }: { ok: boolean; children: ReactNode }) {
+  const Icon = ok ? CircleCheck : CircleX
+  const tone = ok ? "text-success-text" : "text-danger-text"
+  return (
+    <li className="flex items-start gap-2">
+      <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tone}`} />
+      <span className={ok ? "text-ink-secondary" : "text-danger-text"}>{children}</span>
+    </li>
+  )
+}
+
 /** Upload validation report: green checks, amber warnings, red errors. */
 export function ReviewReport({ report, agencyName }: { report: Report; agencyName: string }) {
   const leads = report.diff?.leads
@@ -34,28 +50,20 @@ export function ReviewReport({ report, agencyName }: { report: Report; agencyNam
     <div className="flex flex-col gap-2 text-[13px]">
       <ul className="flex flex-col gap-1.5">
         {leads ? (
-          <li className="flex items-start gap-2">
-            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-text" />
-            <span className="text-ink-secondary">{`Leads ${formatInt(leads.current)} → ${formatInt(leads.incoming)} (${signedDelta(leads.delta)})`}</span>
-          </li>
+          <CheckRow ok>
+            {`Leads ${formatInt(leads.current)} → ${formatInt(leads.incoming)} (${signedDelta(leads.delta)})`}
+          </CheckRow>
         ) : null}
         {duplicates !== undefined ? (
-          <li className="flex items-start gap-2">
-            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-text" />
-            <span className="text-ink-secondary">{`Duplicate rows ${formatInt(duplicates)}`}</span>
-          </li>
+          <CheckRow ok={duplicates === 0}>{`Duplicate rows ${formatInt(duplicates)}`}</CheckRow>
         ) : null}
         {checks?.files_matched ? (
-          <li className="flex items-start gap-2">
-            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-text" />
-            <span className="text-ink-secondary">{`Files matched to ${agencyName} ${checks.files_matched}`}</span>
-          </li>
+          <CheckRow ok={checks.files_matched.trim() === "7 of 7"}>
+            {`Files matched to ${agencyName} ${checks.files_matched}`}
+          </CheckRow>
         ) : null}
         {encrypted !== undefined ? (
-          <li className="flex items-start gap-2">
-            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-success-text" />
-            <span className="text-ink-secondary">{`Screener answers ${encrypted ? "Encrypted" : "Not encrypted"}`}</span>
-          </li>
+          <CheckRow ok={encrypted === true}>{`Screener answers ${encrypted ? "Encrypted" : "Not encrypted"}`}</CheckRow>
         ) : null}
       </ul>
 
@@ -72,8 +80,8 @@ export function ReviewReport({ report, agencyName }: { report: Report; agencyNam
 
       {report.errors.length > 0 ? (
         <ul className="flex flex-col gap-1.5">
-          {report.errors.map((error) => (
-            <li key={`${error.code}-${error.file ?? ""}-${error.row ?? ""}`} className="flex items-start gap-2">
+          {report.errors.map((error, index) => (
+            <li key={`${error.code}-${error.file ?? ""}-${error.row ?? ""}-${index}`} className="flex items-start gap-2">
               <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-danger-text" />
               <span className="text-danger-text">{errorLabel(error)}</span>
             </li>
