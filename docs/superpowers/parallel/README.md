@@ -87,7 +87,7 @@ Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B comp
 2. **No data layer work.** Hooks come from `@/api/hooks/<domain>` and types from `@/api/types` (Wave 0). If you need a field or endpoint that isn't in `contracts/openapi`, open a **Contract Change Request** (label `ccr`); don't hack around it.
 3. **Compose the kit.** Use `app/javascript/components/ui/**` and `app/javascript/components/shared/**` read-only. If a kit component is missing a prop you need, file an issue against W0-4A/B; for a lane-specific component, build it inside your feature folder.
 4. **Mock first.** Develop in mock mode (`VITE_API_MODE=mock`, scenarios `?mock=empty|error|slow|coordinator|new`); tests use `renderWithProviders` + `mockApi` and the contract fixtures.
-5. **Both viewports, always.** Every lane's e2e runs the Playwright `desktop` (1280×800) and `mobile` (390×844) projects, saves screenshots, and the PR description includes them next to the matching `handoff/design/screenshots/` file.
+5. **Both viewports, always.** Every lane's e2e runs the Playwright `mock-desktop` (1280×800) and `mock-mobile` (390×844) projects (the `real-*` pair with `E2E_API=real`), saves screenshots, and the PR description includes them next to the matching `handoff/design/screenshots/` file.
 6. **Brand = `docs/design/brand.md`.** Tokens only (no raw hex), Inter/Outfit, pill buttons, plum text, un-tinted logo; icons from `lucide-react`.
 7. **Single-flight and dialogs.** Mutations via `useAsyncAction`; no native `alert/confirm/prompt`; no overlay on an overlay (use `ConfirmInline`).
 8. **Privacy.** Render raw screener answers only when the API response includes them; never persist passwords/tokens/keys in storage.
