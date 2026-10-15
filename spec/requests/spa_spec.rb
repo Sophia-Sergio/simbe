@@ -6,9 +6,29 @@ RSpec.describe "SPA shell", type: :request do
       get path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include('<div id="root">')
-      expect(response.body).to match(/vite|application/)
+      expect(response.body).to include("/vite-test/assets/application")
       expect(response.headers["Cache-Control"]).to include("no-cache")
     end
+  end
+
+  it "serves the shell for deep links whose first segment merely starts like a reserved prefix, and for dotted names" do
+    [ "/updates", "/upcoming/week", "/coordinators/Dana%20O.", "/leads/a.b" ].each do |path|
+      get path
+      expect(response).to have_http_status(:ok), "#{path} -> #{response.status}"
+      expect(response.body).to include('<div id="root">')
+    end
+  end
+
+  it "answers 404 for missing static files instead of the shell" do
+    get "/missing.js"
+    expect(response).to have_http_status(:not_found)
+    expect(response.body).not_to include('<div id="root">')
+  end
+
+  it "answers the JSON 404 for the bare /api prefix too" do
+    get "/api"
+    expect(response).to have_http_status(:not_found)
+    expect(response.parsed_body.dig("error", "code")).to eq("not_found")
   end
 
   it "does not swallow the API: unknown /api paths are JSON 404s" do

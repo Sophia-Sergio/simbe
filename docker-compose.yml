@@ -34,7 +34,8 @@ services:
     build: { context: ., dockerfile: Dockerfile.dev }
     command: bash -c "bundle check || bundle install; (npm ls >/dev/null 2>&1 || npm ci --no-audit); bin/vite dev"
     env_file: [.env]
-    environment: { RAILS_ENV: "${RAILS_ENV:-development}" }
+    # vite-plugin-ruby overrides server.host from VITE_RUBY_HOST (default localhost), so it must be 0.0.0.0 here or the web container cannot reach this service.
+    environment: { RAILS_ENV: "${RAILS_ENV:-development}", VITE_RUBY_HOST: "0.0.0.0" }
     ports: ["${VITE_PORTS:-3036:3036}"]
     volumes: [".:/app", "bundle_cache:/usr/local/bundle", "/app/node_modules"]
     depends_on: [web]

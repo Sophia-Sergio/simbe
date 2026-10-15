@@ -57,6 +57,36 @@ RSpec.describe "boundaries:check" do
     expect(violations_for(files, allow: [ "metrics->leads" ])).to eq([])
   end
 
+  it "catches unscope(where: :agency_id) as well as unscoped" do
+    bad = violations_for({ "app/packs/leads/app/services/x.rb" => "Lead.unscope(where: :agency_id).count\n" })
+    expect(bad.map(&:first)).to eq([ "app/packs/leads/app/services/x.rb:1" ])
+  end
+
+  it "catches fetch with a space, XMLHttpRequest and EventSource, in .js/.jsx too" do
+    files = {
+      "app/javascript/features/a/a.ts" => "fetch ('/x')\n",
+      "app/javascript/features/a/b.jsx" => "new XMLHttpRequest()\n",
+      "app/javascript/features/a/c.js" => "new EventSource('/stream')\n"
+    }
+    expect(violations_for(files).map(&:first)).to match_array(%w[
+      app/javascript/features/a/a.ts:1 app/javascript/features/a/b.jsx:1 app/javascript/features/a/c.js:1
+    ])
+  end
+
+  it "catches raw hex colors in .ts (6 and 8 digits) but not in tests or mocks" do
+    files = {
+      "app/javascript/features/a/series.ts" => "export const c = '#ff8dac'\nexport const d = '#ff8dac80'\n",
+      "app/javascript/features/a/series.test.ts" => "const c = '#ff8dac'\n",
+      "app/javascript/mocks/channels.ts" => "const c = '#1877f2'\n"
+    }
+    expect(violations_for(files).map(&:first)).to eq(%w[app/javascript/features/a/series.ts:1 app/javascript/features/a/series.ts:2])
+  end
+
+  it "ships the identity edges every pack needs (Agency and User live in identity)" do
+    edges = Boundaries.allowed_edges(Rails.root.to_s)
+    %w[leads ingest connection metrics agent mcp].each { |pack| expect(edges).to include("#{pack}->identity") }
+  end
+
   it "ignores references inside comments and a pack's own models" do
     files = {
       "app/packs/leads/app/models/lead.rb" => "class Lead; end\n",

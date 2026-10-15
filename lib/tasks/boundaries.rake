@@ -4,16 +4,16 @@ require "yaml"
 # Cross-pack edges come from config/boundaries_allowlist.yml, which only ever shrinks.
 module Boundaries
   RULES = [
-    { name: "unscoped outside the snapshot services", pattern: /\bunscoped\b/, globs: %w[app/**/*.rb lib/**/*.rb],
+    { name: "unscoped outside the snapshot services", pattern: /\bunscoped?\b/, globs: %w[app/**/*.rb lib/**/*.rb],
       allowed: [ %r{\Aapp/packs/ingest/app/services/snapshot/} ] },
     { name: "Anthropic::Client outside Ai::Client", pattern: /Anthropic::Client/, globs: %w[app/**/*.rb lib/**/*.rb],
       allowed: [ %r{\Aapp/packs/agent/app/services/ai/client\.rb\z} ] },
-    { name: "fetch( outside api/client.ts", pattern: /\bfetch\(/, globs: %w[app/javascript/**/*.{ts,tsx}],
+    { name: "network call outside api/client.ts (fetch, XMLHttpRequest, EventSource)", pattern: /\bfetch\s*\(|\bXMLHttpRequest\b|\bEventSource\b/, globs: %w[app/javascript/**/*.{ts,tsx,js,jsx}],
       allowed: [ %r{\Aapp/javascript/api/client\.ts\z}, /\.test\.tsx?\z/, %r{\Aapp/javascript/mocks/} ] },
-    { name: "native alert/confirm/prompt", pattern: /(?<![\w.$])(?:window\.)?(?:confirm|alert|prompt)\(/, globs: %w[app/javascript/**/*.{ts,tsx}],
+    { name: "native alert/confirm/prompt", pattern: /(?<![\w.$])(?:window\.)?(?:confirm|alert|prompt)\(/, globs: %w[app/javascript/**/*.{ts,tsx,js,jsx}],
       allowed: [] },
-    { name: "raw hex color outside ChannelTile", pattern: /#[0-9a-fA-F]{6}\b/, globs: %w[app/javascript/**/*.tsx],
-      allowed: [ %r{/ChannelTile\.tsx\z}, /\.test\.tsx\z/ ] }
+    { name: "raw hex color outside ChannelTile (use the brand tokens)", pattern: /#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b/, globs: %w[app/javascript/**/*.{ts,tsx,js,jsx}],
+      allowed: [ %r{/ChannelTile\.tsx\z}, /\.test\.[jt]sx?\z/, %r{\Aapp/javascript/mocks/} ] }
   ].freeze
 
   def self.allowed_edges(root)

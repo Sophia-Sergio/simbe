@@ -8,3 +8,10 @@ edges:
   - agent->leads
   - mcp->agent
   - identity->leads
+  # identity owns Agency and User, the tenant root every pack refers to (jobs and services that have no Current.agency load it by id).
+  - leads->identity
+  - ingest->identity
+  - connection->identity
+  - metrics->identity
+  - agent->identity
+  - mcp->identity
