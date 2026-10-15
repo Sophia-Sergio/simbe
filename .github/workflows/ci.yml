@@ -1,0 +1,64 @@
+# Minimal pipeline for the scaffold. W0-7 replaces it with the full one (guards, contract, e2e, image build, deploy).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ruby:
+    name: Ruby
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: simbe
+          POSTGRES_PASSWORD: simbe
+          POSTGRES_DB: simbe_development
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U simbe" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://simbe:simbe@localhost:5432/simbe_development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund # the SPA request spec builds the Vite entrypoint
+      - run: bin/rails db:prepare
+      - run: bundle exec rubocop
+      - run: bin/rails zeitwerk:check boundaries:check
+      - run: bundle exec rspec
+
+  js:
+    name: JS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: e2e/screenshots
+          if-no-files-found: ignore

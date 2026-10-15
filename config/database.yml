@@ -1,0 +1,24 @@
+# PostgreSQL 16. One database per environment; Solid Queue lives in the primary
+# database (no separate queue DB). The host/credentials always come from
+# DATABASE_URL (set by docker-compose, per-worktree isolated by bin/worktree-env);
+# the test pool only rewrites the database name to simbe_test.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  # For details on connection pooling, see Rails configuration guide
+  # https://guides.rubyonrails.org/configuring.html#database-pooling
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV["DATABASE_URL"] %>
+
+development:
+  <<: *default
+
+# Warning: The database defined as "test" will be erased and
+# re-generated from your development database when you run "rake".
+# Do not set this db to the same as development or production.
+test:
+  <<: *default
+  url: <%= ENV["DATABASE_URL"]&.sub(%r{/[^/]+\z}, "/simbe_test") %>
+
+production:
+  <<: *default

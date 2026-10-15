@@ -1,0 +1,17 @@
+# Cross-pack edges allowed by `rails boundaries:check` ("from->to": the `from` pack may reference models of the `to` pack).
+# This list only shrinks: never add an entry; if a change seems to need one, stop and ask (docs/conventions/security.md).
+edges:
+  - ingest->leads
+  - leads->ingest
+  - metrics->leads
+  - agent->metrics
+  - agent->leads
+  - mcp->agent
+  - identity->leads
+  # identity owns Agency and User, the tenant root every pack refers to (jobs and services that have no Current.agency load it by id).
+  - leads->identity
+  - ingest->identity
+  - connection->identity
+  - metrics->identity
+  - agent->identity
+  - mcp->identity

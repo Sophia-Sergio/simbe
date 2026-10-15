@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Simbe</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <link rel="icon" href="/brand/simbe-mark.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600&display=swap">
+    <%= vite_client_tag %>
+    <%= vite_react_refresh_tag %>
+    <%= vite_javascript_tag "application.tsx" %>
+  </head>
+  <body>
+    <%= yield %>
+  </body>
+</html>

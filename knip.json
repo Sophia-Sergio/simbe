@@ -1,0 +1,28 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "app/javascript/entrypoints/application.tsx",
+    "app/javascript/features/*/feature.ts",
+    "app/javascript/mocks/**/*.{ts,tsx}",
+    "app/javascript/**/*.test.{ts,tsx}",
+    "e2e/**/*.ts",
+    "tailwind.config.ts",
+    "playwright.config.ts"
+  ],
+  "project": [
+    "app/javascript/**/*.{ts,tsx}",
+    "e2e/**/*.ts"
+  ],
+  "ignore": [
+    "app/javascript/api/generated/**"
+  ],
+  "ignoreDependencies": [
+    "@tanstack/react-query",
+    "@testing-library/react",
+    "@testing-library/user-event",
+    "msw",
+    "ajv",
+    "ajv-formats",
+    "wait-on"
+  ]
+}
