@@ -47,11 +47,12 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || pending}
       aria-busy={pending ? true : undefined}
-      data-pending={pending ? "true" : undefined}
       className={`relative ${buttonClasses(variant, size, className)}`}
       {...rest}
     >
-      <span className={`inline-flex items-center gap-2 ${pending ? "invisible" : ""}`}>
+      {/* `opacity-0`, not `invisible`: visibility:hidden would drop the label from the
+          accessible name in real browsers while the button is pending. */}
+      <span className={`inline-flex items-center gap-2 ${pending ? "opacity-0" : ""}`}>
         {leftIcon}
         {children}
       </span>

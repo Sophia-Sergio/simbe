@@ -47,6 +47,19 @@ it("renders an icon-only button through its aria-label", () => {
   expect(screen.getByRole("button", { name: "Ask Simbe" })).toBeInTheDocument()
 })
 
+it("keeps the pending label in the accessibility tree", () => {
+  render(<Button pending>Save</Button>)
+  const label = screen.getByText("Save")
+  // The accessible name must survive `pending`: a real browser drops labels hidden with
+  // visibility:hidden, and jsdom would not catch that.
+  expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument()
+  expect(label).not.toHaveAttribute("aria-hidden")
+  expect(label).not.toHaveAttribute("hidden")
+  expect(label.className).toContain("opacity-0")
+  expect(label.className).not.toContain("invisible")
+  expect(label.className).not.toContain("sr-only")
+})
+
 it("LinkButton renders an anchor with an href", () => {
   render(
     <MemoryRouter>
