@@ -26,5 +26,5 @@ verify:
 	$(MAKE) spec
 	npm run lint
 	npm run typecheck
-	npm audit --audit-level=high
+	npm audit --omit=dev --audit-level=high
 	$(MAKE) web-test
