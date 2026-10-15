@@ -18,6 +18,9 @@ const ALIGN: Record<"left" | "center" | "right", string> = {
 // List cards are 16px per docs/design/brand.md (rounded-row), not the 20px card radius.
 const CARD_CLASS = "w-full rounded-row border border-line bg-surface p-3 text-left shadow-card"
 
+// Nested controls keep their own click behaviour; the row handler stays out of their way.
+const INTERACTIVE = "a, button, input, select, textarea, [role='button'], [role='link']"
+
 function cellValue<T>(row: T, column: Column<T>): ReactNode {
   if (column.render) return column.render(row)
   const value = (row as Record<string, unknown>)[column.key]
@@ -100,7 +103,9 @@ export function Table<T>({
                 onClick={
                   onRowClick
                     ? (event) => {
-                        if (event.target === event.currentTarget) onRowClick(row)
+                        // A click anywhere on the row (including its cells) opens it, except on a nested control.
+                        const control = (event.target as HTMLElement).closest(INTERACTIVE)
+                        if (!control || control === event.currentTarget || !event.currentTarget.contains(control)) onRowClick(row)
                       }
                     : undefined
                 }

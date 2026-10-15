@@ -94,3 +94,17 @@ it("renders an em dash for missing cell values", () => {
   render(<Table columns={columns} rows={[{ id: "2", name: "Referral", leads: null as unknown as number }]} rowKey={(row) => row.id} />)
   expect(screen.getByText("—")).toBeInTheDocument()
 })
+
+it("opens a clickable row when a plain cell is clicked (not only the row element itself)", async () => {
+  const onRowClick = vi.fn()
+  render(
+    <Table
+      columns={[{ key: "name", header: "Name" }]}
+      rows={[{ name: "Facebook" }]}
+      rowKey={(row) => row.name}
+      onRowClick={onRowClick}
+    />,
+  )
+  await userEvent.click(screen.getByRole("cell", { name: "Facebook" }))
+  expect(onRowClick).toHaveBeenCalledTimes(1)
+})
