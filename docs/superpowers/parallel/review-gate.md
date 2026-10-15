@@ -7,7 +7,7 @@ Goal: nothing built by an agent reaches GitHub, or gets built on by the next lan
 1. **Evidence over claims.** An agent saying "tests pass" counts for nothing; I re-run the plan's commands and read the output.
 2. **Agents cannot publish.** OpenCode runs with a locked-down permission set: no `git push`, no `gh`, no remotes, no `fly`, no writes outside its worktree. It can only commit locally. Pushing and opening PRs is done by `bin/lane pr`, which refuses without a recorded human approval for the **exact commit**.
 3. **One step at a time, widening only when earned** (trust ladder, §5).
-4. **You decide what ships.** I never merge; I never push without your explicit "go" for that lane.
+4. **You decide what ships.** I never push without your explicit "go": per lane at the pilot, **per batch** from trust level 1 (§5). Only lanes you approved in a batch merge automatically (squash auto-merge on green required checks).
 5. **Everything is auditable**: event logs, review reports and approvals live in `.superpowers/gate/<LANE>/` (git-ignored, local).
 
 ## 2. The gates
@@ -18,8 +18,8 @@ Goal: nothing built by an agent reaches GitHub, or gets built on by the next lan
 | **G1 Handoff** | Claude Code → OpenCode | Lane plan handed to OpenCode in the worktree, headless, under the locked-down config, with a timeout. It must commit after every task and finish with an honest summary | `bin/lane run <LANE> --model <provider/model>` → `opencode.<ts>.jsonl` |
 | **G2 Independent verification** | Claude Code | Mechanical report (clean tree, ownership, one commit per task, secrets/skips/TODO/debug flags, new dependencies) **plus I re-run the plan's "Done when" commands and `make verify` myself** and compare with the agent's claims | `bin/lane review <LANE>` → `review.md`; command outputs pasted in my report |
 | **G3 Code review** | Claude Code | Judgement review of the diff against the lane plan, its spec, `docs/conventions/`, `docs/design/brand.md`: test quality (fail-first, no snapshot-only), tenancy/privacy, contract conformance, both-viewport screenshots vs the handoff image, no speculative abstractions. Findings go back to OpenCode (same session, `--session`) for at most **2 fix rounds**; then I fix or escalate | review findings list; re-run G2 after every round |
-| **G4 Your approval** | **You** | I show you: verdict, evidence, deviations, risks, screenshots, what the lane unblocks. You say "go" or "change X". Only then: `bin/lane approve <LANE> --by <you>` and `bin/lane pr` | `approved.json` (bound to the exact HEAD) |
-| **G5 Merge** | **You** | You merge the PR. The next lane starts only after the merge and a fresh G0 | GitHub |
+| **G4 Your approval (per batch)** | **You** | One report for every lane that passed G2 + G3 since the last report (also saved in `.superpowers/orchestrator/batches/`): per lane the verdict, evidence, deviations, risks, screenshots, what it unblocks. You answer `go`, `go except <LANE>` or `change <LANE>: …`. Only then, per approved lane: `bin/lane approve <LANE> --by <you> --note "batch <ts>"` and `bin/lane pr`. At level 0 a batch is one lane | `approved.json` (bound to the exact HEAD) |
+| **G5 Merge** | GitHub auto-merge · **you** at level 0 | Batch-approved lanes merge by squash auto-merge when every required check, including `claude-review`, is green; your batch "go" is the merge authorization. Post-approval commits (CI fix, rebase) are re-verified and re-approved under the same "go" only if they stay inside the lane's `Owns` and pass G2 plus a delta review; anything else waits for the next batch. The pilot is merged by you (`bin/lane pr --no-auto-merge`). New lanes start from `bin/lane next` after a fresh G0 | GitHub |
 
 If a lane fails G2/G3 twice, I stop and tell you why instead of continuing.
 
@@ -43,7 +43,7 @@ If a lane fails G2/G3 twice, I stop and tell you why instead of continuing.
 | Level | Rule | Move up when |
 |---|---|---|
 | **0 – Pilot** | One lane at a time, starting with **W0-1** (the scaffold everything depends on). I show you the full G2 evidence and G3 findings; you approve each push | The first 2 lanes passed with ≤ 1 fix round and no hard stops, and the canary still passes |
-| **1 – Small batch** | Up to 3 independent lanes in parallel (different packs/features); one combined report, **one approval per lane** | 5 more lanes merged with no post-merge regressions on `main` |
+| **1 – Small batch** | Up to 3 independent lanes in parallel (different packs/features); one combined report, **one approval per batch** (`go` / `go except <LANE>`), auto-merge on green | 5 more lanes merged with no post-merge regressions on `main` |
 | **2 – Wave batch** | A whole wave (e.g. the 5 backend lanes) in parallel; I review each, you approve per wave with per-lane evidence available | Wave 1 merged green; W3-1 integration passes |
 
 Any hard stop, post-merge regression or canary failure drops us one level.

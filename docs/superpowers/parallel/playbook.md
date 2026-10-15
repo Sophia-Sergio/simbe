@@ -104,6 +104,26 @@ For each lane PR, in this order — the plan's "Done when" block is the checklis
 
 Rule of thumb: **one reviewer-hour per ~4 concurrent lanes**. If PRs pile up, don't start the next batch.
 
+## 6b. Conductor mode (Claude Code drives many OpenCode lanes)
+
+Design: [`../specs/2026-10/2026-10-14-2330-lane-conductor-design.md`](../specs/2026-10/2026-10-14-2330-lane-conductor-design.md). Ask Claude Code to "conduct": it repeats this loop, with every OpenCode run and CI wait as a background job, and only interrupts you for a batch report or a stop.
+
+```bash
+bin/lane state set-models top=<provider/model> mid=<provider/model> cheap=<provider/model>   # once
+bin/lane next                          # lanes whose prerequisites are merged, critical path first, within the caps (bin/lane state show)
+bin/lane start <LANE> && bin/lane run <LANE>          # background; records phase + OpenCode session id
+bin/lane run <LANE> --session <id>     # a run ends when the model ends its turn: count commits against the plan's tasks and resume until all are committed
+bin/lane review <LANE>                 # G2, plus the plan's Done-when commands re-run in the worktree; G3 by a fresh subagent per lane
+bin/lane run <LANE> --session <id> --prompt-file <findings.md>   # fix rounds (max 2) with the exact findings
+# batch report -> you: go / go except <LANE> / change <LANE>: …
+bin/lane approve <LANE> --by <you> --note "batch <ts>" && (cd .worktrees/<lane> && bin/lane pr)   # PR, claude-review, auto-merge
+bin/lane ci <LANE>                     # background; red -> failing logs back to the session (max 2), then re-approve + bin/lane pr updates the PR
+bin/lane rebase <LANE>                 # every open lane, after a ccr merge
+bin/lane stop <LANE>                   # after merge; then bin/lane next again
+```
+
+Caps (`bin/lane state set-caps`): 4 running, 5 Docker stacks (non-`F-*` lanes), 4 waiting for review/CI. While any run is active nobody edits the main checkout (it trips the run's tripwire).
+
 ## 7. Keeping it orderly
 
 - **Tracking:** `bin/lane status` (from GitHub) is the source of truth; every lane has exactly one branch `lane/<ID>-<slug>` and one PR. No shared status file to conflict on.
