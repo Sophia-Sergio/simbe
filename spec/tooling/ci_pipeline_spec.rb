@@ -92,7 +92,7 @@ RSpec.describe "CI pipeline" do
           problems, _ = mod.problems_for(open(#{path.inspect}).read(), #{local.inspect})
           print("\\n".join(problems))
         PY
-        out, status = Open3.capture2("python3", "-c", load_helper)
+        out, status = Open3.capture2({ "PYTHONDONTWRITEBYTECODE" => "1" }, "python3", "-c", load_helper)
         raise "helper failed" unless status.success?
         out.lines.map(&:strip).reject(&:empty?)
       end
