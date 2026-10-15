@@ -18,14 +18,17 @@ const centMoney = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 2,
 })
 
+const twoDecimals = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 })
+
+/** Absent, NaN and ±Infinity all render as the placeholder. */
 function missing(value: number | null | undefined): boolean {
-  return value === null || value === undefined || Number.isNaN(value)
+  return value === null || value === undefined || !Number.isFinite(value)
 }
 
 /** Cents → `$283` at ≥ $100, `$45.50` below it, `—` when absent. */
 export function formatMoney(cents: number | null | undefined): string {
   if (missing(cents)) return "—"
-  const dollars = (cents as number) / 100
+  const dollars = Math.round(cents as number) / 100
   return Math.abs(dollars) >= 100 ? wholeMoney.format(dollars) : centMoney.format(dollars)
 }
 
@@ -38,7 +41,9 @@ export function formatInt(n: number | null | undefined): string {
 /** `14.14` → `14.1%` (one decimal by default); `—` when absent. */
 export function formatPct(n: number | null | undefined, digits = 1): string {
   if (missing(n)) return "—"
-  return `${(n as number).toFixed(digits)}%`
+  const rounded = Number((n as number).toFixed(digits))
+  const normalised = Object.is(rounded, -0) ? 0 : rounded
+  return `${normalised.toFixed(digits).replace("-", "−")}%`
 }
 
 export type DeltaTone = "up" | "down" | "none"
@@ -46,17 +51,18 @@ export type DeltaTone = "up" | "down" | "none"
 /**
  * Signed delta text + tone. Percentage point deltas print without a suffix
  * (the caller writes `pp` in the label); `null` renders empty, `0` stays silent.
+ * The value is rounded to two decimals *before* the zero test, so `0.004` is
+ * neutral rather than `+0%`.
  */
 export function formatDelta(
   n: number | null | undefined,
   unit: "%" | "pp" = "%",
 ): { text: string; tone: DeltaTone } {
   if (missing(n)) return { text: "", tone: "none" }
-  const value = n as number
-  if (value === 0) return { text: unit === "%" ? "0%" : "0", tone: "none" }
-  const sign = value > 0 ? "+" : "−"
-  const body = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(Math.abs(value))
-  return { text: `${sign}${body}${unit === "%" ? "%" : ""}`, tone: value > 0 ? "up" : "down" }
+  const rounded = Math.round((n as number) * 100) / 100
+  if (rounded === 0) return { text: unit === "%" ? "0%" : "0", tone: "none" }
+  const sign = rounded > 0 ? "+" : "−"
+  return { text: `${sign}${twoDecimals.format(Math.abs(rounded))}${unit === "%" ? "%" : ""}`, tone: rounded > 0 ? "up" : "down" }
 }
 
 /** `22.5` → `23m`, `130` → `2h 10m`, `4400` → `3d`; `—` when absent. */
@@ -80,12 +86,36 @@ const DATE_OPTIONS: Record<DateStyle, Intl.DateTimeFormatOptions> = {
   time: { hour: "numeric", minute: "2-digit", hour12: true },
 }
 
-/** `oct 1`, `Thursday Oct 1` or `9:14 am`, rendered in the agency's time zone. */
+// Intl formatters are expensive to build and formatDate runs per pipeline card
+// (~3,500 of them), so cache one per tz+style.
+const formatterCache = new Map<string, Intl.DateTimeFormat>()
+
+function safeTimeZone(tz: string): string {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz })
+    return tz
+  } catch {
+    return "UTC"
+  }
+}
+
+function dateFormatter(tz: string, style: DateStyle): Intl.DateTimeFormat {
+  const zone = safeTimeZone(tz || "UTC")
+  const key = `${zone}|${style}`
+  let formatter = formatterCache.get(key)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", { timeZone: zone, ...DATE_OPTIONS[style] })
+    formatterCache.set(key, formatter)
+  }
+  return formatter
+}
+
+/** `Oct 1`, `Thursday Oct 1` or `9:14 am`, rendered in the agency's time zone. */
 export function formatDate(iso: string | null | undefined, tz: string, style: DateStyle = "short"): string {
   if (!iso) return "—"
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return "—"
-  const formatted = new Intl.DateTimeFormat("en-US", { timeZone: tz, ...DATE_OPTIONS[style] }).format(date)
+  const formatted = dateFormatter(tz, style).format(date)
   if (style === "long") return formatted.replace(",", "")
   if (style === "time") return formatted.toLowerCase()
   return formatted
