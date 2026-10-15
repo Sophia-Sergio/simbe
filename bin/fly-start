@@ -1,0 +1,5 @@
+#!/bin/bash -e
+# Production entrypoint (CMD in the image). Thruster listens on HTTP_PORT (8080) and proxies to
+# Rails on TARGET_PORT (3000). Solid Queue runs inside the Puma process (SOLID_QUEUE_IN_PUMA=true),
+# so the Fly machine must never scale to zero (see fly.toml).
+exec ./bin/thrust ./bin/rails server

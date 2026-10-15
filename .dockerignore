@@ -1,0 +1,18 @@
+# The production image needs the app + Gemfile + package.json only. Keep the build context small
+# and make sure no secret, export or local-only material can ever be copied in.
+.git
+.worktrees
+.superpowers
+node_modules
+public/vite*
+handoff
+docs
+e2e
+**/.env*
+**/*.csv
+!spec/fixtures/**/*.csv
+log
+tmp
+storage
+coverage
+test-results

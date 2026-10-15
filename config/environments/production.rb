@@ -15,8 +15,13 @@ Rails.application.configure do
   # Turn on fragment caching in view templates.
   config.action_controller.perform_caching = true
 
+  # Serve the Vite build (public/vite) and the rest of public/ from Rails/Thruster.
+  # Fly sets RAILS_SERVE_STATIC_FILES=true (it is also baked into the image env).
+  config.public_file_server.enabled = ENV["RAILS_SERVE_STATIC_FILES"].present?
+
   # Cache assets for far-future expiry since they are all digest stamped.
-  config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
+  # Vite hashes the filenames under public/vite/assets, so they can be cached immutably.
+  config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}, immutable" }
 
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
@@ -39,6 +44,14 @@ Rails.application.configure do
 
   # Prevent health checks from clogging up the logs.
   config.silence_healthcheck_path = "/up"
+
+  # One structured (JSON) line per request. Lograge omits raw params by default; only the
+  # request id and time are added. Sensitive keys stay filtered (see filter_parameters below).
+  config.lograge.enabled = true
+  config.lograge.formatter = Lograge::Formatters::Json.new
+  config.lograge.custom_options = lambda do |event|
+    { request_id: event.payload[:request_id], time: event.time }
+  end
 
   # Don't log any deprecations.
   config.active_support.report_deprecations = false
@@ -75,6 +88,11 @@ Rails.application.configure do
 
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
+
+  # docs/conventions/sensitive-data.md: credentials and lead health data never reach the logs.
+  # (Also set globally by config/initializers/filter_parameter_logging.rb; reinforced here so the
+  # production environment is safe even if that initializer changes.)
+  config.filter_parameters += %i[password token answer email phone key]
 
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
