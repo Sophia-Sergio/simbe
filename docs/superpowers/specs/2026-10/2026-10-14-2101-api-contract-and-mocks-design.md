@@ -6,7 +6,7 @@
 Make the HTTP contract executable: a validated OpenAPI file, generated TypeScript types and typed hooks, an in-browser/in-test mock API, and conformance checks on both ends — so frontend lanes run with no backend and backend lanes can't silently drift from what the UI expects.
 
 ## Findings
-- `contracts/openapi/` (committed with this spec) defines 38 operations with Alpha-derived examples that lint clean once bundled (`contracts/README.md`).
+- `contracts/openapi/` (committed with this spec) defines 39 operations with Alpha-derived examples that lint clean once bundled (`contracts/README.md`).
 - The existing UI plans already name hooks and payload shapes (`useSummary`, `useBoard`, `useToggleDone`, …) and mock with `mockApi({...})` keyed by `"METHOD path"` — these names are kept so those plans stay valid.
 - Stateful UI flows need a mock that remembers (Done toggles, team invites, upload review → commit, ad connections), which a static mock server (Prism) cannot do.
 - Real behavior must still be validated by someone: OpenAPI-driven request/response validation on the Rails side catches drift automatically.
@@ -27,7 +27,7 @@ Make the HTTP contract executable: a validated OpenAPI file, generated TypeScrip
 Mocking the MCP JSON-RPC endpoint, a mock for the CSV importer's heavy validation (the upload mock fakes a plausible report from file names), Prism/Stoplight hosting, GraphQL, contract versioning.
 
 ## Acceptance criteria
-1. `make contract` exits 0 (bundle + lint with examples validated) and `grep -c "operationId:" contracts/openapi/paths/*.yaml | awk -F: '{s+=$2} END {exit !(s==38)}'` exits 0.
+1. `make contract` exits 0 (bundle + lint with examples validated) and `grep -c "operationId:" contracts/openapi/paths/*.yaml | awk -F: '{s+=$2} END {exit !(s==39)}'` exits 0.
 2. `make types && git diff --exit-code frontend/src/api/generated` exits 0 (types committed and current).
 3. `make web-test ARGS=src/api src/mocks` passes, including `src/mocks/conformance.test.ts` (every operation has a handler; every default response validates).
 4. `VITE_API_MODE=mock make web-dev` then signing in as `erin@harbor.test` shows the shell with no Rails server running: `docker compose stop api && make e2e ARGS=mock-smoke` passes.
