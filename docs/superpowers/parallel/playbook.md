@@ -2,7 +2,7 @@
 
 How to actually run the 32 lanes with the three tools, in what order, with how many agents, and how to keep it orderly. Lane list and rules: [`README.md`](./README.md). Everything below uses `bin/lane` (start, check, pr, status, stop).
 
-> **Controlled handoffs:** when Claude Code hands lanes to OpenCode, follow the [review gate](./review-gate.md): locked-down headless runs, independent verification, a recorded human approval before anything is pushed, and a trust ladder that starts with one lane at a time.
+> **Controlled handoffs:** when Claude Code hands lanes to OpenCode, follow the [review gate](./review-gate.md): locked-down headless runs, independent verification, a recorded approval (your batch "go") before anything is pushed, and a trust ladder that starts with one lane at a time.
 
 ## 1. The idea in one paragraph
 
@@ -104,9 +104,29 @@ For each lane PR, in this order — the plan's "Done when" block is the checklis
 
 Rule of thumb: **one reviewer-hour per ~4 concurrent lanes**. If PRs pile up, don't start the next batch.
 
+## 6b. Conductor mode (Claude Code drives many OpenCode lanes)
+
+Design: [`../specs/2026-10/2026-10-14-2330-lane-conductor-design.md`](../specs/2026-10/2026-10-14-2330-lane-conductor-design.md). Ask Claude Code to "conduct": it repeats this loop, with every OpenCode run and CI wait as a background job, and only interrupts you for a batch report or a stop.
+
+```bash
+bin/lane state set-models top=<provider/model> mid=<provider/model> cheap=<provider/model>   # once
+bin/lane next                          # lanes whose prerequisites are merged, critical path first, within the caps (bin/lane state show)
+bin/lane start <LANE> && bin/lane run <LANE>          # background; records phase + OpenCode session id
+bin/lane run <LANE> --session <id>     # a run ends when the model ends its turn: count commits against the plan's tasks and resume until all are committed
+bin/lane review <LANE>                 # G2, plus the plan's Done-when commands re-run in the worktree; G3 by a fresh subagent per lane
+bin/lane run <LANE> --session <id> --prompt-file <findings.md>   # fix rounds (max 2) with the exact findings
+# batch report -> you: go / go except <LANE> / change <LANE>: …
+bin/lane approve <LANE> --by <you> --note "batch <ts>" && (cd .worktrees/<lane> && bin/lane pr)   # PR, claude-review, auto-merge
+bin/lane ci <LANE>                     # background; red -> failing logs back to the session (max 2), then re-approve + bin/lane pr updates the PR
+bin/lane rebase <LANE>                 # every open lane, after a ccr merge
+bin/lane stop <LANE>                   # after merge; then bin/lane next again
+```
+
+Caps (`bin/lane state set-caps`): 4 running, 5 Docker stacks (non-`F-*` lanes), 4 waiting for review/CI. While any run is active nobody edits the main checkout (it trips the run's tripwire).
+
 ## 7. Keeping it orderly
 
-- **Tracking:** `bin/lane status` (from GitHub) is the source of truth; every lane has exactly one branch `lane/<ID>-<slug>` and one PR. No shared status file to conflict on.
+- **Tracking:** `bin/lane status` (from GitHub) is the source of truth; every lane has exactly one branch `lane/<ID>-<slug>` and one PR. The conductor's phase/session/attempt state lives in one git-ignored file in the main checkout (`bin/lane state show`), written under a lock, so parallel `bin/lane` processes never clobber each other; it is not tracked by git and never conflicts.
 - **History:** one commit per plan task (`feat(<lane>): task N – …`); PRs are squash-merged, so `main` has one commit per lane.
 - **Specs/plans travel with code**: plans' checkboxes may be ticked in the lane's PR (allowed outside `Owns`); don't edit other plans.
 - **Conflicts:** `routes`, nav, isolation, rack_attack are per-lane files, so conflicts should not occur; if one does, it's a lane-definition bug — stop and report it.

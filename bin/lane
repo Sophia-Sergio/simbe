@@ -12,10 +12,14 @@
   bin/lane status                       who is doing what (branches/PRs from GitHub)
   bin/lane graph [--file F --write|--check]   dependency diagram + table generated from the plans' 'Depends on' lines
   bin/lane stop F-WEEK                  tear down the worktree's docker stack and remove the worktree
+  bin/lane next [--json] [--assume-merged IDS] [--limit N]   lanes that may start now (conductor)
+  bin/lane state show|set|set-caps|set-models …              conductor state (.superpowers/orchestrator/state.json or $LANE_STATE)
+  bin/lane ci F-WEEK                    wait for the PR checks; print failing job logs
+  bin/lane rebase F-WEEK                rebase the lane on origin/main and print a range-diff
 
 Guide: docs/superpowers/parallel/playbook.md
 """
-import argparse, os, re, subprocess, sys, glob, json
+import argparse, contextlib, fcntl, os, re, subprocess, sys, glob, json, tempfile, time, datetime
 
 def sh(*cmd, cwd=None, check=True, capture=True):
     r = subprocess.run(cmd, cwd=cwd, text=True, capture_output=capture)
@@ -140,12 +144,32 @@ def cmd_check(a):
 
 def cmd_pr(a):
     l = get_lane(a.lane or current_lane())
-    if not a.skip_gate: require_approval(l)
+    state = load_state()  # a corrupt state file must stop us BEFORE anything is published
+    wt = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower()); top = os.path.realpath(sh("git", "rev-parse", "--show-toplevel"))
+    if os.path.isdir(wt) and top != os.path.realpath(wt): sys.exit(f"gate: run this from the lane's worktree ({wt}); you are in {top}")
+    rec = state["lanes"].get(l["id"], {})
+    if rec.get("phase") in ("running", "fixing"): sys.exit(f"gate: {l['id']} is in phase {rec['phase']!r}; wait for the run to finish, then verify, review and approve again before publishing")
+    branch = sh("git", "branch", "--show-current")
+    if not branch: sys.exit("gate: detached HEAD; check out the lane branch first")
+    sha = sh("git", "rev-parse", "HEAD")  # pinned: the approval check, the push and the claude-review status below all act on this commit
+    if not a.skip_gate: require_approval(l, sha)
     cmd_check(argparse.Namespace(lane=l["id"], base=a.base, ccr=False))
     if a.dry_run:
-        print("dry run: would push, open the PR, post the `claude-review` status on the reviewed commit" + (" and enable auto-merge (squash)" if a.auto_merge else "")); return
-    sh("git", "push", "-u", "origin", "HEAD", capture=False)
-    body = f"""## Lane {l['id']} (wave {l['wave']})
+        print("dry run: would push, open or update the PR, post the `claude-review` status on the reviewed commit" + (" and enable auto-merge (squash)" if a.auto_merge else "")); return
+    existing = open_pr_for(branch)
+    if existing:
+        # A fix round or a rebase after approval: update the same PR. The lease names the head this tool last published, so a commit pushed by
+        # someone else is never overwritten (a plain --force-with-lease is defeated by any `git fetch`, which rebase and start both run).
+        leased = rec.get("head")
+        if not leased: sys.exit(f"gate: no recorded published head for {l['id']}; set it first: bin/lane state set {l['id']} head=<sha of the PR's current head>")
+        sh("git", "push", f"--force-with-lease=refs/heads/{branch}:{leased}", "origin", f"{sha}:refs/heads/{branch}", capture=False)
+        url = existing["url"]; print(f"updated {url}")
+    else:
+        merged = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "merged", "--json", "url") or "[]")
+        if merged: sys.exit(f"gate: {l['id']} already merged ({merged[0]['url']}); nothing to publish")
+        sh("git", "push", "origin", f"{sha}:refs/heads/{branch}", capture=False)
+        sh("git", "branch", "--set-upstream-to", f"origin/{branch}", check=False)
+        body = f"""## Lane {l['id']} (wave {l['wave']})
 
 Plan: `{l['rel']}`
 
@@ -158,34 +182,46 @@ Plan: `{l['rel']}`
 
 ## Outputs / screenshots
 """
-    for lab, col in (("lane", "0E8A16"), (f"wave-{l['wave']}", "1D76DB")):
-        sh("gh", "label", "create", lab, "--color", col, check=False)
-    cmd = ["gh", "pr", "create", "--base", "main", "--title", f"{l['id']}: {l['title'].split(' — ')[0]}", "--body", body, "--label", f"lane,wave-{l['wave']}"]
-    if a.draft: cmd.append("--draft")
-    url = sh(*cmd); print(url)
+        for lab, col in (("lane", "0E8A16"), (f"wave-{l['wave']}", "1D76DB")):
+            sh("gh", "label", "create", lab, "--color", col, check=False)
+        cmd = ["gh", "pr", "create", "--base", "main", "--title", f"{l['id']}: {l['title'].split(' — ')[0]}", "--body", body, "--label", f"lane,wave-{l['wave']}"]
+        if a.draft: cmd.append("--draft")
+        url = sh(*cmd); print(url)
     # The reviewer's approval is bound to the exact commit: publish it as the `claude-review` commit status that branch protection requires.
-    head, repo = sh("git", "rev-parse", "HEAD"), sh("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
+    repo = sh("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
     ap = json.load(open(os.path.join(gate_dir(l), "approved.json"))) if os.path.exists(os.path.join(gate_dir(l), "approved.json")) else {}
-    sh("gh", "api", "-X", "POST", f"repos/{repo}/statuses/{head}", "-f", "state=success", "-f", "context=claude-review",
+    sh("gh", "api", "-X", "POST", f"repos/{repo}/statuses/{sha}", "-f", "state=success", "-f", "context=claude-review",
        "-f", f"description=reviewed by {ap.get('by', 'reviewer')} (independent verification + code review)"[:140])
-    print(f"posted claude-review=success on {head[:9]}")
+    print(f"posted claude-review=success on {sha[:9]}")
+    auto = False
     if a.auto_merge and not a.draft:
         r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash", "--delete-branch"], text=True, capture_output=True)
-        print("auto-merge enabled (merges when the required checks are green)" if r.returncode == 0 else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
+        auto = r.returncode == 0
+        print("auto-merge enabled (merges when the required checks are green)" if auto else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
+    # `ci` means the PR is open with auto-merge on; otherwise it is approved and waiting for a human to merge.
+    safe_update(l["id"], phase="ci" if auto else "approved", pr=url, head=sha)
 
-def cmd_status(a):
-    prs = json.loads(sh("gh", "pr", "list", "--state", "all", "--limit", "300", "--json", "headRefName,state,url,isDraft"))
+def lane_states(ls):
+    """lane -> (state, link) from GitHub: merged / PR open / draft PR / in progress / not started."""
+    prs = json.loads(sh("gh", "pr", "list", "--state", "all", "--limit", "300", "--json", "headRefName,state,url,isDraft") or "[]")
     heads = sh("git", "ls-remote", "--heads", "origin", "lane/*").splitlines()
     branches = [h.split("refs/heads/")[1] for h in heads if "refs/heads/" in h]
-    print(f"{'LANE':<14}{'WAVE':<6}{'STATE':<16}LINK")
-    for l in sorted(lanes().values(), key=lambda x: (x["wave"], x["id"])):
-        pre = f"lane/{l['id']}-"
+    out = {}
+    for k in ls:
+        pre = f"lane/{k}-"
         mine = [p for p in prs if p["headRefName"].startswith(pre)]
-        if any(p["state"] == "MERGED" for p in mine): state, link = "merged", next(p["url"] for p in mine if p["state"] == "MERGED")
+        if any(p["state"] == "MERGED" for p in mine): out[k] = ("merged", next(p["url"] for p in mine if p["state"] == "MERGED"))
         elif any(p["state"] == "OPEN" for p in mine):
-            p = next(p for p in mine if p["state"] == "OPEN"); state, link = ("draft PR" if p["isDraft"] else "PR open"), p["url"]
-        elif any(b.startswith(pre) for b in branches): state, link = "in progress", next(b for b in branches if b.startswith(pre))
-        else: state, link = "not started", ""
+            p = next(p for p in mine if p["state"] == "OPEN"); out[k] = ("draft PR" if p["isDraft"] else "PR open", p["url"])
+        elif any(b.startswith(pre) for b in branches): out[k] = ("in progress", next(b for b in branches if b.startswith(pre)))
+        else: out[k] = ("not started", "")
+    return out
+
+def cmd_status(a):
+    ls = lanes(); st = lane_states(ls)
+    print(f"{'LANE':<14}{'WAVE':<6}{'STATE':<16}LINK")
+    for l in sorted(ls.values(), key=lambda x: (x["wave"], x["id"])):
+        state, link = st[l["id"]]
         print(f"{l['id']:<14}{l['wave']:<6}{state:<16}{link}")
 
 SHORT = {"W0-1": "Rails scaffold", "W0-2": "Contract tooling + mocks", "W0-3": "Backend core", "W0-4A": "UI kit primitives", "W0-4B": "UI kit data-viz",
@@ -280,7 +316,7 @@ def cmd_graph(a):
 # ---------------------------------------------------------------- review gate (see docs/superpowers/parallel/review-gate.md)
 GATE_ROOT = os.path.join(MAIN_ROOT, ".superpowers", "gate")
 RED_FLAGS = [
-    ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|\bpending\b|\bskip\b\s*[\"'(:])"),
+    ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|(?:^|;)\s*pending\s*(?:\(|[\"'])|\bskip\b\s*[\"'(:])"),
     ("TODO/FIXME/HACK", r"\b(TODO|FIXME|HACK|XXX)\b"),
     ("debug leftovers", r"(console\.log\(|binding\.pry|byebug|\bdebugger\b|\bputs\s+[\"'#])"),
     ("secret-looking value", r"(sk-ant-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"),
@@ -316,28 +352,43 @@ def require_lane_agent(project_dir):
         sys.exit(f"gate: {cfg} must define the headless `lane` agent (merge the opencode.json PR first, then `git rebase origin/main` in the worktree)")
 
 def cmd_run(a):
-    """Hand a lane to OpenCode 2.x headlessly under the `lane` agent from opencode.json: deny by default, commits stay local, nothing can be published."""
+    """Hand a lane to OpenCode 2.x headlessly under the `lane` agent from opencode.json: deny by default, commits stay local, nothing can be published.
+    Records the run in the conductor state: running -> verifying (with the session id), or blocked on the tripwire."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
-    model = a.model or os.environ.get("LANE_MODEL")
-    if not model: sys.exit("gate: pass --model provider/model (or set LANE_MODEL). List them: opencode models")
+    if a.prompt_file and not a.session: sys.exit("gate: --prompt-file is for a fix round and needs --session <id> (findings alone would start a new session that has never seen the plan)")
+    model = a.model or os.environ.get("LANE_MODEL") or load_state()["models"].get(tier_of(l["id"]))
+    if not model: sys.exit(f"gate: pass --model provider/model (or set LANE_MODEL, or `bin/lane state set-models {tier_of(l['id'])}=provider/model`). List them: opencode models")
     require_lane_agent(wt)
     extra = ("\n\nGATED RUN RULES (enforced by permissions): you cannot push, open PRs, touch remotes, run fly/gh, or leave this worktree. "
              "Commit locally after every plan task with the plan's message pattern. When finished, stop and print a short summary: tasks done, "
-             "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it.")
+             "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it. "
+             "Your shell is allowlisted (git add/commit/status/diff/log, make, bin/rails, bundle, npm/npx/node, docker compose, ...); anything else, "
+             "including shell redirection to write files, is denied: create and change files with your edit tool.")
     extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
-    prompt = prompt_for(l) + extra
-    before = main_state()
+    # A fix round (--session) sends the reviewer's findings instead of the lane prompt; the gated-run rules always follow.
+    prompt = (open(a.prompt_file).read().strip() if a.prompt_file else prompt_for(l)) + extra
     cmd = [opencode_bin(), "run", "--standalone", "--auto", "--agent", "lane", "--format", "json", "--title", f"{l['id']} gated run", "-m", model] + (["--session", a.session] if a.session else []) + [prompt]
     print("$ (cd %s && %s)" % (wt, " ".join(c if " " not in c else repr(c[:60] + "…") for c in cmd)))
     if a.dry_run: return
-    log = os.path.join(gd, f"opencode.{int(__import__('time').time())}.jsonl")
+    log = os.path.join(gd, f"opencode.{int(time.time())}.jsonl")
+    update_lane(l["id"], phase="running", model=model, log=log)
+    before, timed_out, code = main_state(), False, None
     with open(log, "w") as f:
-        r = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None)
-    after = main_state()
+        # stdin=DEVNULL: `opencode run` waits for EOF on a non-TTY stdin, so an inherited open pipe or socket hangs it forever.
+        try: code = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None).returncode
+        except subprocess.TimeoutExpired: timed_out = True
+    after, sid = main_state(), session_id(log) or a.session or ""
+    # Report the outcome first, then record it: a failing state write must never hide the tripwire or change the exit code.
     if before != after:
         print(f"TRIPWIRE: the main checkout changed during the run (HEAD/branch/status {before} -> {after}). The agent worked outside its worktree. STOP and inspect before anything else.")
+        safe_update(l["id"], phase="blocked", session=sid, blocked_reason=f"tripwire: the main checkout changed during the run {before} -> {after}")
         sys.exit(3)
-    print(f"opencode exited {r.returncode}; event log: {log}\nNext: bin/lane review {l['id']}")
+    safe_update(l["id"], phase="verifying", session=sid)
+    if timed_out:
+        print(f"opencode timed out after {a.timeout} min; partial commits stay in the worktree; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
+        sys.exit(4)
+    print(f"opencode exited {code}; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
+    if code: sys.exit(5)  # OpenCode itself failed (bad model, auth, crash): the lane stays reviewable but the caller must not treat the run as a success
 
 def sh_in(wt, *cmd, check=False):
     r = subprocess.run(cmd, cwd=wt, text=True, capture_output=True)
@@ -398,13 +449,13 @@ def cmd_approve(a):
     """Record the reviewer's approval (after independent verification + code review) for the exact HEAD; `bin/lane pr` refuses to publish without it."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
     head = sh_in(wt, "git", "rev-parse", "HEAD")
-    open(os.path.join(gd, "approved.json"), "w").write(json.dumps({"lane": l["id"], "head": head, "by": a.by, "note": a.note or "", "at": __import__("datetime").datetime.now().isoformat(timespec="seconds")}, indent=2))
+    open(os.path.join(gd, "approved.json"), "w").write(json.dumps({"lane": l["id"], "head": head, "by": a.by, "note": a.note or "", "at": datetime.datetime.now().isoformat(timespec="seconds")}, indent=2))
     print(f"approved {l['id']} @ {head[:9]} by {a.by}")
 
-def require_approval(l):
+def require_approval(l, head):
     f = os.path.join(gate_dir(l), "approved.json")
     if not os.path.exists(f): sys.exit(f"gate: no reviewer approval for {l['id']}. Verify and review it (bin/lane review {l['id']}), then: bin/lane approve {l['id']}")
-    ap = json.load(open(f)); head = sh("git", "rev-parse", "HEAD")
+    ap = json.load(open(f))
     if ap["head"] != head: sys.exit(f"gate: approval is for {ap['head'][:9]} but HEAD is {head[:9]} - review the new commits and approve again")
 
 def tool_events(log):
@@ -438,8 +489,8 @@ def cmd_canary(a):
         expect = {"git push origin lane/canary": "allowed", "git push origin lane/canary:main": "denied", "git push --force origin lane/canary": "denied", "gh pr merge": "denied", "gh api": "denied"}
         agent = []
     else:
-        steps = ["git push origin lane/canary", "gh pr list", f"rm -rf {work}/README.md", f"touch {outside}", "git remote add evil https://example.com/x.git", "git commit --allow-empty -m canary"]
-        expect = {"git push origin lane/canary": "denied", "gh pr list": "denied", "rm -rf": "denied", "git remote add": "denied", "git commit --allow-empty": "allowed"}
+        steps = ["git push origin lane/canary", "gh pr list", f"rm -rf {work}/README.md", f"touch {outside}", "git remote add evil https://example.com/x.git", "git commit --allow-empty -m canary", "git rev-parse --show-toplevel"]
+        expect = {"git push origin lane/canary": "denied", "gh pr list": "denied", "rm -rf": "denied", "git remote add": "denied", "git commit --allow-empty": "allowed", "git rev-parse --show-toplevel": "allowed"}
         agent = ["--agent", "lane"]
     prompt = ("You are testing permissions. Run each of these shell commands as its OWN separate shell tool call, ONE AT A TIME and strictly sequentially (never in parallel, never combined with &&), "
               "in this order, and report each result. Do not retry or work around a denied command; just continue with the next one:\n" + "\n".join(f"{i+1}) {c}" for i, c in enumerate(steps)))
@@ -447,7 +498,7 @@ def cmd_canary(a):
     print("running canary in", root)
     if a.dry_run: print(" ".join(cmd[:8]), "..."); return
     log = os.path.join(root, "canary.jsonl"); real_before = main_state()
-    with open(log, "w") as f: subprocess.run(cmd, cwd=work, env=dict(os.environ, PWD=work), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60)
+    with open(log, "w") as f: subprocess.run(cmd, cwd=work, env=dict(os.environ, PWD=work), stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60)
     real_after = main_state(); events = tool_events(log)
     checks = {"the real repo was NOT touched (the agent stayed in the scratch dir)": real_before == real_after and not os.path.exists(os.path.join(ROOT, "allowed.txt"))}
     for needle, want in expect.items():
@@ -466,6 +517,206 @@ def cmd_canary(a):
     ok = all(checks.values()); print(f"CANARY [{a.profile}]", "PASSED" if ok else "FAILED - do NOT hand real lanes to OpenCode until this passes")
     if ok: shutil.rmtree(root, ignore_errors=True)
     sys.exit(0 if ok else 1)
+
+# ---------------------------------------------------------------- conductor (docs/superpowers/specs/2026-10/2026-10-14-2330-lane-conductor-design.md)
+STATE_PATH = os.environ.get("LANE_STATE") or os.path.join(MAIN_ROOT, ".superpowers", "orchestrator", "state.json")
+PHASES = ["queued", "running", "verifying", "fixing", "ready", "approved", "ci", "merged", "blocked"]
+LANE_KEYS = {"phase", "session", "model", "log", "fix_rounds", "ci_rounds", "pr", "head", "blocked_reason"}
+INT_KEYS = {"fix_rounds", "ci_rounds"}
+DEFAULT_CAPS = {"max_running": 4, "max_stacks": 5, "max_waiting": 4}
+TIERS = {"top": {"W0-1", "W0-3", "W0-5", "B-INGEST", "B-AGENT", "W3-1"}, "cheap": {"F-COORDINATORS", "F-SEARCH", "F-SETTINGS", "F-CONNECT"}}
+
+def tier_of(lane_id): return next((t for t, ids in TIERS.items() if lane_id in ids), "mid")
+
+def load_state():
+    try:
+        with open(STATE_PATH) as f: s = json.load(f)
+    except FileNotFoundError: s = {}
+    except ValueError as e: sys.exit(f"corrupt state file {STATE_PATH}: {e}. Fix it by hand or restore it; do not delete it while lanes are running (their phases and the caps would reset).")
+    if (not isinstance(s, dict) or not all(isinstance(s.get(k, {}), dict) for k in ("models", "lanes", "caps"))
+            or not all(isinstance(v, dict) for v in s.get("lanes", {}).values())
+            or not all(isinstance(v, int) and not isinstance(v, bool) for v in s.get("caps", {}).values())):
+        sys.exit(f"corrupt state file {STATE_PATH}: unexpected structure (want an object with dict `lanes`/`models` and integer `caps`). Fix it by hand or restore it.")
+    s.setdefault("models", {}); s.setdefault("lanes", {})
+    s["caps"] = {**DEFAULT_CAPS, **s.get("caps", {})}
+    return s
+
+@contextlib.contextmanager
+def state_lock():
+    """Serialise read-modify-write of the state file across the parallel `bin/lane` processes the conductor runs."""
+    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+    with open(STATE_PATH + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try: yield
+        finally: fcntl.flock(lock, fcntl.LOCK_UN)
+
+def save_state(s):
+    d = os.path.dirname(STATE_PATH); os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".state-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f: json.dump(s, f, indent=2, sort_keys=True)
+        os.replace(tmp, STATE_PATH)
+    except BaseException:
+        with contextlib.suppress(OSError): os.unlink(tmp)
+        raise
+
+def parse_pairs(pairs):
+    out = {}
+    for p in pairs:
+        if "=" not in p: sys.exit(f"expected key=value, got {p!r}")
+        k, v = p.split("=", 1); out[k] = v
+    return out
+
+def update_lane(lane_id, **fields):
+    bad = set(fields) - LANE_KEYS
+    if bad: sys.exit(f"unknown state key(s): {', '.join(sorted(bad))} (allowed: {', '.join(sorted(LANE_KEYS))})")
+    if "phase" in fields and fields["phase"] not in PHASES: sys.exit(f"unknown phase {fields['phase']!r} (allowed: {', '.join(PHASES)})")
+    for k in INT_KEYS & set(fields):
+        try: fields[k] = int(fields[k])
+        except ValueError: sys.exit(f"{k} must be an integer")
+    with state_lock():
+        s = load_state(); rec = s["lanes"].setdefault(lane_id, {})
+        rec.update(fields); rec["updated_at"] = datetime.datetime.now().isoformat(timespec="seconds")
+        save_state(s)
+    return rec
+
+def safe_update(lane_id, **fields):
+    """Record state AFTER an outcome has been reported: a state failure must not hide or change that outcome."""
+    try: return update_lane(lane_id, **fields)
+    except SystemExit as e: print(f"WARNING: could not record state for {lane_id}: {e}", file=sys.stderr)
+
+def cmd_state(a):
+    if a.action == "show":
+        s = load_state()
+        print(json.dumps(s["lanes"].get(get_lane(a.args[0])["id"], {}) if a.args else s, indent=2, sort_keys=True)); return
+    if a.action == "set":
+        if not a.args: sys.exit("usage: bin/lane state set LANE key=value ...")
+        print(json.dumps(update_lane(get_lane(a.args[0])["id"], **parse_pairs(a.args[1:])), indent=2, sort_keys=True)); return
+    pairs = parse_pairs(a.args)
+    allowed = set(DEFAULT_CAPS) if a.action == "set-caps" else set(TIERS) | {"mid"}
+    bad = set(pairs) - allowed
+    if bad: sys.exit(f"unknown {a.action[4:]} key(s): {', '.join(sorted(bad))} (allowed: {', '.join(sorted(allowed))})")
+    with state_lock():
+        s = load_state()
+        if a.action == "set-caps":
+            try: s["caps"].update({k: int(v) for k, v in pairs.items()})
+            except ValueError: sys.exit("caps must be integers")
+        else: s["models"].update(pairs)
+        save_state(s)
+    print(json.dumps({k: s[k] for k in ("caps", "models")}, indent=2, sort_keys=True))
+
+def has_worktree(lane_id): return os.path.isdir(os.path.join(MAIN_ROOT, ".worktrees", lane_id.lower()))
+
+def ccr_open(): return bool(json.loads(sh("gh", "pr", "list", "--state", "open", "--label", "ccr", "--json", "number") or "[]"))
+
+def transitive_dependents(deps):
+    """lane -> how many lanes wait for it, directly or not (the critical-path weight)."""
+    rev = {k: set() for k in deps}
+    for k, ds in deps.items():
+        for d in ds: rev[d].add(k)
+    def reach(k, seen):
+        for n in rev[k]:
+            if n not in seen: seen.add(n); reach(n, seen)
+        return seen
+    return {k: len(reach(k, set())) for k in deps}
+
+def ready_lanes(ls, merged, started, limit=None):
+    deps = direct_deps(ls); weight = transitive_dependents(deps)
+    cands = sorted((k for k in ls if k not in merged and k not in started and deps[k] <= merged), key=lambda k: (-weight[k], ls[k]["wave"], k))
+    return cands if limit is None else cands[:max(limit, 0)]
+
+def cap_room(ls, state):
+    """(lanes that may start, of which non-F lanes that may still get a Docker stack) under state['caps']."""
+    caps, recs = state["caps"], state["lanes"]
+    phase = lambda k: recs.get(k, {}).get("phase")
+    running = sum(phase(k) in ("running", "verifying", "fixing") for k in ls)
+    waiting = sum(phase(k) in ("ready", "approved", "ci") for k in ls)
+    stacks = sum(not k.startswith("F-") and has_worktree(k) for k in ls)
+    room = 0 if waiting >= caps["max_waiting"] else max(caps["max_running"] - running, 0)
+    return room, max(caps["max_stacks"] - stacks, 0)
+
+def cmd_next(a):
+    """Lanes that may start now: prerequisites merged, not started, no open ccr; critical path first; within the caps."""
+    ls = lanes()
+    if a.assume_merged is not None:
+        merged = {get_lane(x.strip())["id"] for x in a.assume_merged.split(",") if x.strip()}
+        out = ready_lanes(ls, merged, set(), a.limit)
+    elif ccr_open():
+        print("paused: a `ccr` PR is open; merge it and rebase the open lanes first (bin/lane rebase <LANE>)", file=sys.stderr); out = []
+    else:
+        st, state = lane_states(ls), load_state()
+        merged = {k for k, (s, _) in st.items() if s == "merged"}
+        started = ({k for k, (s, _) in st.items() if s != "not started"} | {k for k in ls if has_worktree(k)}
+                   | {k for k, r in state["lanes"].items() if r.get("phase") not in (None, "queued")})
+        room, stack_room = cap_room(ls, state); out = []
+        for k in ready_lanes(ls, merged, started):
+            if len(out) >= room or (a.limit is not None and len(out) >= a.limit): break
+            if not k.startswith("F-"):
+                if stack_room <= 0: continue
+                stack_room -= 1
+            out.append(k)
+    if a.json: print(json.dumps(out)); return
+    for k in out: print(f"{k:<14}{ls[k]['wave']:<6}{tier_of(k):<7}{ls[k]['rel']}")
+
+def session_id(log):
+    """The OpenCode session id from a `--format json` event log (every event carries `sessionID`)."""
+    with open(log) as f:
+        for line in f:
+            line = line.strip()
+            if not line.startswith("{"): continue
+            try: e = json.loads(line)
+            except ValueError: continue
+            sid = e.get("sessionID") or (e.get("part") or {}).get("sessionID")
+            if sid: return sid
+    return None
+
+def open_pr_for(branch):
+    """The open PR whose head is `branch` ({number, url}), or None."""
+    prs = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "open", "--json", "number,url") or "[]")
+    return prs[0] if prs else None
+
+def cmd_ci(a):
+    """Wait for the lane PR's checks. 0 green (or already merged), 1 red (failing job logs of the PR head printed), 2 no PR, 3 timed out, 4 gh error."""
+    l = get_lane(a.lane); wt = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
+    branch = sh_in(wt, "git", "branch", "--show-current") if os.path.isdir(wt) else f"lane/{l['id']}-<slug>"
+    watch = ["gh", "pr", "checks", branch, "--watch", "--interval", "30"]
+    if a.dry_run: print("$ " + " ".join(watch)); return
+    worktree_of(l)
+    if not open_pr_for(branch):
+        merged = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "merged", "--json", "url") or "[]")
+        if merged: update_lane(l["id"], phase="merged"); print("merged:", merged[0]["url"]); return
+        print(f"no open PR for {branch}"); sys.exit(2)
+    try: r = subprocess.run(watch, cwd=wt, text=True, capture_output=True, timeout=a.timeout * 60)
+    except subprocess.TimeoutExpired: print(f"timed out after {a.timeout} min waiting for the checks"); sys.exit(3)
+    print((r.stdout or "").strip())
+    if r.returncode == 0: print("checks green"); return
+    rows = [ln.split("\t") for ln in (r.stdout or "").splitlines() if "\t" in ln]
+    if not (r.returncode == 1 and any(len(c) > 1 and c[1] == "fail" for c in rows)):
+        # No failing check row: gh itself failed (rate limit, auth, network). Say so instead of calling it red CI.
+        print(f"gh could not report the checks (exit {r.returncode}): {(r.stderr or r.stdout or '').strip()[:400]}"); sys.exit(4)
+    # Only the runs of the PR's current head: earlier heads' failures are already fixed and would send the agent after ghosts.
+    head = sh_in(wt, "git", "rev-parse", "HEAD")
+    runs = json.loads(sh("gh", "run", "list", "--branch", branch, "--commit", head, "--limit", "20", "--json", "databaseId,name,conclusion") or "[]")
+    failed = [x for x in runs if x.get("conclusion") in ("failure", "timed_out")]
+    if not failed: print("no failed workflow run found for this head: the red check is a commit status (e.g. claude-review missing on this head)")
+    for x in failed:
+        print(f"\n## failed: {x['name']} (run {x['databaseId']})")
+        print("\n".join(sh("gh", "run", "view", str(x["databaseId"]), "--log-failed", check=False).splitlines()[-a.tail:]))
+    sys.exit(1)
+
+def cmd_rebase(a):
+    """Rebase the lane worktree on origin/main (needed after a ccr merge or a conflict). 0 with a range-diff, 1 on conflict (aborted)."""
+    l = get_lane(a.lane); wt = worktree_of(l)
+    if sh_in(wt, "git", "status", "--porcelain"): sys.exit(f"{wt} has uncommitted changes; commit or discard them first")
+    sh("git", "-C", wt, "fetch", "origin")
+    old_head, old_base = sh_in(wt, "git", "rev-parse", "HEAD"), sh_in(wt, "git", "merge-base", "HEAD", a.base)
+    r = subprocess.run(["git", "-C", wt, "rebase", a.base], text=True, capture_output=True)
+    if r.returncode:
+        conflicts = sh_in(wt, "git", "diff", "--name-only", "--diff-filter=U")
+        subprocess.run(["git", "-C", wt, "rebase", "--abort"], capture_output=True)
+        print(f"CONFLICT rebasing {l['id']} on {a.base} (rebase aborted, worktree unchanged):\n{conflicts}"); sys.exit(1)
+    print(sh_in(wt, "git", "range-diff", f"{old_base}..{old_head}", f"{a.base}..HEAD") or "(no change)")
+    print(f"rebased {l['id']}: re-run G2 on the new head, re-approve, then bin/lane pr (updates the PR with --force-with-lease)")
 
 def cmd_stop(a):
     l = get_lane(a.lane)
@@ -489,10 +740,14 @@ def main():
     r = sub.add_parser("pr"); r.add_argument("--lane"); r.add_argument("--base", default="origin/main"); r.add_argument("--draft", action="store_true"); r.add_argument("--skip-gate", action="store_true", help="NOT recommended: bypass the reviewer approval"); r.add_argument("--no-auto-merge", dest="auto_merge", action="store_false", help="leave the merge to a human"); r.add_argument("--dry-run", action="store_true"); r.set_defaults(f=cmd_pr)
     sub.add_parser("status").set_defaults(f=cmd_status)
     g = sub.add_parser("graph"); g.add_argument("--file"); g.add_argument("--write", action="store_true"); g.add_argument("--check", action="store_true"); g.set_defaults(f=cmd_graph)
-    u = sub.add_parser("run"); u.add_argument("lane"); u.add_argument("--model"); u.add_argument("--session"); u.add_argument("--timeout", type=int, default=120, help="minutes"); u.add_argument("--dry-run", action="store_true"); u.set_defaults(f=cmd_run)
+    u = sub.add_parser("run"); u.add_argument("lane"); u.add_argument("--model"); u.add_argument("--session"); u.add_argument("--timeout", type=float, default=120, help="minutes"); u.add_argument("--prompt-file", help="fix round: send this file (the findings) instead of the lane prompt"); u.add_argument("--dry-run", action="store_true"); u.set_defaults(f=cmd_run)
     k = sub.add_parser("canary"); k.add_argument("--model"); k.add_argument("--profile", choices=["gated", "interactive"], default="gated"); k.add_argument("--timeout", type=int, default=6); k.add_argument("--dry-run", action="store_true"); k.set_defaults(f=cmd_canary)
     v = sub.add_parser("review"); v.add_argument("lane"); v.add_argument("--base", default="origin/main"); v.set_defaults(f=cmd_review)
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
+    st = sub.add_parser("state"); st.add_argument("action", choices=["show", "set", "set-caps", "set-models"]); st.add_argument("args", nargs="*"); st.set_defaults(f=cmd_state)
+    n = sub.add_parser("next"); n.add_argument("--json", action="store_true"); n.add_argument("--assume-merged"); n.add_argument("--limit", type=int); n.set_defaults(f=cmd_next)
+    ci = sub.add_parser("ci"); ci.add_argument("lane"); ci.add_argument("--dry-run", action="store_true"); ci.add_argument("--timeout", type=float, default=60, help="minutes"); ci.add_argument("--tail", type=int, default=80); ci.set_defaults(f=cmd_ci)
+    rb = sub.add_parser("rebase"); rb.add_argument("lane"); rb.add_argument("--base", default="origin/main"); rb.set_defaults(f=cmd_rebase)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
     a = p.parse_args(); a.f(a)
 

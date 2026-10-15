@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
-# One-time GitHub repo setup for the lane workflow: labels, merge settings, branch protection on main.
-# DRY RUN by default (prints what it would send). Flags: --apply (change the repository), --stage 1|2 (default 1).
-#   stage 1 (before CI exists): main needs a PR + the `claude-review` status; no force-push, no deletion, ADMINS INCLUDED.
-#   stage 2 (after the CI workflow has run once): adds the CI job names as required checks.
-# Who can push where: anyone (you, OpenCode, Claude Code) may push lane branches and open PRs; nobody can put a commit on main
-# without the required checks, because `enforce_admins` is on (your own credentials do not bypass it).
+# One-time GitHub repo setup: labels, merge settings, branch protection on main. Dry run by default; --apply changes the repository.
+# --stage 2 also requires W0-7's CI job names: apply it only after that pipeline has run once on main, or nothing can merge.
 set -euo pipefail
 apply=0; stage=1
 while [ $# -gt 0 ]; do case "$1" in --apply) apply=1;; --stage) stage="$2"; shift;; *) echo "unknown arg $1" >&2; exit 2;; esac; shift; done

@@ -6,7 +6,7 @@
 **Goal:** Give `bin/lane` the commands the lane conductor needs (`next`, `state`, state-recording `run`, PR-updating `pr`, `ci`, `rebase`) plus the batch-approval docs, all covered by RSpec black-box specs.
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2330-lane-conductor-design.md`
 **Depends on:** W0-1 merged (Makefile, Docker `web`, RSpec) and the review-gate tooling on `main` (`bin/lane` with the OpenCode 2.x `lane` agent and auto-merge, `bin/setup-github` stage 1/2, `opencode.json`) — Task 1 checks both · **Unblocks:** running Wave 0 (after the W0-1 pilot) and Wave 1 in conductor mode
-**Files owned (not a lane; no lane's `Owns` overlaps):** `bin/lane`, `spec/tooling/**`, `docs/superpowers/parallel/{review-gate,playbook,README}.md`
+**Files owned (not a lane; no lane's `Owns` overlaps):** `bin/lane`, `bin/setup-github` (header already trimmed in this branch), `opencode.json` (the `lane` agent allowlist; W0-7's `Owns` lists the file, so W0-7 must rebase onto this change), `spec/tooling/**`, `docs/superpowers/parallel/{review-gate,playbook,README}.md`
 **Architecture:** `bin/lane` stays one stdlib-Python file. New code goes in a "conductor" section: a JSON state store (`LANE_STATE` or `.superpowers/orchestrator/state.json` in the main checkout), a scheduler built on the existing `direct_deps`, and thin wrappers over `git`/`gh`. Specs run `bin/lane` as a subprocess inside a throwaway git repo with a local bare `origin` and fake `gh`/`opencode` executables, so they never touch the real checkout, GitHub or a model.
 **Tech Stack:** Python 3 stdlib (`bin/lane`), RSpec + `Open3` (specs), git, GitHub CLI.
 
@@ -32,7 +32,9 @@
 
 | Action | Path |
 |---|---|
-| Modify | `bin/lane` (imports, docstring, conductor section, `cmd_status`, `cmd_run`, `cmd_pr`, `main`) |
+| Modify | `bin/lane` (imports, docstring, conductor section, `cmd_status`, `cmd_run`, `cmd_canary`, `cmd_pr`, `main`) |
+| Modify | `opencode.json` (Task 6) |
+| Create | `spec/tooling/opencode_config_spec.rb` (Task 6) |
 | Create | `spec/tooling/support/lane_sandbox.rb` |
 | Create | `spec/tooling/lane_state_spec.rb` |
 | Create | `spec/tooling/lane_next_spec.rb` |
@@ -115,6 +117,8 @@ class LaneSandbox
   def gh_calls = File.exist?(calls_log) ? File.readlines(calls_log, chomp: true) : []
 
   def state = JSON.parse(File.read(state_path))
+
+  def env_for(extra = {}) = base_env.merge(extra)
 
   def write_state(hash) = File.write(state_path, JSON.generate(hash))
 
@@ -206,6 +210,7 @@ class LaneSandbox
       echo '{"type":"step_start","sessionID":"ses_fake123","part":{"type":"step-start"}}'
       echo "not json noise"
       [ -n "${FAKE_OPENCODE_ARGS:-}" ] && printf '%s\n' "$@" > "$FAKE_OPENCODE_ARGS"
+      [ -n "${FAKE_OPENCODE_STDIN:-}" ] && readlink /proc/self/fd/0 > "$FAKE_OPENCODE_STDIN"
       [ -n "${FAKE_OPENCODE_TOUCH:-}" ] && touch "$FAKE_OPENCODE_TOUCH"
       sleep "${FAKE_OPENCODE_SLEEP:-0}"
       exit "${FAKE_OPENCODE_EXIT:-0}"
@@ -453,6 +458,7 @@ RSpec.describe "bin/lane next" do
     before { merged_on_github("W0-1", "W0-3") }
 
     it "uses the merged PRs on GitHub" do
+      sandbox.write_state("caps" => { "max_running" => 20 }) # the default cap of 4 would cut the 8 ready lanes
       expect(next_ids).to include("W0-2", "B-LEADS")
     end
 
@@ -664,6 +670,18 @@ RSpec.describe "bin/lane run" do
     expect(sent).not_to include("Implement `@")
   end
 
+  it "starts OpenCode with stdin closed even when the caller's stdin is an open pipe (otherwise it waits for EOF forever)" do
+    seen = File.join(sandbox.root, "..", "stdin.txt")
+    cmd = [ "python3", File.join(sandbox.root, "bin/lane"), "run", "F-WEEK", "--model", "p/m" ]
+    Open3.popen3(sandbox.env_for("FAKE_OPENCODE_STDIN" => seen), *cmd, chdir: sandbox.root) do |stdin, out, err, wait|
+      out.read
+      err.read
+      wait.value # the caller's stdin is deliberately left open until here
+      stdin.close
+    end
+    expect(File.read(seen).strip).to eq("/dev/null")
+  end
+
   it "writes no state on --dry-run" do
     sandbox.lane("run", "F-WEEK", "--model", "p/m", "--dry-run")
     expect(File.exist?(sandbox.state_path)).to be(false)
@@ -733,7 +751,8 @@ def cmd_run(a):
     update_lane(l["id"], phase="running", model=model, log=log)
     before, timed_out, code = main_state(), False, None
     with open(log, "w") as f:
-        try: code = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None).returncode
+        # stdin=DEVNULL: `opencode run` waits for EOF on a non-TTY stdin, so an inherited open pipe or socket hangs it forever.
+        try: code = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None).returncode
         except subprocess.TimeoutExpired: timed_out = True
     after, sid = main_state(), session_id(log) or a.session or ""
     if before != after:
@@ -1096,7 +1115,94 @@ git commit -m "tooling(conductor): task 5 – bin/lane ci and rebase"
 
 ---
 
-## Task 6: Batch-approval docs and acceptance run
+## Task 6: Gate fixes: the `lane` agent allowlist and the canary's stdin
+
+**Files:** Create `spec/tooling/opencode_config_spec.rb`; modify `opencode.json`, `bin/lane` (`cmd_canary`).
+
+**Interfaces — Consumes:** nothing from earlier tasks (Task 3 already closes stdin for `run`). **Produces:** a `lane` agent that allows `git rev-parse*`, `git branch --show-current`, `pwd` and `which *` and still denies publishing; a canary that checks `git rev-parse --show-toplevel` is allowed and cannot hang on an inherited stdin.
+
+- [ ] **Step 1: Write the failing spec** (OpenCode evaluates permission patterns as globs, the last matching rule wins; the spec mirrors that on the file's key order)
+
+`spec/tooling/opencode_config_spec.rb`:
+
+```ruby
+# frozen_string_literal: true
+
+require "spec_helper"
+require "json"
+
+RSpec.describe "opencode.json lane agent" do
+  let(:bash) { JSON.parse(File.read(File.expand_path("../../opencode.json", __dir__))).dig("agent", "lane", "permission", "bash") }
+
+  # Same rule as OpenCode: patterns are globs ("*" = anything), the last matching entry decides.
+  def decision(command)
+    bash.select { |pattern, _| command.match?(/\A#{Regexp.escape(pattern).gsub('\\*', '.*')}\z/) }.values.last
+  end
+
+  it "denies by default" do
+    expect(bash["*"]).to eq("deny")
+  end
+
+  it "allows the read-only commands the gated run prompt itself needs" do
+    [ "git rev-parse --show-toplevel", "git branch --show-current", "pwd", "which docker" ].each do |cmd|
+      expect(decision(cmd)).to eq("allow"), "#{cmd} is #{decision(cmd).inspect}"
+    end
+  end
+
+  it "still allows local commits and still denies everything that publishes or destroys" do
+    expect(decision("git commit -m x")).to eq("allow")
+    [ "git push origin lane/x", "git remote add evil https://example.com/x.git", "gh pr list", "fly deploy", "sudo ls", "rm -rf x" ].each do |cmd|
+      expect(decision(cmd)).to eq("deny"), "#{cmd} is #{decision(cmd).inspect}"
+    end
+  end
+end
+```
+
+- [ ] **Step 2: Run it, expect FAIL**
+
+Run: `make spec ARGS=spec/tooling/opencode_config_spec.rb`
+Expected: FAIL on "allows the read-only commands…": `git rev-parse --show-toplevel is "deny"`.
+
+- [ ] **Step 3: Implement**
+
+In `opencode.json`, inside `agent.lane.permission.bash`, add these four entries right after the `"git rm*": "allow",` line of the **`lane` agent** (not the top-level baseline, which is the interactive profile):
+
+```json
+          "git rev-parse*": "allow",
+          "git branch --show-current": "allow",
+          "pwd": "allow",
+          "which *": "allow",
+```
+
+In `bin/lane`, in `cmd_canary`'s gated branch, add the check and close stdin:
+
+```python
+        steps = ["git push origin lane/canary", "gh pr list", f"rm -rf {work}/README.md", f"touch {outside}", "git remote add evil https://example.com/x.git", "git commit --allow-empty -m canary", "git rev-parse --show-toplevel"]
+        expect = {"git push origin lane/canary": "denied", "gh pr list": "denied", "rm -rf": "denied", "git remote add": "denied", "git commit --allow-empty": "allowed", "git rev-parse --show-toplevel": "allowed"}
+```
+and replace the canary's `subprocess.run(cmd, cwd=work, env=dict(os.environ, PWD=work), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60)` with the same call plus `stdin=subprocess.DEVNULL,` (OpenCode waits for EOF on an inherited non-TTY stdin).
+
+- [ ] **Step 4: Run the spec, expect PASS**
+
+Run: `make spec ARGS=spec/tooling`
+Expected: all examples pass.
+
+- [ ] **Step 5: Prove the canary against the real OpenCode, with stdin deliberately left open**
+
+Run (from a shell whose stdin is not a TTY, such as the agent's shell; do **not** add `< /dev/null`): `python3 bin/lane canary --model opencode-go/deepseek-v4.1-flash`
+Expected: ends with `CANARY [gated] PASSED` and includes `PASS  \`git rev-parse --show-toplevel\` -> allowed`. Before this task the same command hung until the timeout.
+
+- [ ] **Step 6: Verify and commit**
+
+```bash
+make verify
+git add opencode.json bin/lane spec/tooling/opencode_config_spec.rb
+git commit -m "tooling(conductor): task 6 – lane agent allowlist and canary stdin"
+```
+
+---
+
+## Task 7: Batch-approval docs and acceptance run
 
 **Files:** Modify `docs/superpowers/parallel/review-gate.md`, `docs/superpowers/parallel/playbook.md`, `docs/superpowers/parallel/README.md`.
 
@@ -1197,7 +1303,7 @@ Expected: `AC1` … `AC10` all printed (`bin/lane` runs on the host: it is the h
 ```bash
 make verify
 git add docs/superpowers/parallel
-git commit -m "tooling(conductor): task 6 – batch-approval gate docs and conductor mode"
+git commit -m "tooling(conductor): task 7 – batch-approval gate docs and conductor mode"
 ```
 
 Then open the PR with `gh pr create` (this branch is not a lane; do not use `bin/lane pr`) and paste the AC1–AC10 output.

@@ -1,6 +1,6 @@
 # Parallel build: waves, lanes and how to run many agents at once
 
-The app (desktop + mobile web) is split into **32 lanes** that agents implement concurrently. **How to run them with Cursor, OpenCode and Claude Code: [`playbook.md`](./playbook.md).** Helper: `bin/lane` (`list`, `start`, `check`, `pr`, `status`, `stop`). Design rationale: [`../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md`](../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md). The earlier feature plans (`2001`–`2014`) remain the **detail library**: lane plans point at their tasks and list the overrides.
+The app (desktop + mobile web) is split into **32 lanes** that agents implement concurrently. **How to run them with Cursor, OpenCode and Claude Code: [`playbook.md`](./playbook.md).** Helper: `bin/lane` (`list`, `start`, `check`, `pr`, `status`, `stop`; review gate: `run`, `review`, `approve`, `canary`; conductor: `next`, `state`, `ci`, `rebase` — see the playbook's "Conductor mode"). Design rationale: [`../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md`](../specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md). The earlier feature plans (`2001`–`2014`) remain the **detail library**: lane plans point at their tasks and list the overrides.
 
 ```mermaid
 flowchart LR

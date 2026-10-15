@@ -8,7 +8,9 @@ ports:
 up: worktree-guard ; docker compose up -d
 down: ; docker compose down
 setup: ; docker compose exec web bundle exec rails db:create db:migrate db:seed
-spec: ; docker compose exec -e RAILS_ENV=test web bundle exec rspec $(ARGS)
+spec:
+	docker compose exec -e RAILS_ENV=test web bundle exec rails db:prepare   # creates simbe_test on a fresh stack; a no-op afterwards
+	docker compose exec -e RAILS_ENV=test web bundle exec rspec $(ARGS)
 web-test: ; npx vitest run $(ARGS)                 # Vitest runs on the host (Node 22); no Docker needed
 web-dev: ; npm run dev:mock                         # standalone mock host on :5173, no Rails, no Docker
 e2e: ; npx playwright test $(ARGS)                  # Playwright runs on the host
