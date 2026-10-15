@@ -10,7 +10,8 @@ it("renders the loading title, the progress and no upload CTA", () => {
   expect(screen.queryByRole("link", { name: /upload/i })).toBeNull()
 })
 
-it("falls back to the storing phase when no progress is given", () => {
-  render(<LoadingYourData />)
-  expect(screen.getByText("Uploading your files")).toBeInTheDocument()
+it("falls back to the importing phase while the load has no phase", () => {
+  render(<LoadingYourData progress={null} />)
+  expect(screen.getByText("Importing rows")).toBeInTheDocument()
+  expect(screen.queryByText("Uploading your files")).toBeNull()
 })

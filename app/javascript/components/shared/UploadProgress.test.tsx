@@ -30,5 +30,18 @@ it("is indeterminate without a pct", () => {
   render(<UploadProgress status="validating" />)
   const bar = screen.getByRole("progressbar")
   expect(bar).not.toHaveAttribute("aria-valuenow")
-  expect(screen.getByTestId("indeterminate")).toHaveClass("animate-pulse")
+  expect(screen.getByTestId("indeterminate")).toHaveClass("animate-pulse", "motion-reduce:animate-none")
+})
+
+it("maps an upload status to a fallback phase when there is no phase", () => {
+  const { unmount } = render(<UploadProgress status="committing" />)
+  expect(screen.getByText("Importing rows")).toBeInTheDocument()
+  unmount()
+  render(<UploadProgress status="validating" />)
+  expect(screen.getByText("Checking your data")).toBeInTheDocument()
+})
+
+it("falls back to storing for a status it does not know", () => {
+  render(<UploadProgress status="queued" />)
+  expect(screen.getByText("Uploading your files")).toBeInTheDocument()
 })

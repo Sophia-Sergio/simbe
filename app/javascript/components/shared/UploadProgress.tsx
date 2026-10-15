@@ -3,7 +3,7 @@ import { formatInt } from "@/lib/format"
 export type UploadPhase = "storing" | "parsing" | "validating" | "importing" | "computing" | "finalizing"
 
 export type UploadProgressValue = {
-  phase?: UploadPhase | string
+  phase?: UploadPhase
   pct?: number | null
   rows_done?: number | null
   rows_total?: number | null
@@ -18,17 +18,25 @@ const PHASE_LABELS: Record<UploadPhase, string> = {
   finalizing: "Almost done",
 }
 
-function phaseLabel(phase: string, progress: UploadProgressValue | null | undefined): string {
+// Upload `status` values that have no matching phase in `progress` yet.
+const STATUS_PHASES: Record<string, UploadPhase> = {
+  storing: "storing",
+  parsing: "parsing",
+  validating: "validating",
+  committing: "importing",
+}
+
+function phaseLabel(phase: UploadPhase, progress: UploadProgressValue | null | undefined): string {
   if (phase === "importing" && progress?.rows_done != null && progress?.rows_total != null) {
     return `Importing rows (${formatInt(progress.rows_done)} of ${formatInt(progress.rows_total)})`
   }
-  return PHASE_LABELS[phase as UploadPhase] ?? "Working…"
+  return PHASE_LABELS[phase]
 }
 
-/** An upload `status` doubles as a phase only when it names one; otherwise start at storing. */
-function resolvePhase(status: string | undefined, progress: UploadProgressValue | null | undefined): string {
+/** Prefer the phase in `progress`; when absent, map the upload `status`; else start at storing. */
+function resolvePhase(status: string | undefined, progress: UploadProgressValue | null | undefined): UploadPhase {
   if (progress?.phase) return progress.phase
-  if (status && status in PHASE_LABELS) return status
+  if (status && status in STATUS_PHASES) return STATUS_PHASES[status]
   return "storing"
 }
 
@@ -60,7 +68,10 @@ export function UploadProgress({
         {determined ? (
           <span className="block h-full rounded-full bg-brand" style={{ width: `${clamped}%` }} />
         ) : (
-          <span data-testid="indeterminate" className="block h-full w-1/3 animate-pulse rounded-full bg-brand" />
+          <span
+            data-testid="indeterminate"
+            className="block h-full w-1/3 animate-pulse rounded-full bg-brand motion-reduce:animate-none"
+          />
         )}
       </div>
     </div>
