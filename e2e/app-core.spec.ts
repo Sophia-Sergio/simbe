@@ -27,7 +27,9 @@ test("sign-in round trip with guards, shell switch and sign-out", async ({ page 
   await expect(page).toHaveURL(/\/pipeline$/)
 
   // Sign out goes to a bare /signin; the coordinator lands on their own home, not on the old ?next.
-  await page.getByRole("button", { name: "Sign out" }).click()
+  // The real mobile shell keeps Sign out in the account sheet.
+  await page.getByRole("button", { name: "Account" }).click()
+  await page.getByRole("dialog", { name: "Account" }).getByRole("button", { name: "Sign out" }).click()
   await expect(page).toHaveURL(/\/signin$/)
   await signIn(page, "dana@harbor.test")
   await expect(page).toHaveURL(/\/next-actions$/)
