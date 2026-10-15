@@ -10,9 +10,31 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_14_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pgcrypto"
+
+  create_table "agencies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.string "timezone", default: "America/Los_Angeles", null: false
+    t.string "qualified_milestone", default: "consult_attended", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_agencies_on_slug", unique: true
+    t.check_constraint "qualified_milestone::text = ANY (ARRAY['application_submitted'::character varying, 'consult_attended'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "agencies_milestone_check"
+  end
+
+  create_table "auth_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "user_id", null: false
+    t.string "token_digest", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["token_digest"], name: "index_auth_sessions_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_auth_sessions_on_user_id"
+  end
 
   create_table "solid_queue_batch_executions", force: :cascade do |t|
     t.bigint "job_id", null: false
@@ -164,6 +186,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "agency_id", null: false
+    t.string "email", null: false
+    t.string "name", null: false
+    t.string "password_digest", null: false
+    t.string "role", default: "owner", null: false
+    t.string "coordinator_name"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agency_id"], name: "index_users_on_agency_id"
+    t.index ["email"], name: "index_users_on_email", unique: true
+    t.check_constraint "role::text = ANY (ARRAY['owner'::character varying, 'coordinator'::character varying]::text[])", name: "users_role_check"
+  end
+
+  add_foreign_key "auth_sessions", "users"
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
@@ -172,4 +209,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_14_000001) do
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
+  add_foreign_key "users", "agencies"
 end
