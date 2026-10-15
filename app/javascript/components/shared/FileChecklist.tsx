@@ -23,11 +23,12 @@ export function FileChecklist({
   statuses?: Record<string, number>
 }) {
   const presentLower = present.map((name) => name.toLowerCase())
+  const statusEntries = Object.entries(statuses ?? {}).map(([name, rows]) => [name.toLowerCase(), rows] as const)
   return (
     <ul className="flex flex-col divide-y divide-line-subtle">
       {expected.map((name) => {
         const loaded = presentLower.includes(name.toLowerCase())
-        const rows = statuses?.[name]
+        const rows = statusEntries.find(([key]) => key === name.toLowerCase())?.[1]
         return (
           <li key={name} className="flex items-center gap-3 py-2.5">
             <span className={`h-2 w-2 shrink-0 rounded-full ${loaded ? "bg-success" : "bg-line-strong"}`} />

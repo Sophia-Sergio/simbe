@@ -9,7 +9,7 @@ it("marks the three present files Loaded and the rest Waiting", () => {
 
 it("is case-insensitive about the file names and shows row counts", () => {
   render(
-    <FileChecklist expected={["leads.csv"]} present={["Leads.CSV"]} statuses={{ "leads.csv": 3530 }} />,
+    <FileChecklist expected={["leads.csv"]} present={["Leads.CSV"]} statuses={{ "LEADS.CSV": 3530 }} />,
   )
   expect(screen.getByText("Loaded")).toBeInTheDocument()
   expect(screen.getByText("3,530")).toBeInTheDocument()

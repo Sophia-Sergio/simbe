@@ -2,11 +2,8 @@ import { useCallback } from "react"
 import { useSearchParams } from "react-router-dom"
 import type { Range } from "@/lib/format"
 
-export const RANGES: Range[] = ["30d", "90d", "12m"]
-export const DEFAULT_RANGE: Range = "30d"
-
 function parse(value: string | null): Range {
-  return value === "30d" || value === "90d" || value === "12m" ? value : DEFAULT_RANGE
+  return value === "30d" || value === "90d" || value === "12m" ? value : "30d"
 }
 
 /** URL-backed cohort range (`?range=`), defaulting to `30d` and preserving other params. */

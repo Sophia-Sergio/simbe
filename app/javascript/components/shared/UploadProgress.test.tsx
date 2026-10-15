@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react"
 import { UploadProgress } from "./UploadProgress"
+import type { UploadPhase } from "./UploadProgress"
 
 it("prints the label for each phase", () => {
-  const phases: [string, string][] = [
+  const phases: [UploadPhase, string][] = [
     ["storing", "Uploading your files"],
     ["parsing", "Reading your files"],
     ["validating", "Checking your data"],

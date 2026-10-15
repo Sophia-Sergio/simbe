@@ -26,7 +26,7 @@ export function KpiCard({
   size?: "md" | "sm"
 }) {
   return (
-    <div className="rounded-panel border border-line bg-surface p-4 shadow-card">
+    <div className="rounded-card border border-line bg-surface p-4 shadow-card">
       <p className="text-[13px] text-ink-muted">{label}</p>
       <div className="mt-1 flex items-baseline gap-2">
         <span
@@ -37,7 +37,9 @@ export function KpiCard({
           {value}
         </span>
         {delta && delta.text ? (
-          <span className={`text-[13px] font-medium ${DELTA_TONES[delta.tone]}`}>{delta.text}</span>
+          <span data-testid="kpi-delta" className={`text-[13px] font-medium ${DELTA_TONES[delta.tone]}`}>
+            {delta.text}
+          </span>
         ) : null}
       </div>
       <div className="mt-3">
