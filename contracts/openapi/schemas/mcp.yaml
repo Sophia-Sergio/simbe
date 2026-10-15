@@ -1,0 +1,22 @@
+McpSettings:
+  type: object
+  required: [url, key_prefix]
+  properties:
+    url: { type: string, examples: ['https://mcp.simbe.app/harbor'] }
+    key_prefix: { type: [string, 'null'], examples: ['simbe_live_ab12'] }
+    created_at: { $ref: './common.yaml#/Timestamp' }
+McpRotated:
+  type: object
+  required: [key, url, key_prefix]
+  properties:
+    key: { type: string, description: "Full key - returned ONCE; only a SHA-256 digest is stored" }
+    url: { type: string }
+    key_prefix: { type: string }
+JsonRpcRequest:
+  type: object
+  required: [jsonrpc, method]
+  properties:
+    jsonrpc: { type: string, const: '2.0' }
+    id: { type: [string, integer] }
+    method: { type: string, enum: [initialize, ping, tools/list, tools/call, notifications/initialized] }
+    params: { type: object }

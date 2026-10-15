@@ -9,6 +9,8 @@ Feature design and implementation docs for the **Claude Code → Cursor / OpenCo
 
 Project rules live in `../../CLAUDE.md` / `../../AGENTS.md` and `../conventions/`. UI layout comes from `../../design_handoff_simbe/`; **colors, type, shapes and logo come from [`../design/brand.md`](../design/brand.md)** (simbefamily.com), which overrides the handoff's brand values.
 
+> **Building with many agents at once?** Use the parallel lane plans: [`parallel/README.md`](./parallel/README.md) (31 lanes in 4 waves, contract-first, mock API for the frontend, per-lane file ownership). The sequence below is the original single-track plan set, kept as the detail reference.
+
 ## Build order and dependencies
 
 | # | Feature | Spec | Plan | Depends on |

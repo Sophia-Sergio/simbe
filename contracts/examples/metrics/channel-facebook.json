@@ -1,0 +1,21 @@
+{
+  "channel": "Facebook",
+  "kpis": {
+    "leads": 3,
+    "qualified": 2,
+    "rate": 66.7,
+    "spend_cents": 30000,
+    "cost_per_qualified_cents": 15000
+  },
+  "campaigns": [
+    {
+      "campaign": "c-a",
+      "ads": 0,
+      "leads": 3,
+      "qualified": 2,
+      "rate": 66.7,
+      "spend_cents": 30000,
+      "cost_per_qualified_cents": 15000
+    }
+  ]
+}

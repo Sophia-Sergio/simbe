@@ -1,0 +1,66 @@
+{
+  "id": "77777777-7777-4777-8777-777777777777",
+  "report": {
+    "ok": false,
+    "errors": [
+      {
+        "code": "missing_file",
+        "file": "appointments.csv",
+        "row": null,
+        "message": "appointments.csv was not uploaded"
+      },
+      {
+        "code": "duplicate_key",
+        "file": "stage_history.csv",
+        "row": 12,
+        "message": "Duplicate (lead, stage) - row 12 repeats row 7"
+      }
+    ],
+    "warnings": [],
+    "ignored": [
+      "notes.txt"
+    ],
+    "diff": {
+      "leads": {
+        "current": 3530,
+        "incoming": 3611,
+        "delta": 81
+      },
+      "stage_events": {
+        "current": 9257,
+        "incoming": 9262,
+        "delta": 5
+      },
+      "contacts": {
+        "current": 10446,
+        "incoming": 10451,
+        "delta": 5
+      },
+      "screener_answers": {
+        "current": 35300,
+        "incoming": 35305,
+        "delta": 5
+      },
+      "web_sessions": {
+        "current": 9901,
+        "incoming": 9906,
+        "delta": 5
+      },
+      "appointments": {
+        "current": 642,
+        "incoming": 647,
+        "delta": 5
+      },
+      "applications": {
+        "current": 918,
+        "incoming": 923,
+        "delta": 5
+      }
+    },
+    "checks": {
+      "files_matched": "6 of 7",
+      "duplicates": 1,
+      "screener_encrypted": true
+    }
+  }
+}

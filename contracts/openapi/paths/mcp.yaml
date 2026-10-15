@@ -1,0 +1,17 @@
+mcp_settings:
+  get:
+    operationId: getMcpSettings
+    tags: [mcp]
+    summary: Server URL and masked key prefix (owner). The JSON-RPC endpoint itself is POST /mcp/{slug} (outside /api/v1, Bearer key, see agent-and-mcp spec).
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/mcp.yaml#/McpSettings' }, example: { $ref: '../../examples/mcp/settings.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+mcp_rotate:
+  post:
+    operationId: rotateMcpKey
+    tags: [mcp]
+    summary: Generate a new key and revoke the previous one (owner). Full key shown once.
+    responses:
+      '201': { description: Rotated, content: { application/json: { schema: { $ref: '../schemas/mcp.yaml#/McpRotated' }, example: { key: simbe_live_FULLKEY1234567890abcdefghij, url: 'https://mcp.simbe.app/harbor', key_prefix: simbe_live_FULLKEY1 } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }

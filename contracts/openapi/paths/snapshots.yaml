@@ -1,0 +1,61 @@
+snapshot_uploads:
+  post:
+    operationId: createSnapshotUpload
+    tags: [snapshots]
+    summary: Upload the seven CSVs and get a validation report (owner). Files matched by basename.
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [files]
+            properties: { files: { type: array, items: { type: string, format: binary } } }
+    responses:
+      '201':
+        description: Stored and validated (report.ok may be false)
+        content:
+          application/json:
+            schema: { $ref: '../schemas/snapshots.yaml#/SnapshotUpload' }
+            examples:
+              ok: { value: { $ref: '../../examples/snapshots/upload-ok.json' } }
+              errors: { value: { $ref: '../../examples/snapshots/upload-errors.json' } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '413': { description: Upload larger than 250 MB, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' } } } }
+snapshot_upload_by_id:
+  delete:
+    operationId: cancelSnapshotUpload
+    tags: [snapshots]
+    summary: Cancel a pending upload
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses:
+      '204': { description: Cancelled }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+snapshot_upload_commit:
+  post:
+    operationId: commitSnapshotUpload
+    tags: [snapshots]
+    summary: Replace the agency's data with this snapshot (single transaction, single-flight)
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses:
+      '200': { description: Replaced, content: { application/json: { schema: { $ref: '../schemas/snapshots.yaml#/CommitResult' }, example: { $ref: '../../examples/snapshots/commit.json' } } } }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '409': { $ref: '../openapi.yaml#/components/responses/Conflict' }
+      '422':
+        description: invalid_snapshot - the report still has errors
+        content: { application/json: { schema: { allOf: [{ $ref: '../schemas/common.yaml#/Error' }, { type: object, properties: { report: { $ref: '../schemas/snapshots.yaml#/Report' } } }] } } }
+snapshots_current:
+  get:
+    operationId: getCurrentSnapshot
+    tags: [snapshots]
+    summary: Latest snapshot (any role; coordinators only need as_of)
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema: { $ref: '../schemas/snapshots.yaml#/SnapshotCurrent' }
+            examples:
+              loaded: { value: { $ref: '../../examples/snapshots/current.json' } }
+              empty: { value: { snapshot: null, files: [] } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }

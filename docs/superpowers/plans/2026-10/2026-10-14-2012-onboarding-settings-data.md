@@ -1,5 +1,7 @@
 # Onboarding, Settings and Data Sources Implementation Plan
 
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`**. Layout/behavior: `design_handoff_simbe/README.md` §2, §10, §12; screenshots `02`, `03`, `12`, `13`, `15`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(onboarding): task N – <title>`) after the task's tests (+ `make verify` for backend tasks).
 
 **Goal:** Sign-up wizard, ad-account (stub) connections, validated snapshot upload UI, team invitations, Settings and Data sources screens.

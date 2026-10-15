@@ -1,0 +1,58 @@
+summary:
+  get:
+    operationId: getMetricsSummary
+    tags: [metrics]
+    summary: KPIs, biggest leak and cost by channel (owner)
+    parameters: [{ $ref: '../openapi.yaml#/components/parameters/Range' }]
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema: { $ref: '../schemas/metrics.yaml#/Summary' }
+            examples:
+              alpha: { value: { $ref: '../../examples/metrics/summary.json' } }
+              empty: { value: { $ref: '../../examples/metrics/summary-empty.json' } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
+funnel:
+  get:
+    operationId: getMetricsFunnel
+    tags: [metrics]
+    summary: Six funnel rows with exit reasons and form drop-off (owner)
+    parameters: [{ $ref: '../openapi.yaml#/components/parameters/Range' }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/metrics.yaml#/Funnel' }, example: { $ref: '../../examples/metrics/funnel.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
+channels:
+  get:
+    operationId: getMetricsChannels
+    tags: [metrics]
+    summary: Channel table plus insights (owner)
+    parameters: [{ $ref: '../openapi.yaml#/components/parameters/Range' }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/metrics.yaml#/Channels' }, example: { $ref: '../../examples/metrics/channels.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
+channel_detail:
+  get:
+    operationId: getMetricsChannel
+    tags: [metrics]
+    summary: One channel with its campaigns (owner)
+    parameters:
+      - { name: channel, in: path, required: true, schema: { type: string } }
+      - { $ref: '../openapi.yaml#/components/parameters/Range' }
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/metrics.yaml#/ChannelDetail' }, example: { $ref: '../../examples/metrics/channel-facebook.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+recommendations:
+  get:
+    operationId: getRecommendations
+    tags: [metrics]
+    summary: Up to four deterministic recommended actions (owner)
+    parameters: [{ $ref: '../openapi.yaml#/components/parameters/Range' }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { type: array, maxItems: 4, items: { $ref: '../schemas/metrics.yaml#/Recommendation' } }, example: { $ref: '../../examples/metrics/recommendations.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }

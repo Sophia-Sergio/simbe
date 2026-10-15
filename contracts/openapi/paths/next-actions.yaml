@@ -1,0 +1,28 @@
+next_actions:
+  get:
+    operationId: getNextActions
+    tags: [next-actions]
+    summary: Four queues for the coordinator (or ?coordinator= for owners)
+    parameters: [{ name: coordinator, in: query, schema: { type: string }, description: owner only }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/next-actions.yaml#/NextActions' }, example: { $ref: '../../examples/next-actions/next-actions.json' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+completion:
+  parameters:
+    - { name: lead_id, in: path, required: true, schema: { type: string, format: uuid } }
+    - { name: queue, in: path, required: true, schema: { $ref: '../schemas/next-actions.yaml#/QueueKey' } }
+  post:
+    operationId: completeNextAction
+    tags: [next-actions]
+    summary: Mark done (idempotent)
+    responses:
+      '200': { description: Done, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Done' }, example: { done: true } } } }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
+      '422': { description: bad_queue, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' } } } }
+  delete:
+    operationId: undoNextAction
+    tags: [next-actions]
+    summary: Undo done (idempotent)
+    responses:
+      '200': { description: Not done, content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Done' }, example: { done: false } } } }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }

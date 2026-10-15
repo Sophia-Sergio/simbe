@@ -1,0 +1,9 @@
+{
+  "id": "44444444-4444-4444-8444-444444444444",
+  "email": "maya@harbor.test",
+  "role": "coordinator",
+  "coordinator_name": "Jess Kim",
+  "status": "pending",
+  "expires_at": "2026-10-08T12:00:00.000Z",
+  "accept_url": "http://localhost:5173/invite/INVITE_TOKEN_EXAMPLE"
+}

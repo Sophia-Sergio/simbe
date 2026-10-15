@@ -1,0 +1,39 @@
+session:
+  post:
+    operationId: createSession
+    tags: [auth]
+    security: []
+    summary: Sign in (sets the simbe_session cookie)
+    requestBody:
+      required: true
+      content: { application/json: { schema: { $ref: '../schemas/auth.yaml#/SessionRequest' }, example: { email: erin@harbor.test, password: simbe-dev-pass } } }
+    responses:
+      '201':
+        description: Signed in
+        content: { application/json: { schema: { $ref: '../schemas/auth.yaml#/Me' }, example: { $ref: '../../examples/auth/me-owner.json' } } }
+      '401':
+        description: Invalid credentials
+        content: { application/json: { schema: { $ref: '../schemas/common.yaml#/Error' }, example: { error: { code: invalid_credentials, message: Email or password is incorrect } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+  delete:
+    operationId: deleteSession
+    tags: [auth]
+    summary: Sign out
+    responses:
+      '204': { description: Signed out }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+me:
+  get:
+    operationId: getMe
+    tags: [auth]
+    summary: Current user and agency
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema: { $ref: '../schemas/auth.yaml#/Me' }
+            examples:
+              owner: { value: { $ref: '../../examples/auth/me-owner.json' } }
+              coordinator: { value: { $ref: '../../examples/auth/me-coordinator.json' } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }

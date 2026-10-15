@@ -1,0 +1,40 @@
+leads:
+  get:
+    operationId: listLeads
+    tags: [leads]
+    summary: Lead list and ⌘K search. Coordinators are always scoped to their own leads.
+    parameters:
+      - { name: status, in: query, schema: { type: string, enum: [open, all, closed, paused, accepted], default: open } }
+      - { name: coordinator, in: query, schema: { type: string }, description: owner only; ignored for coordinators }
+      - { name: q, in: query, schema: { type: string }, description: "name/email contains; when set and no cursor, max 8 results" }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: per, in: query, schema: { type: integer, default: 50, maximum: 50 } }
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/leads.yaml#/LeadList' }, example: { $ref: '../../examples/leads/list.json' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+board:
+  get:
+    operationId: getBoard
+    tags: [leads]
+    summary: Pipeline board - four columns, up to 25 cards each plus true counts
+    parameters:
+      - { name: coordinator, in: query, schema: { type: string }, description: owner only }
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/leads.yaml#/Board' }, example: { $ref: '../../examples/leads/board.json' } } } }
+      '401': { $ref: '../openapi.yaml#/components/responses/Unauthenticated' }
+lead_by_id:
+  get:
+    operationId: getLead
+    tags: [leads]
+    summary: Lead detail. Raw screener answers only for the assigned coordinator; phone masked otherwise.
+    parameters: [{ name: id, in: path, required: true, schema: { type: string, format: uuid } }]
+    responses:
+      '200':
+        description: OK
+        content:
+          application/json:
+            schema: { $ref: '../schemas/leads.yaml#/LeadDetail' }
+            examples:
+              owner_view: { value: { $ref: '../../examples/leads/detail-owner.json' } }
+              assigned_coordinator_view: { value: { $ref: '../../examples/leads/detail-coordinator.json' } }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }

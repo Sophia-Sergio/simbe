@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: Simbe API
+  version: 1.0.0
+  description: |
+    Single source of truth for every HTTP payload between the Simbe frontend and the Rails API.
+    One file per domain under `paths/` and `schemas/`. Lanes never edit this directly; use a Contract Change Request
+    (see docs/superpowers/specs/2026-10/2026-10-14-2100-parallel-build-architecture-design.md).
+
+    Conventions: JSON, snake_case, ISO-8601 UTC timestamps, money in integer cents, rates in percent with one decimal.
+    Every non-GET request must send `X-Requested-With: simbe`. Auth is an HttpOnly cookie (`simbe_session`).
+    Errors always use the `Error` envelope.
+servers:
+  - url: /api/v1
+tags:
+  - { name: auth }
+  - { name: account }
+  - { name: snapshots }
+  - { name: metrics }
+  - { name: leads }
+  - { name: next-actions }
+  - { name: coordinators }
+  - { name: agent }
+  - { name: mcp }
+security:
+  - cookieAuth: []
+paths:
+  /session: { $ref: './paths/auth.yaml#/session' }
+  /me: { $ref: './paths/auth.yaml#/me' }
+  /signup: { $ref: './paths/account.yaml#/signup' }
+  /agency: { $ref: './paths/account.yaml#/agency' }
+  /team: { $ref: './paths/account.yaml#/team' }
+  /invitations: { $ref: './paths/account.yaml#/invitations' }
+  /invitations/{id}: { $ref: './paths/account.yaml#/invitation_by_id' }
+  /invitations/{token}/preview: { $ref: './paths/account.yaml#/invitation_preview' }
+  /invitations/{token}/accept: { $ref: './paths/account.yaml#/invitation_accept' }
+  /coordinator_names: { $ref: './paths/account.yaml#/coordinator_names' }
+  /ad_connections: { $ref: './paths/account.yaml#/ad_connections' }
+  /ad_connections/{platform}: { $ref: './paths/account.yaml#/ad_connection_by_platform' }
+  /snapshot_uploads: { $ref: './paths/snapshots.yaml#/snapshot_uploads' }
+  /snapshot_uploads/{id}: { $ref: './paths/snapshots.yaml#/snapshot_upload_by_id' }
+  /snapshot_uploads/{id}/commit: { $ref: './paths/snapshots.yaml#/snapshot_upload_commit' }
+  /snapshots/current: { $ref: './paths/snapshots.yaml#/snapshots_current' }
+  /metrics/summary: { $ref: './paths/metrics.yaml#/summary' }
+  /metrics/funnel: { $ref: './paths/metrics.yaml#/funnel' }
+  /metrics/channels: { $ref: './paths/metrics.yaml#/channels' }
+  /metrics/channels/{channel}: { $ref: './paths/metrics.yaml#/channel_detail' }
+  /recommendations: { $ref: './paths/metrics.yaml#/recommendations' }
+  /leads: { $ref: './paths/leads.yaml#/leads' }
+  /leads/board: { $ref: './paths/leads.yaml#/board' }
+  /leads/{id}: { $ref: './paths/leads.yaml#/lead_by_id' }
+  /next_actions: { $ref: './paths/next-actions.yaml#/next_actions' }
+  /next_actions/{lead_id}/{queue}/completion: { $ref: './paths/next-actions.yaml#/completion' }
+  /coordinators: { $ref: './paths/coordinators.yaml#/coordinators' }
+  /coordinators/{name}: { $ref: './paths/coordinators.yaml#/coordinator_by_name' }
+  /agent/messages: { $ref: './paths/agent.yaml#/messages' }
+  /agent/conversations/{id}: { $ref: './paths/agent.yaml#/conversation' }
+  /agent/suggestions: { $ref: './paths/agent.yaml#/suggestions' }
+  /agent/usage: { $ref: './paths/agent.yaml#/usage' }
+  /mcp: { $ref: './paths/mcp.yaml#/mcp_settings' }
+  /mcp/rotate: { $ref: './paths/mcp.yaml#/mcp_rotate' }
+components:
+  securitySchemes:
+    cookieAuth: { type: apiKey, in: cookie, name: simbe_session }
+  responses:
+    Unauthenticated:
+      description: No valid session
+      content: { application/json: { schema: { $ref: './schemas/common.yaml#/Error' }, example: { error: { code: unauthenticated, message: Sign in required } } } }
+    Forbidden:
+      description: Role not allowed (e.g. coordinator on an owner-only route) or missing CSRF header
+      content: { application/json: { schema: { $ref: './schemas/common.yaml#/Error' }, example: { error: { code: forbidden, message: Owner access required } } } }
+    NotFound:
+      description: Not found, or belongs to another agency or coordinator (never 403 for tenancy)
+      content: { application/json: { schema: { $ref: './schemas/common.yaml#/Error' }, example: { error: { code: not_found, message: Not found } } } }
+    Invalid:
+      description: Validation failed
+      content: { application/json: { schema: { $ref: './schemas/common.yaml#/Error' }, example: { error: { code: bad_range, message: "range must be 30d, 90d or 12m" } } } }
+    Conflict:
+      description: Another identical operation is already running (single-flight)
+      content: { application/json: { schema: { $ref: './schemas/common.yaml#/Error' }, example: { error: { code: already_in_progress, message: A load is already running } } } }
+  parameters:
+    Range:
+      name: range
+      in: query
+      schema: { $ref: './schemas/common.yaml#/Range' }

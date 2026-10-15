@@ -1,0 +1,28 @@
+User:
+  type: object
+  required: [id, name, email, role]
+  properties:
+    id: { type: string, format: uuid }
+    name: { type: string }
+    email: { type: string, format: email }
+    role: { $ref: './common.yaml#/Role' }
+    coordinator_name: { type: [string, 'null'], description: "Matches leads.coordinator_name; set for coordinators" }
+Agency:
+  type: object
+  required: [id, name, slug, timezone, qualified_milestone]
+  properties:
+    id: { type: string, format: uuid }
+    name: { type: string }
+    slug: { type: string }
+    timezone: { type: string, description: IANA zone, examples: [America/Los_Angeles] }
+    qualified_milestone: { $ref: './common.yaml#/Milestone' }
+Me:
+  type: object
+  required: [user, agency]
+  properties:
+    user: { $ref: '#/User' }
+    agency: { $ref: '#/Agency' }
+SessionRequest:
+  type: object
+  required: [email, password]
+  properties: { email: { type: string, format: email }, password: { type: string } }

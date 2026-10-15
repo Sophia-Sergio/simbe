@@ -1,0 +1,35 @@
+{
+  "conversation_id": "99999999-9999-4999-8999-999999999999",
+  "message": {
+    "id": "99999999-9999-4999-8999-999999999998",
+    "role": "assistant",
+    "created_at": "2026-10-01T12:00:00.000Z",
+    "body": {
+      "text": "Facebook is your cheapest channel at about $150 per qualified surrogate. Google has spent $450 with no qualified leads yet - but the sample is small (3 leads), so treat this as a first signal.",
+      "chart": {
+        "title": "Cost per qualified lead",
+        "bars": [
+          {
+            "label": "Facebook",
+            "value": 150,
+            "display": "$150"
+          }
+        ]
+      },
+      "action": {
+        "label": "Open channels",
+        "route": "/channels"
+      },
+      "sources": [
+        {
+          "label": "Channels",
+          "route": "/channels"
+        }
+      ],
+      "suggestions": [
+        "What about Google?",
+        "Where do applicants drop off?"
+      ]
+    }
+  }
+}
