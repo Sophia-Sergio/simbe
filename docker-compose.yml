@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-simbe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-simbe}
+      POSTGRES_DB: ${POSTGRES_DB:-simbe_development}
+    ports: ["${DB_PORTS:-5434:5432}"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-simbe} -d ${POSTGRES_DB:-simbe_development}"]
+      interval: 3s
+      retries: 20
+  web:
+    build: { context: ., dockerfile: Dockerfile.dev }
+    command: bash -c "bundle check || bundle install; (npm ls >/dev/null 2>&1 || npm ci --no-audit); rm -f tmp/pids/server.pid; bundle exec rails db:prepare && bundle exec rails server -b 0.0.0.0 -p 3000"
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-simbe}:${POSTGRES_PASSWORD:-simbe}@db:5432/${POSTGRES_DB:-simbe_development}
+      RAILS_ENV: ${RAILS_ENV:-development}
+      SOLID_QUEUE_IN_PUMA: "true"
+      SIMBE_EXPORTS_DIR: /exports            # overrides the host path from .env: inside the container the exports are mounted at /exports
+      VITE_RUBY_HOST: vite
+      VITE_RUBY_PORT: "3036"
+    depends_on: { db: { condition: service_healthy } }
+    ports: ["${WEB_PORTS:-3000:3000}"]
+    volumes:
+      - ".:/app"
+      - "bundle_cache:/usr/local/bundle"
+      - "/app/node_modules"
+      # local-only real exports (git-ignored, absent from linked worktrees): bin/worktree-env points SIMBE_EXPORTS_DIR at the main checkout
+      - "${SIMBE_EXPORTS_DIR:-./handoff/takehome/exports}:/exports:ro"
+  vite:
+    build: { context: ., dockerfile: Dockerfile.dev }
+    command: bash -c "bundle check || bundle install; (npm ls >/dev/null 2>&1 || npm ci --no-audit); bin/vite dev"
+    env_file: [.env]
+    environment: { RAILS_ENV: "${RAILS_ENV:-development}" }
+    ports: ["${VITE_PORTS:-3036:3036}"]
+    volumes: [".:/app", "bundle_cache:/usr/local/bundle", "/app/node_modules"]
+    depends_on: [web]
+volumes: { pgdata: {}, bundle_cache: {} }
