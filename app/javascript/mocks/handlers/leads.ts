@@ -43,6 +43,9 @@ const EXTRA_LEADS: LeadCard[] = [
 const OPEN_LEADS = listFixture.leads as LeadCard[]
 const ALL_LEADS = [...OPEN_LEADS, ...EXTRA_LEADS]
 
+/** Lead emails are derived from the name (L4 Alpha → l4.alpha@example.com); search covers name and email. */
+const emailFor = (lead: LeadCard) => `${lead.name.toLowerCase().replace(/[^a-z0-9]+/g, ".")}@example.com`
+
 function byStatus(status: string): LeadCard[] {
   switch (status) {
     case "all":
@@ -118,7 +121,7 @@ export const leadsHandlers = [
     else if (coordinatorParam) leads = leads.filter((lead) => lead.coordinator === coordinatorParam)
     if (q !== null) {
       const needle = q.toLowerCase()
-      leads = leads.filter((lead) => lead.name.toLowerCase().includes(needle)).slice(0, 8)
+      leads = leads.filter((lead) => lead.name.toLowerCase().includes(needle) || emailFor(lead).includes(needle)).slice(0, 8)
       return HttpResponse.json({ leads, next_cursor: null } satisfies LeadList)
     }
     const per = Number(url.searchParams.get("per") ?? 50)

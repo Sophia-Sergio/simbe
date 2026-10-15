@@ -41,6 +41,21 @@ it("coordinator is 403 on PATCH /agency", async () => {
   expect((await json("/api/v1/agency", "PATCH", { name: "Nope" })).status).toBe(403)
 })
 
+it("a coordinator may still READ the agency (the contract lists no 403 for GET)", async () => {
+  asRole("coordinator")
+  const res = await fetch("/api/v1/agency")
+  expect(res.status).toBe(200)
+  expect((await res.json()).slug).toBe("harbor")
+})
+
+it("DELETE /invitations/:id requires the CSRF header", async () => {
+  expect((await fetch("/api/v1/invitations/44444444-4444-4444-8444-444444444444", { method: "DELETE" })).status).toBe(403)
+})
+
+it("DELETE /ad_connections/:platform requires the CSRF header", async () => {
+  expect((await fetch("/api/v1/ad_connections/meta", { method: "DELETE" })).status).toBe(403)
+})
+
 it("the expired invitation token preview is 410", async () => {
   expect((await fetch("/api/v1/invitations/expired/preview")).status).toBe(410)
 })

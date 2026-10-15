@@ -22,3 +22,12 @@ it("a coordinator gets 403", async () => {
   asRole("coordinator")
   expect((await fetch("/api/v1/mcp")).status).toBe(403)
 })
+
+it("a second rotate while the first is in flight is 409", async () => {
+  const first = fetch("/api/v1/mcp/rotate", { method: "POST", headers: csrf })
+  await new Promise((resolve) => setTimeout(resolve, 10))
+  const second = await fetch("/api/v1/mcp/rotate", { method: "POST", headers: csrf })
+  expect(second.status).toBe(409)
+  expect((await second.json()).error.code).toBe("already_in_progress")
+  expect((await first).status).toBe(201)
+})

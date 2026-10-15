@@ -85,9 +85,16 @@ it("committing a valid upload advances committing → committed and updates /sna
   expect(after.snapshot?.as_of).toBe("2026-10-08T09:00:00.000Z")
 })
 
-it("deleting an upload cancels it", async () => {
+it("deleting an upload cancels it so a racing poll still sees it", async () => {
   const id = await upload(SEVEN)
   const res = await fetch(`/api/v1/snapshot_uploads/${id}`, { method: "DELETE", headers: { "X-Requested-With": "simbe" } })
   expect(res.status).toBe(204)
-  expect((await fetch(`/api/v1/snapshot_uploads/${id}`)).status).toBe(404)
+  const body = await get(id)
+  expect(body.status).toBe("cancelled")
+})
+
+it("commit and cancel require the CSRF header", async () => {
+  const id = await upload(SEVEN)
+  expect((await fetch(`/api/v1/snapshot_uploads/${id}/commit`, { method: "POST" })).status).toBe(403)
+  expect((await fetch(`/api/v1/snapshot_uploads/${id}`, { method: "DELETE" })).status).toBe(403)
 })

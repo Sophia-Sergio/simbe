@@ -44,9 +44,9 @@ export const accountHandlers = [
     return HttpResponse.json({ user: { ...user, name: body.user?.name ?? user.name, email }, agency } satisfies Me, { status: 201 })
   }),
 
+  // The contract declares only 200/401 here (no 403) — coordinators read the agency too.
   http.get("/api/v1/agency", () => {
     if (!db.session) return unauth()
-    if (!isOwner()) return forbidden()
     return HttpResponse.json(db.agency)
   }),
   http.patch("/api/v1/agency", async ({ request }) => {
@@ -95,7 +95,9 @@ export const accountHandlers = [
     return HttpResponse.json(invitation, { status: 201 })
   }),
 
-  http.delete("/api/v1/invitations/:id", ({ params }) => {
+  http.delete("/api/v1/invitations/:id", ({ request, params }) => {
+    const csrf = csrfForbidden(request)
+    if (csrf) return csrf
     if (!db.session) return unauth()
     if (!isOwner()) return forbidden()
     const id = String(params.id)
@@ -157,7 +159,9 @@ export const accountHandlers = [
     db.connections = [...db.connections, connection]
     return HttpResponse.json(connection, { status: 201 })
   }),
-  http.delete("/api/v1/ad_connections/:platform", ({ params }) => {
+  http.delete("/api/v1/ad_connections/:platform", ({ request, params }) => {
+    const csrf = csrfForbidden(request)
+    if (csrf) return csrf
     if (!db.session) return unauth()
     if (!isOwner()) return forbidden()
     const platform = String(params.platform)

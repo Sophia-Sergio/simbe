@@ -140,14 +140,22 @@ export const snapshotHandlers = [
     return HttpResponse.json(advance(id, upload))
   }),
 
-  http.delete("/api/v1/snapshot_uploads/:id", ({ params }) => {
+  // Cancel marks the upload cancelled (not deleted) so a poll racing the cancel sees the terminal state.
+  http.delete("/api/v1/snapshot_uploads/:id", ({ request, params }) => {
+    const csrf = csrfForbidden(request)
+    if (csrf) return csrf
     const gated = gate()
     if (gated) return gated
-    if (!db.uploads.delete(String(params.id))) return notFound()
+    const upload = db.uploads.get(String(params.id))
+    if (!upload) return notFound()
+    upload.status = "cancelled"
+    upload.progress = null
     return new HttpResponse(null, { status: 204 })
   }),
 
-  http.post("/api/v1/snapshot_uploads/:id/commit", ({ params }) => {
+  http.post("/api/v1/snapshot_uploads/:id/commit", ({ request, params }) => {
+    const csrf = csrfForbidden(request)
+    if (csrf) return csrf
     const gated = gate()
     if (gated) return gated
     const id = String(params.id)

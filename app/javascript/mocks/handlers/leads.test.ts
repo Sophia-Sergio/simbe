@@ -28,6 +28,13 @@ it("status=all includes paused and closed cards", async () => {
   expect(body.leads.length).toBeGreaterThan(5)
 })
 
+it("searches by name or email", async () => {
+  const byEmail = await json<LeadList>("/api/v1/leads?q=l4.alpha@example.com")
+  expect(byEmail.leads.map((lead) => lead.name)).toEqual(["L4 Alpha"])
+  const byName = await json<LeadList>("/api/v1/leads?q=l4 alpha")
+  expect(byName.leads.map((lead) => lead.name)).toEqual(["L4 Alpha"])
+})
+
 it("a coordinator cannot open another coordinator's lead", async () => {
   asRole("coordinator")
   expect((await fetch("/api/v1/leads/aaaaaaaa-0000-4000-8000-000000000001")).status).toBe(404)
