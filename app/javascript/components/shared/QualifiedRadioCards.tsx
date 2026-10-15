@@ -1,3 +1,4 @@
+import { useId } from "react"
 import { Pill } from "@/components/ui/Pill"
 import { QUALIFIED_OPTIONS } from "./options"
 import type { Milestone } from "./options"
@@ -12,6 +13,7 @@ export function QualifiedRadioCards({
   onChange: (milestone: Milestone) => void
   disabled?: boolean
 }) {
+  const groupName = useId()
   return (
     <div role="radiogroup" aria-label="Definition of qualified" className="flex flex-col gap-2">
       {QUALIFIED_OPTIONS.map((option) => {
@@ -19,13 +21,13 @@ export function QualifiedRadioCards({
         return (
           <label
             key={option.value}
-            className={`flex cursor-pointer items-start gap-3 rounded-card border p-3 transition-colors ${
+            className={`flex cursor-pointer items-start gap-3 rounded-card border p-3 transition-colors has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${
               selected ? "border-brand-border bg-brand-tint" : "border-line bg-surface hover:bg-subtle"
             } ${disabled ? "pointer-events-none opacity-50" : ""}`}
           >
             <input
               type="radio"
-              name="qualified-milestone"
+              name={groupName}
               value={option.value}
               checked={selected}
               disabled={disabled}

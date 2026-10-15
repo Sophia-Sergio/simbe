@@ -3,11 +3,19 @@ import { Donut } from "./Donut"
 
 const CIRCUMFERENCE = 2 * Math.PI * 40
 
-it("exposes a text alternative and prints its value", () => {
+it("keeps the plan's text alternative", () => {
   render(<Donut pct={27} label="27% stall" sublabel="stall" />)
   expect(screen.getByRole("img", { name: /27% stall/ })).toBeInTheDocument()
-  expect(screen.getByText("27% stall")).toBeInTheDocument()
-  expect(screen.getByText("stall")).toBeInTheDocument()
+})
+
+it("builds the accessible name from label and sublabel", () => {
+  render(<Donut pct={27} label="27%" sublabel="stall" />)
+  expect(screen.getByRole("img", { name: "27% stall" })).toBeInTheDocument()
+})
+
+it("hides the centre value from assistive tech so it is not read twice", () => {
+  render(<Donut pct={27} label="27%" sublabel="stall" />)
+  expect(screen.getByText("27%").closest('[aria-hidden="true"]')).not.toBeNull()
 })
 
 it("sizes the arc to the pct of the circumference", () => {

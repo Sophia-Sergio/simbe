@@ -60,7 +60,7 @@ export function Ring({ met, review, notMet, unanswered }: RingProps) {
             />
           ))}
         </svg>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <span className="font-display text-[20px] font-semibold tracking-tight text-ink">{pct}</span>
           <span className="text-[11px] text-ink-muted">Progress</span>
         </div>

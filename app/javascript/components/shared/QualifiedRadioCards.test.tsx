@@ -22,3 +22,23 @@ it("disables every radio when disabled", () => {
     expect(radio).toBeDisabled()
   }
 })
+
+it("shows the focus ring on the card when the hidden radio is focused", () => {
+  render(<QualifiedRadioCards value="records" onChange={() => {}} />)
+  const label = screen.getByRole("radio", { name: /Reached medical records/ }).closest("label")
+  expect(label?.className).toContain("has-[:focus-visible]:outline")
+  expect(label?.className).toContain("has-[:focus-visible]:outline-2")
+  expect(label?.className).toContain("has-[:focus-visible]:outline-offset-2")
+})
+
+it("scopes each instance's radios with a unique group name", () => {
+  render(
+    <>
+      <QualifiedRadioCards value="records" onChange={() => {}} />
+      <QualifiedRadioCards value="accepted" onChange={() => {}} />
+    </>,
+  )
+  const radios = screen.getAllByRole("radio") as HTMLInputElement[]
+  expect(radios[0].name).toBe(radios[1].name)
+  expect(radios[0].name).not.toBe(radios[4].name)
+})

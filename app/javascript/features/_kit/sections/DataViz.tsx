@@ -91,7 +91,7 @@ export default function DataViz() {
 
       <Card heading="Donut / Ring">
         <div className="flex flex-wrap items-center gap-6">
-          <Donut pct={27} label="27% stall" sublabel="stall" />
+          <Donut pct={27} label="27%" sublabel="stall" />
           <Ring met={7} review={1} notMet={1} unanswered={1} />
         </div>
       </Card>

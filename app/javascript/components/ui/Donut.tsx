@@ -10,11 +10,12 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 export function Donut({ pct, label, sublabel }: { pct: number; label: string; sublabel?: string }) {
   const clamped = Math.max(0, Math.min(100, pct || 0))
   const arc = (clamped / 100) * CIRCUMFERENCE
+  const accessibleName = [label, sublabel].filter(Boolean).join(" ")
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: SIZE, height: SIZE }}>
       <svg
         role="img"
-        aria-label={label}
+        aria-label={accessibleName}
         width={SIZE}
         height={SIZE}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
@@ -41,7 +42,7 @@ export function Donut({ pct, label, sublabel }: { pct: number; label: string; su
           className="stroke-warning"
         />
       </svg>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="font-display text-[20px] font-semibold tracking-tight text-ink">{label}</span>
         {sublabel ? <span className="text-[11px] text-ink-muted">{sublabel}</span> : null}
       </div>

@@ -19,3 +19,17 @@ it("draws one segment per verdict with the right state", () => {
   const segments = screen.getAllByTestId("ring-segment")
   expect(segments.map((s) => s.dataset.state)).toEqual(["met", "review", "notMet", "unanswered"])
 })
+
+it("sizes each arc segment with dasharray and a running offset", () => {
+  const CIRCUMFERENCE = 2 * Math.PI * 36
+  const quarter = (1 / 4) * CIRCUMFERENCE
+  const { container } = render(<Ring met={1} review={1} notMet={1} unanswered={1} />)
+  const segments = Array.from(container.querySelectorAll('[data-testid="ring-segment"]')) as SVGCircleElement[]
+  for (const segment of segments) {
+    expect(segment).toHaveAttribute("stroke-dasharray", `${quarter} ${CIRCUMFERENCE}`)
+  }
+  expect(segments[0]).toHaveAttribute("stroke-dashoffset", "0")
+  expect(segments[1]).toHaveAttribute("stroke-dashoffset", `${-quarter}`)
+  expect(segments[2]).toHaveAttribute("stroke-dashoffset", `${-2 * quarter}`)
+  expect(segments[3]).toHaveAttribute("stroke-dashoffset", `${-3 * quarter}`)
+})
