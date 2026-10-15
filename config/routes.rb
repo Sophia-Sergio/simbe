@@ -1,14 +1,13 @@
 Rails.application.routes.draw do
-  # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
-
-  # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
-  # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
-  # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
-  # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
-
-  # Defines the root path route ("/")
-  # root "posts#index"
+  # Extension points: a lane adds a route by adding a file in its own pack, never by editing this one.
+  # Order matters: pack API routes, pack root routes, then core root routes (zz_spa.rb, the SPA catch-all, last).
+  namespace :api do
+    namespace :v1 do
+      Dir[Rails.root.join("app/packs/*/config/routes/*.rb")].sort.each { |file| instance_eval(File.read(file), file) }
+    end
+  end
+  Dir[Rails.root.join("app/packs/*/config/routes_root/*.rb")].sort.each { |file| instance_eval(File.read(file), file) }
+  Dir[Rails.root.join("config/routes_root/*.rb")].sort.each { |file| instance_eval(File.read(file), file) }
 end

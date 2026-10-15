@@ -1,0 +1,10 @@
+# Cross-pack edges allowed by `rails boundaries:check` ("from->to": the `from` pack may reference models of the `to` pack).
+# This list only shrinks: never add an entry; if a change seems to need one, stop and ask (docs/conventions/security.md).
+edges:
+  - ingest->leads
+  - leads->ingest
+  - metrics->leads
+  - agent->metrics
+  - agent->leads
+  - mcp->agent
+  - identity->leads
