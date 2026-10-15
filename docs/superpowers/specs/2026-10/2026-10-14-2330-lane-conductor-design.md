@@ -41,6 +41,13 @@ Let one Claude Code session run the 32 lanes through OpenCode **in parallel**: s
     - `bin/lane state show|set` reads and updates the state file.
 14. **`review-gate.md` is amended** (G4 per batch, G5 automatic for batch-approved lanes, the trust-ladder level 1 wording). Trust ladder rules are unchanged: any hard stop, post-merge regression or canary failure drops a level.
 
+15. **Worktrees are the unit of isolation.** One lane = one worktree `.worktrees/<lane-id>` = one branch `lane/<LANE>-<slug>` = one OpenCode session.
+    - `bin/lane start` creates it from `origin/main` with its own Docker stack; `bin/lane run` executes OpenCode with that worktree as its working directory and fails if the main checkout changes.
+    - Every conductor action on a lane happens inside that lane's worktree: G2 re-runs, the G3 subagent (given the worktree path, read-only), fix rounds (`--session`, same worktree), `bin/lane ci`, `bin/lane rebase`, `bin/lane approve`/`pr`.
+    - The conductor itself works from the main checkout or any other worktree; `bin/lane` resolves the main checkout from the git common dir, so the state file and `.superpowers/gate/` are always shared, never per worktree.
+    - Two agents never share a worktree; the conductor never edits lane files, it only sends findings to the lane's session. Conductor-owned changes (this tooling, docs) get their own worktree and PR.
+    - `bin/lane stop` removes the worktree and its Docker stack only after the lane is `merged`.
+
 ## Non-goals
 A background daemon or GitHub-Actions-driven dispatch; changing lane plans, `Owns` lists or the OpenCode permission set; merging without green required checks; skipping independent verification; running real-data specs in CI; any change to the pilot rule that W0-1 goes first and alone.
 
