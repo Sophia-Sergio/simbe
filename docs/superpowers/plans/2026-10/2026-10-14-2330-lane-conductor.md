@@ -205,6 +205,7 @@ class LaneSandbox
       #!/usr/bin/env bash
       echo '{"type":"step_start","sessionID":"ses_fake123","part":{"type":"step-start"}}'
       echo "not json noise"
+      [ -n "${FAKE_OPENCODE_ARGS:-}" ] && printf '%s\n' "$@" > "$FAKE_OPENCODE_ARGS"
       [ -n "${FAKE_OPENCODE_TOUCH:-}" ] && touch "$FAKE_OPENCODE_TOUCH"
       sleep "${FAKE_OPENCODE_SLEEP:-0}"
       exit "${FAKE_OPENCODE_EXIT:-0}"
@@ -609,7 +610,7 @@ git commit -m "tooling(conductor): task 2 – bin/lane next (scheduler with caps
 
 **Files:** Create `spec/tooling/lane_run_spec.rb`; modify `bin/lane` (`cmd_run`, conductor section, `main`).
 
-**Interfaces — Consumes:** `update_lane`, `load_state`, `tier_of` (Task 1); existing `worktree_of`, `gate_dir`, `require_lane_agent`, `opencode_bin`, `main_state`, `prompt_for`. **Produces:** `session_id(log_path) -> str|None`; `bin/lane run` exits 0 (ran), 3 (tripwire, `phase=blocked`), 4 (timed out, `phase=verifying`); `--timeout` accepts fractional minutes.
+**Interfaces — Consumes:** `update_lane`, `load_state`, `tier_of` (Task 1); existing `worktree_of`, `gate_dir`, `require_lane_agent`, `opencode_bin`, `main_state`, `prompt_for`. **Produces:** `session_id(log_path) -> str|None`; `bin/lane run` exits 0 (ran), 3 (tripwire, `phase=blocked`), 4 (timed out, `phase=verifying`); `--timeout` accepts fractional minutes; `--prompt-file PATH` replaces the lane prompt on a fix round.
 
 - [ ] **Step 1: Write the failing spec**
 
@@ -650,6 +651,17 @@ RSpec.describe "bin/lane run" do
     res = sandbox.lane("run", "F-WEEK")
     expect(res).not_to be_success
     expect(res.err).to include("--model")
+  end
+
+  it "sends the findings instead of the lane prompt on a fix round, keeping the gated-run rules" do
+    findings = File.join(sandbox.root, "..", "findings.md")
+    args = File.join(sandbox.root, "..", "args.txt")
+    File.write(findings, "Fix: spec/x_spec.rb expects 3, got 4")
+    res = sandbox.lane("run", "F-WEEK", "--model", "p/m", "--session", "ses_1", "--prompt-file", findings, env: { "FAKE_OPENCODE_ARGS" => args })
+    expect(res).to be_success, res.err + res.out
+    sent = File.read(args)
+    expect(sent).to include("ses_1", "Fix: spec/x_spec.rb expects 3, got 4", "GATED RUN RULES", "edit tool")
+    expect(sent).not_to include("Implement `@")
   end
 
   it "writes no state on --dry-run" do
@@ -708,9 +720,12 @@ def cmd_run(a):
     require_lane_agent(wt)
     extra = ("\n\nGATED RUN RULES (enforced by permissions): you cannot push, open PRs, touch remotes, run fly/gh, or leave this worktree. "
              "Commit locally after every plan task with the plan's message pattern. When finished, stop and print a short summary: tasks done, "
-             "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it.")
+             "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it. "
+             "Your shell is allowlisted (git add/commit/status/diff/log, make, bin/rails, bundle, npm/npx/node, docker compose, ...); anything else, "
+             "including shell redirection to write files, is denied: create and change files with your edit tool.")
     extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
-    prompt = prompt_for(l) + extra
+    # A fix round (--session) sends the reviewer's findings instead of the lane prompt; the gated-run rules always follow.
+    prompt = (open(a.prompt_file).read().strip() if a.prompt_file else prompt_for(l)) + extra
     cmd = [opencode_bin(), "run", "--standalone", "--auto", "--agent", "lane", "--format", "json", "--title", f"{l['id']} gated run", "-m", model] + (["--session", a.session] if a.session else []) + [prompt]
     print("$ (cd %s && %s)" % (wt, " ".join(c if " " not in c else repr(c[:60] + "…") for c in cmd)))
     if a.dry_run: return
@@ -732,7 +747,7 @@ def cmd_run(a):
     print(f"opencode exited {code}; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
 ```
 
-In `main()`, in the `run` parser line change `u.add_argument("--timeout", type=int, default=120, help="minutes")` to `u.add_argument("--timeout", type=float, default=120, help="minutes")`.
+In `main()`, in the `run` parser line change `u.add_argument("--timeout", type=int, default=120, help="minutes")` to `u.add_argument("--timeout", type=float, default=120, help="minutes"); u.add_argument("--prompt-file", help="fix round: send this file (the findings) instead of the lane prompt")`.
 
 - [ ] **Step 4: Run it, expect PASS**
 
@@ -1139,7 +1154,7 @@ bin/lane state set-models top=<provider/model> mid=<provider/model> cheap=<provi
 bin/lane next                          # lanes whose prerequisites are merged, critical path first, within the caps (bin/lane state show)
 bin/lane start <LANE> && bin/lane run <LANE>          # background; records phase + OpenCode session id
 bin/lane review <LANE>                 # G2, plus the plan's Done-when commands re-run in the worktree; G3 by a fresh subagent per lane
-bin/lane run <LANE> --session <id>     # fix rounds (max 2) with the exact findings
+bin/lane run <LANE> --session <id> --prompt-file <findings.md>   # fix rounds (max 2) with the exact findings
 # batch report -> you: go / go except <LANE> / change <LANE>: …
 bin/lane approve <LANE> --by <you> --note "batch <ts>" && (cd .worktrees/<lane> && bin/lane pr)   # PR, claude-review, auto-merge
 bin/lane ci <LANE>                     # background; red -> failing logs back to the session (max 2), then re-approve + bin/lane pr updates the PR
