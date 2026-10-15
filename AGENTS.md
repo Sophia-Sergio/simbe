@@ -23,7 +23,7 @@ For product/UI questions read `handoff/design/README.md` (layout, screens, behav
 
 ## Stack
 
-Rails 8 API-only (``) · PostgreSQL 16 · React + TypeScript + Vite + Tailwind (`frontend/`) · Anthropic Claude for the agent. Everything runs in Docker Compose.
+One Rails 8 app at the repo root (full Rails; backend **packs** in `app/packs/<pack>/app/...`, appketing-style) · PostgreSQL 16 · Solid Queue in Puma · React 19 + TypeScript + Tailwind embedded with `vite_rails` in `app/javascript` (no Inertia; React Router + the `/api/v1` contract) · Anthropic Claude for the agent. Layout: `docs/` (conventions, design, operations, superpowers), `handoff/` (design + take-home material), `contracts/` (OpenAPI), `e2e/`. Rails/DB run in Docker Compose; Node-only tooling and frontend-only lanes run on the host (see `docs/conventions/development.md`).
 
 ## Non-negotiables
 
