@@ -30,6 +30,7 @@ export const feature: FeatureModule = {
 2. Coordinator sessions never render the "All coordinators" dropdown; the API already scopes the data.
 3. Contract: board is `GET /leads/board` (`getBoard`), list is `GET /leads` with `status` filter (`open` default, `all`, `closed`, `paused`, `accepted`) and `q`; "Load more" uses `next_cursor`.
 4. Fixtures `contracts/examples/leads/board.json` (action_needed 4, in_application 0, consult 0, qualified 3) and `list.json`.
+- **Loading state (async uploads):** when the data is empty *and* `useCurrentSnapshot().data?.pending` is non-null, render `<LoadingYourData progress={pending.progress} />` instead of the empty state; when there is no snapshot and nothing pending, the owner gets the "Load your data" link to `/data` (coordinators: "Ask your agency owner to load data"). Test both with `?mock=loading` and `?mock=empty`.
 
 ## Responsive acceptance
 - **Desktop:** header (title + count pill), toolbar card (Board/List segmented, owner dropdown), four `bg-subtle rounded-panel` column wells with count pills; lead cards `rounded-card` with name + source/status pills, `28 yrs | CA` + date, 6-segment progress bar.
