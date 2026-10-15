@@ -12,10 +12,14 @@
   bin/lane status                       who is doing what (branches/PRs from GitHub)
   bin/lane graph [--file F --write|--check]   dependency diagram + table generated from the plans' 'Depends on' lines
   bin/lane stop F-WEEK                  tear down the worktree's docker stack and remove the worktree
+  bin/lane next [--json] [--assume-merged IDS] [--limit N]   lanes that may start now (conductor)
+  bin/lane state show|set|set-caps|set-models …              conductor state (.superpowers/orchestrator/state.json or $LANE_STATE)
+  bin/lane ci F-WEEK                    wait for the PR checks; print failing job logs
+  bin/lane rebase F-WEEK                rebase the lane on origin/main and print a range-diff
 
 Guide: docs/superpowers/parallel/playbook.md
 """
-import argparse, os, re, subprocess, sys, glob, json
+import argparse, os, re, subprocess, sys, glob, json, time, datetime
 
 def sh(*cmd, cwd=None, check=True, capture=True):
     r = subprocess.run(cmd, cwd=cwd, text=True, capture_output=capture)
@@ -467,6 +471,66 @@ def cmd_canary(a):
     if ok: shutil.rmtree(root, ignore_errors=True)
     sys.exit(0 if ok else 1)
 
+# ---------------------------------------------------------------- conductor (docs/superpowers/specs/2026-10/2026-10-14-2330-lane-conductor-design.md)
+STATE_PATH = os.environ.get("LANE_STATE") or os.path.join(MAIN_ROOT, ".superpowers", "orchestrator", "state.json")
+PHASES = ["queued", "running", "verifying", "fixing", "ready", "approved", "ci", "merged", "blocked"]
+LANE_KEYS = {"phase", "session", "model", "log", "fix_rounds", "ci_rounds", "pr", "head", "blocked_reason"}
+INT_KEYS = {"fix_rounds", "ci_rounds"}
+DEFAULT_CAPS = {"max_running": 4, "max_stacks": 5, "max_waiting": 4}
+TIERS = {"top": {"W0-1", "W0-3", "W0-5", "B-INGEST", "B-AGENT", "W3-1"}, "cheap": {"F-COORDINATORS", "F-SEARCH", "F-SETTINGS", "F-CONNECT"}}
+
+def tier_of(lane_id): return next((t for t, ids in TIERS.items() if lane_id in ids), "mid")
+
+def load_state():
+    try:
+        with open(STATE_PATH) as f: s = json.load(f)
+    except FileNotFoundError: s = {}
+    except ValueError as e: sys.exit(f"corrupt state file {STATE_PATH}: {e}. Fix or delete it (GitHub still holds PR/merge state).")
+    s.setdefault("models", {}); s.setdefault("lanes", {})
+    s["caps"] = {**DEFAULT_CAPS, **s.get("caps", {})}
+    return s
+
+def save_state(s):
+    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+    tmp = STATE_PATH + ".tmp"
+    with open(tmp, "w") as f: json.dump(s, f, indent=2, sort_keys=True)
+    os.replace(tmp, STATE_PATH)
+
+def parse_pairs(pairs):
+    out = {}
+    for p in pairs:
+        if "=" not in p: sys.exit(f"expected key=value, got {p!r}")
+        k, v = p.split("=", 1); out[k] = v
+    return out
+
+def update_lane(lane_id, **fields):
+    bad = set(fields) - LANE_KEYS
+    if bad: sys.exit(f"unknown state key(s): {', '.join(sorted(bad))} (allowed: {', '.join(sorted(LANE_KEYS))})")
+    if "phase" in fields and fields["phase"] not in PHASES: sys.exit(f"unknown phase {fields['phase']!r} (allowed: {', '.join(PHASES)})")
+    for k in INT_KEYS & set(fields):
+        try: fields[k] = int(fields[k])
+        except ValueError: sys.exit(f"{k} must be an integer")
+    s = load_state(); rec = s["lanes"].setdefault(lane_id, {})
+    rec.update(fields); rec["updated_at"] = datetime.datetime.now().isoformat(timespec="seconds")
+    save_state(s); return rec
+
+def cmd_state(a):
+    if a.action == "show":
+        s = load_state()
+        print(json.dumps(s["lanes"].get(get_lane(a.args[0])["id"], {}) if a.args else s, indent=2, sort_keys=True)); return
+    if a.action == "set":
+        if not a.args: sys.exit("usage: bin/lane state set LANE key=value ...")
+        print(json.dumps(update_lane(get_lane(a.args[0])["id"], **parse_pairs(a.args[1:])), indent=2, sort_keys=True)); return
+    s, pairs = load_state(), parse_pairs(a.args)
+    allowed = set(DEFAULT_CAPS) if a.action == "set-caps" else set(TIERS) | {"mid"}
+    bad = set(pairs) - allowed
+    if bad: sys.exit(f"unknown {a.action[4:]} key(s): {', '.join(sorted(bad))} (allowed: {', '.join(sorted(allowed))})")
+    if a.action == "set-caps":
+        try: s["caps"].update({k: int(v) for k, v in pairs.items()})
+        except ValueError: sys.exit("caps must be integers")
+    else: s["models"].update(pairs)
+    save_state(s); print(json.dumps({k: s[k] for k in ("caps", "models")}, indent=2, sort_keys=True))
+
 def cmd_stop(a):
     l = get_lane(a.lane)
     path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
@@ -493,6 +557,7 @@ def main():
     k = sub.add_parser("canary"); k.add_argument("--model"); k.add_argument("--profile", choices=["gated", "interactive"], default="gated"); k.add_argument("--timeout", type=int, default=6); k.add_argument("--dry-run", action="store_true"); k.set_defaults(f=cmd_canary)
     v = sub.add_parser("review"); v.add_argument("lane"); v.add_argument("--base", default="origin/main"); v.set_defaults(f=cmd_review)
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
+    st = sub.add_parser("state"); st.add_argument("action", choices=["show", "set", "set-caps", "set-models"]); st.add_argument("args", nargs="*"); st.set_defaults(f=cmd_state)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
     a = p.parse_args(); a.f(a)
 
