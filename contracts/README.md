@@ -38,3 +38,14 @@ npx @redocly/cli@1 lint contracts/dist/openapi.bundled.yaml --config contracts/.
 ## Snapshot uploads are asynchronous (real exports are up to 69 MB / ~625k rows)
 
 `POST /snapshot_uploads` stores the files and returns `201` immediately (`status: validating`); validation and the replace-in-one-transaction import run as background jobs. Clients poll `GET /snapshot_uploads/{id}` (status `validating → validated → committing → committed`, `progress {phase, pct, rows_done, rows_total}`, `report`, `snapshot`, `error`); `POST …/commit` returns `202`; `GET /snapshots/current` carries `pending` so any screen can show "Loading your data…". The same CSVs may be uploaded by any number of agencies: the API never inspects other agencies' data (no `foreign_lead` error).
+
+## Contract Change Requests (CCR)
+
+When a lane needs a field or endpoint the contract does not have, do not hack around it — open a CCR:
+
+1. Branch `ccr/<topic>` off `main`.
+2. Change **only** `contracts/**` (OpenAPI + examples) and, when the generated types moved, the regenerated `app/javascript/api/generated/schema.d.ts` (`make types`).
+3. If the change affects the mock or a hook, add/adjust the handler under `app/javascript/mocks/**` and the hook under `app/javascript/api/hooks/**` in the same PR — a `ccr` PR is the only PR allowed to touch those two trees alongside `contracts/**`.
+4. Label the PR `ccr`. The ownership check skips `contracts/**` plus the generated types for `ccr` PRs, and merging one is announced so every open lane rebases.
+5. `make contract` (bundle + lint with examples validated) and `make web-test ARGS=app/javascript/mocks` (conformance: every operation has a handler and every default response validates against the schema) must pass.
+

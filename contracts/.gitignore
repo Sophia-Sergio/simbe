@@ -1,0 +1,2 @@
+# The bundled contract is a build artifact (make contract / npm run contract); never commit it.
+dist/

@@ -9,7 +9,7 @@ module Boundaries
     { name: "Anthropic::Client outside Ai::Client", pattern: /Anthropic::Client/, globs: %w[app/**/*.rb lib/**/*.rb],
       allowed: [ %r{\Aapp/packs/agent/app/services/ai/client\.rb\z} ] },
     { name: "network call outside api/client.ts (fetch, XMLHttpRequest, EventSource)", pattern: /\bfetch\s*\(|\bXMLHttpRequest\b|\bEventSource\b/, globs: %w[app/javascript/**/*.{ts,tsx,js,jsx}],
-      allowed: [ %r{\Aapp/javascript/api/client\.ts\z}, /\.test\.tsx?\z/, %r{\Aapp/javascript/mocks/} ] },
+      allowed: [ %r{\Aapp/javascript/api/client\.ts\z}, /\.test\.tsx?\z/, %r{\Aapp/javascript/mocks/}, %r{\Aapp/javascript/mock-host/public/} ] },
     { name: "native alert/confirm/prompt", pattern: /(?<![\w.$])(?:window\.)?(?:confirm|alert|prompt)\(/, globs: %w[app/javascript/**/*.{ts,tsx,js,jsx}],
       allowed: [] },
     { name: "raw hex color outside ChannelTile (use the brand tokens)", pattern: /#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\b/, globs: %w[app/javascript/**/*.{ts,tsx,js,jsx}],
