@@ -21,6 +21,8 @@ ownership: ; bin/lane check
 verify:
 	bash docs/superpowers/parallel/check-ownership.sh
 	bin/guard-no-health-data
+	npm run contract
+	npm run types && git diff --exit-code app/javascript/api/generated
 	docker compose exec web bundle exec rubocop
 	docker compose exec web bundle exec brakeman -q --no-pager
 	docker compose exec web bundle exec bundler-audit check --update
@@ -30,3 +32,8 @@ verify:
 	npm run typecheck
 	npm audit --omit=dev --audit-level=high
 	$(MAKE) web-test
+	npx playwright test
+	python3 -c "import json; json.load(open('spec/real_data/golden.json'))"
+	bin/lane list > /dev/null
+	npx knip
+	bin/ci-parity
