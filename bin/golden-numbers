@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Independent oracle: computes the numbers Simbe must show for the real sample exports, straight from the CSVs
+(stdlib only, no Rails, no shared code with the app). Writes aggregates only (no names/emails/phones/answers) to
+backend/spec/real_data/golden.json, which IS committed; the exports themselves never are.
+
+  bin/golden-numbers [exports_dir]        default: harbor-takehome/exports
+  bin/golden-numbers --check              recompute and fail if golden.json differs (used locally and in the real-data specs)
+
+Definitions mirror docs/superpowers/specs (ingest 2002, metrics 2004, leads workflow 2008):
+  as_of      = latest EVENT timestamp in the files (created/entered/contacted/submitted/started/booked/outcome_updated),
+               never scheduled_for or paused_until (those are future-dated by nature)
+  channel    = fb|facebook->Facebook, ig|instagram->Instagram, google->Google, tiktok->TikTok, referral->Referral, blank->Unknown
+  qualified  = milestone reached (application submitted | attended consult | records stage | accepted stage)
+  windows    = leads created in [as_of - range, as_of]; previous = [as_of - 2*range, as_of - range)
+"""
+import csv, json, os, sys, statistics, collections as C
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "backend/spec/real_data/golden.json")
+AGENCIES = {"harbor": ("America/Los_Angeles", "consult_attended"), "lakeside": ("America/Chicago", "records")}
+STAGES = ["inquiry", "pre_screen", "application", "consult", "records", "accepted"]
+CLOSED = {"not_eligible", "withdrew", "unresponsive"}
+MAP = {"facebook": "Facebook", "fb": "Facebook", "instagram": "Instagram", "ig": "Instagram", "google": "Google", "tiktok": "TikTok", "referral": "Referral"}
+CANON_RAW = {"facebook", "instagram", "google", "tiktok", "referral", ""}
+RANGES = {"30d": 30, "90d": 90, "12m": 365}
+
+def ts(s): return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc) if s else None
+def rd(x, n=1): return float(f"{x:.{n}f}") if x is not None else None
+def rate(a, b): return 0.0 if not b else round(100.0 * a / b + 1e-9, 1)
+def rows(d, f): return list(csv.DictReader(open(os.path.join(d, f + ".csv"), encoding="utf-8-sig", newline="")))
+def half_up(x): return int(x + 0.5)
+def age_label(m): return m
+
+def agency(d, slug):
+    tz, milestone = AGENCIES[slug]
+    zone = ZoneInfo(tz)
+    L = rows(d, "leads"); SH = rows(d, "stage_history"); CL = rows(d, "contact_log"); AP = rows(d, "appointments"); AN = rows(d, "applications")
+    SA = rows(d, "screener_answers"); WS = rows(d, "web_sessions")
+    stages, contacts, appts, apps = C.defaultdict(set), C.defaultdict(list), C.defaultdict(list), C.defaultdict(list)
+    for r in SH: stages[r["lead_id"]].add(r["stage"])
+    for r in CL: contacts[r["lead_id"]].append(r)
+    for r in AP: appts[r["lead_id"]].append(r)
+    for r in AN: apps[r["lead_id"]].append(r)
+
+    event_cols = [(L, "created_at"), (L, "outcome_updated_at"), (SH, "entered_at"), (CL, "contacted_at"), (SA, "submitted_at"), (WS, "started_at"),
+                  (AP, "booked_at"), (AN, "started_at"), (AN, "submitted_at")]
+    as_of = max(ts(r[c]) for t, c in event_cols for r in t if r[c])
+    as_of_date = as_of.astimezone(zone).date()
+
+    facts = {}
+    for l in L:
+        i = l["lead_id"]; created = ts(l["created_at"]); st = stages[i]
+        outs = sorted(ts(c["contacted_at"]) for c in contacts[i] if c["direction"] == "outbound")
+        allc = [ts(c["contacted_at"]) for c in contacts[i]]
+        furthest = max((STAGES.index(s) for s in st), default=-1)
+        ch = MAP.get(l["source"].strip().lower(), l["source"].strip().title() or "Unknown") if l["source"].strip() else "Unknown"
+        latest_app = max(apps[i], key=lambda a: a["started_at"], default=None)
+        latest_appt = max(appts[i], key=lambda a: a["booked_at"], default=None)
+        facts[i] = dict(lead=l, created=created, channel=ch, state=l["state"], coord=l["coordinator"], outcome=l["outcome"], stage=l["current_stage"],
+            app_sub=any(a["submitted_at"] for a in apps[i]), attended=any(a["status"] == "attended" for a in appts[i]),
+            records="records" in st, accepted="accepted" in st, has_app="application" in st or furthest >= 2, booked="consult" in st, furthest=furthest,
+            first_out=outs[0] if outs else None, last_contact=max(allc) if allc else None,
+            frm=half_up((outs[0] - created).total_seconds() / 60) if outs else None,
+            latest_app=latest_app, latest_appt=latest_appt, paused_until=l["paused_until"])
+    qual = {"application_submitted": "app_sub", "consult_attended": "attended", "records": "records", "accepted": "accepted"}
+
+    def window(days, prev=False):
+        hi = as_of - timedelta(days=days * (1 if prev else 0)); lo = hi - timedelta(days=days)
+        return [f for f in facts.values() if (lo <= f["created"] < hi if prev else lo <= f["created"] <= as_of)]
+
+    def qn(fs, m): return sum(1 for f in fs if f[qual[m]])
+    out = {"agency": slug, "timezone": tz, "qualified_milestone": milestone, "as_of": as_of.strftime("%Y-%m-%dT%H:%M:%S.000Z"), "as_of_local_date": str(as_of_date)}
+    out["row_counts"] = {"leads": len(L), "stage_events": len(SH), "contacts": len(CL), "screener_answers": len(SA), "web_sessions": len(WS), "appointments": len(AP), "applications": len(AN)}
+
+    emails = C.Counter(l["email"].strip().lower() for l in L)
+    out["warnings"] = {
+        "duplicate_email_extra_rows": sum(c - 1 for c in emails.values() if c > 1), "leads_in_duplicate_email_groups": sum(c for c in emails.values() if c > 1),
+        "source_aliases_normalized": sum(1 for l in L if l["source"].strip().lower() not in CANON_RAW or l["source"] != l["source"].strip().lower()),
+        "stage_mismatch": sum(1 for f in facts.values() if f["furthest"] >= 0 and STAGES[f["furthest"]] != f["stage"]),
+    }
+    out["qualified_all_time"] = {m: qn(facts.values(), m) for m in qual}
+
+    out["summary"] = {}
+    for rng, days in RANGES.items():
+        cur, prev = window(days), window(days, prev=True)
+        out["summary"][rng] = {"leads": len(cur), "qualified": qn(cur, milestone), "qualified_rate": rate(qn(cur, milestone), len(cur)),
+            "previous_leads": len(prev), "previous_qualified": qn(prev, milestone), "qualified_by_milestone": {m: qn(cur, m) for m in qual}}
+
+    w = window(365)
+    names = ["inquiry", "application", "consult_booked", "consult_attended", "records", "accepted"]
+    flag = {"inquiry": lambda f: True, "application": lambda f: f["has_app"], "consult_booked": lambda f: f["booked"], "consult_attended": lambda f: f["attended"],
+            "records": lambda f: f["records"], "accepted": lambda f: f["accepted"]}
+    counts = [sum(1 for f in w if flag[n](f)) for n in names]
+    reasons = {n: C.Counter() for n in names}
+    for f in w:
+        if f["outcome"] in CLOSED:
+            top = max(i for i, n in enumerate(names) if flag[n](f))
+            reasons[names[top]][f["lead"]["outcome_reason"] or f["outcome"]] += 1
+    out["funnel_12m"] = {"total": len(w), "counts": dict(zip(names, counts)),
+        "pct_of_previous": {n: (None if i == 0 else rate(counts[i], counts[i - 1])) for i, n in enumerate(names)},
+        "exit_reasons_top2": {n: [{"reason": r, "count": c} for r, c in sorted(reasons[n].items(), key=lambda kv: (-kv[1], kv[0]))[:2]] for n in names}}
+    unsub = C.Counter()
+    ids = {f["lead"]["lead_id"] for f in w}
+    for r in AN:
+        if r["lead_id"] in ids and not r["submitted_at"]: unsub[r["last_section_completed"] or "(none)"] += 1
+    tot = sum(unsub.values())
+    out["form_dropoff_12m"] = [{"section": s, "count": c, "pct": rate(c, tot)} for s, c in sorted(unsub.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+    chs = C.defaultdict(lambda: [0, 0])
+    for f in w: chs[f["channel"]][0] += 1; chs[f["channel"]][1] += 1 if f[qual[milestone]] else 0
+    out["channels_12m"] = {c: {"leads": v[0], "qualified": v[1], "rate": rate(v[1], v[0])} for c, v in sorted(chs.items(), key=lambda kv: (-kv[1][0], kv[0]))}
+    st = C.Counter(f["state"] for f in w)
+    main = sorted(s for s, c in st.items() if 100.0 * c / len(w) >= 1.0)
+    outc = sum(c for s, c in st.items() if s not in main)
+    out["insights_12m"] = {"unattributed": {"count": chs["Unknown"][0], "pct": rate(chs["Unknown"][0], len(w))},
+        "out_of_area": {"count": outc, "pct": rate(outc, len(w)), "main_states": main}}
+
+    # queues (as_of semantics from the leads-workflow spec), precedence 1..4
+    def queue(f):
+        if f["outcome"] == "open" and f["first_out"] is None: return "text_back_now"
+        la = f["latest_app"]
+        if f["outcome"] == "open" and f["stage"] == "application" and la and not la["submitted_at"] and (f["last_contact"] is None or f["last_contact"] < as_of - timedelta(hours=24)): return "nudge_applications"
+        if f["outcome"] == "open" and f["latest_appt"] and f["latest_appt"]["status"] == "no_show": return "rebook_consults"
+        if f["outcome"] == "paused" and f["paused_until"] and f["paused_until"] <= str(as_of_date): return "paused_due_back"
+        return None
+    def qage(f, q):
+        if q == "text_back_now": return as_of - f["created"]
+        if q == "nudge_applications": return as_of - (f["last_contact"] or ts(f["latest_app"]["started_at"]))
+        if q == "rebook_consults": return as_of - ts(f["latest_appt"]["scheduled_for"])
+        return as_of - datetime.fromisoformat(f["paused_until"]).replace(tzinfo=timezone.utc)
+    qs = C.Counter(); overdue = C.Counter(); colcount = C.Counter()
+    for f in facts.values():
+        q = queue(f); f["q"] = q
+        if q:
+            qs[q] += 1
+            if q != "paused_due_back" and qage(f, q) > timedelta(hours=24): overdue[f["coord"]] += 1
+        if f["outcome"] in ("open", "accepted") and f[qual[milestone]]: col = "qualified"
+        elif q or (f["outcome"] == "open" and f["stage"] in ("inquiry", "pre_screen")): col = "action_needed"
+        elif f["outcome"] == "open" and f["stage"] == "application": col = "in_application"
+        elif f["outcome"] == "open" and f["stage"] == "consult": col = "consult"
+        else: col = None
+        if col: colcount[col] += 1
+    out["queues_all_leads"] = {k: qs.get(k, 0) for k in ["text_back_now", "nudge_applications", "rebook_consults", "paused_due_back"]}
+    out["board_column_counts"] = {k: colcount.get(k, 0) for k in ["action_needed", "in_application", "consult", "qualified"]}
+    out["outcomes"] = dict(C.Counter(f["outcome"] for f in facts.values()))
+    out["no_show_latest_appointment"] = sum(1 for f in facts.values() if f["latest_appt"] and f["latest_appt"]["status"] == "no_show")
+
+    co = {}
+    for name in sorted({f["coord"] for f in w}):
+        mine = [f for f in w if f["coord"] == name]
+        frm = [f["frm"] for f in mine if f["frm"] is not None]
+        co[name] = {"leads": len(mine), "share_pct": rate(len(mine), len(w)), "qualified": qn(mine, milestone), "qualified_rate": rate(qn(mine, milestone), len(mine)),
+                    "first_reply_minutes_median": rd(statistics.median(frm), 1) if frm else None, "overdue": overdue.get(name, 0)}
+    out["coordinators_12m"] = dict(sorted(co.items(), key=lambda kv: -kv[1]["leads"]))
+    return out
+
+def main():
+    check = "--check" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    base = args[0] if args else os.path.join(ROOT, "harbor-takehome/exports")
+    result = {"_note": "Aggregates computed independently from the CSV exports by bin/golden-numbers. No personal or health data.", "agencies": {}}
+    for slug in AGENCIES:
+        d = os.path.join(base, slug)
+        if not os.path.isdir(d): sys.exit(f"exports not found: {d}")
+        result["agencies"][slug] = agency(d, slug)
+    text = json.dumps(result, indent=2, sort_keys=False) + "\n"
+    if check:
+        same = os.path.exists(OUT) and open(OUT).read() == text
+        print("golden.json is up to date" if same else "golden.json DIFFERS from the exports"); sys.exit(0 if same else 1)
+    os.makedirs(os.path.dirname(OUT), exist_ok=True); open(OUT, "w").write(text); print("wrote", os.path.relpath(OUT, ROOT))
+
+if __name__ == "__main__":
+    main()

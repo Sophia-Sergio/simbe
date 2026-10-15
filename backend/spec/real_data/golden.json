@@ -1,0 +1,542 @@
+{
+  "_note": "Aggregates computed independently from the CSV exports by bin/golden-numbers. No personal or health data.",
+  "agencies": {
+    "harbor": {
+      "agency": "harbor",
+      "timezone": "America/Los_Angeles",
+      "qualified_milestone": "consult_attended",
+      "as_of": "2026-10-01T05:26:42.000Z",
+      "as_of_local_date": "2026-09-30",
+      "row_counts": {
+        "leads": 3530,
+        "stage_events": 9257,
+        "contacts": 10446,
+        "screener_answers": 35300,
+        "web_sessions": 9901,
+        "appointments": 642,
+        "applications": 918
+      },
+      "warnings": {
+        "duplicate_email_extra_rows": 79,
+        "leads_in_duplicate_email_groups": 158,
+        "source_aliases_normalized": 611,
+        "stage_mismatch": 0
+      },
+      "qualified_all_time": {
+        "application_submitted": 674,
+        "consult_attended": 496,
+        "records": 400,
+        "accepted": 300
+      },
+      "summary": {
+        "30d": {
+          "leads": 295,
+          "qualified": 10,
+          "qualified_rate": 3.4,
+          "previous_leads": 289,
+          "previous_qualified": 27,
+          "qualified_by_milestone": {
+            "application_submitted": 26,
+            "consult_attended": 10,
+            "records": 4,
+            "accepted": 0
+          }
+        },
+        "90d": {
+          "leads": 893,
+          "qualified": 69,
+          "qualified_rate": 7.7,
+          "previous_leads": 862,
+          "previous_qualified": 114,
+          "qualified_by_milestone": {
+            "application_submitted": 122,
+            "consult_attended": 69,
+            "records": 49,
+            "accepted": 22
+          }
+        },
+        "12m": {
+          "leads": 3530,
+          "qualified": 496,
+          "qualified_rate": 14.1,
+          "previous_leads": 0,
+          "previous_qualified": 0,
+          "qualified_by_milestone": {
+            "application_submitted": 674,
+            "consult_attended": 496,
+            "records": 400,
+            "accepted": 300
+          }
+        }
+      },
+      "funnel_12m": {
+        "total": 3530,
+        "counts": {
+          "inquiry": 3530,
+          "application": 918,
+          "consult_booked": 579,
+          "consult_attended": 496,
+          "records": 400,
+          "accepted": 300
+        },
+        "pct_of_previous": {
+          "inquiry": null,
+          "application": 26.0,
+          "consult_booked": 63.1,
+          "consult_attended": 85.7,
+          "records": 80.6,
+          "accepted": 75.0
+        },
+        "exit_reasons_top2": {
+          "inquiry": [
+            {
+              "reason": "BMI",
+              "count": 739
+            },
+            {
+              "reason": "No response",
+              "count": 467
+            }
+          ],
+          "application": [
+            {
+              "reason": "Application not finished",
+              "count": 183
+            },
+            {
+              "reason": "Did not book consult",
+              "count": 85
+            }
+          ],
+          "consult_booked": [
+            {
+              "reason": "Missed consult",
+              "count": 50
+            },
+            {
+              "reason": "Did not rebook consult",
+              "count": 15
+            }
+          ],
+          "consult_attended": [
+            {
+              "reason": "Partner not supportive",
+              "count": 33
+            },
+            {
+              "reason": "Not a fit after consult",
+              "count": 30
+            }
+          ],
+          "records": [
+            {
+              "reason": "Medical records",
+              "count": 83
+            }
+          ],
+          "accepted": []
+        }
+      },
+      "form_dropoff_12m": [
+        {
+          "section": "pregnancy_history",
+          "count": 105,
+          "pct": 43.0
+        },
+        {
+          "section": "personal_info",
+          "count": 65,
+          "pct": 26.6
+        },
+        {
+          "section": "medical_history",
+          "count": 28,
+          "pct": 11.5
+        },
+        {
+          "section": "(none)",
+          "count": 27,
+          "pct": 11.1
+        },
+        {
+          "section": "support_system",
+          "count": 19,
+          "pct": 7.8
+        }
+      ],
+      "channels_12m": {
+        "Facebook": {
+          "leads": 1448,
+          "qualified": 118,
+          "rate": 8.1
+        },
+        "Unknown": {
+          "leads": 1045,
+          "qualified": 170,
+          "rate": 16.3
+        },
+        "Google": {
+          "leads": 573,
+          "qualified": 133,
+          "rate": 23.2
+        },
+        "Instagram": {
+          "leads": 223,
+          "qualified": 32,
+          "rate": 14.3
+        },
+        "Referral": {
+          "leads": 172,
+          "qualified": 36,
+          "rate": 20.9
+        },
+        "TikTok": {
+          "leads": 69,
+          "qualified": 7,
+          "rate": 10.1
+        }
+      },
+      "insights_12m": {
+        "unattributed": {
+          "count": 1045,
+          "pct": 29.6
+        },
+        "out_of_area": {
+          "count": 526,
+          "pct": 14.9,
+          "main_states": [
+            "AZ",
+            "CA",
+            "CO",
+            "ID",
+            "NV",
+            "OR",
+            "UT",
+            "WA"
+          ]
+        }
+      },
+      "queues_all_leads": {
+        "text_back_now": 6,
+        "nudge_applications": 22,
+        "rebook_consults": 3,
+        "paused_due_back": 3
+      },
+      "board_column_counts": {
+        "action_needed": 90,
+        "in_application": 11,
+        "consult": 15,
+        "qualified": 321
+      },
+      "outcomes": {
+        "accepted": 300,
+        "unresponsive": 1037,
+        "not_eligible": 1922,
+        "withdrew": 100,
+        "open": 134,
+        "paused": 37
+      },
+      "no_show_latest_appointment": 53,
+      "coordinators_12m": {
+        "Dana Ortiz": {
+          "leads": 2252,
+          "share_pct": 63.8,
+          "qualified": 271,
+          "qualified_rate": 12.0,
+          "first_reply_minutes_median": 209.5,
+          "overdue": 19
+        },
+        "Jess Kim": {
+          "leads": 446,
+          "share_pct": 12.6,
+          "qualified": 85,
+          "qualified_rate": 19.1,
+          "first_reply_minutes_median": 142.0,
+          "overdue": 3
+        },
+        "Marcus Lee": {
+          "leads": 418,
+          "share_pct": 11.8,
+          "qualified": 73,
+          "qualified_rate": 17.5,
+          "first_reply_minutes_median": 152.5,
+          "overdue": 5
+        },
+        "Priya Shah": {
+          "leads": 414,
+          "share_pct": 11.7,
+          "qualified": 67,
+          "qualified_rate": 16.2,
+          "first_reply_minutes_median": 117.0,
+          "overdue": 2
+        }
+      }
+    },
+    "lakeside": {
+      "agency": "lakeside",
+      "timezone": "America/Chicago",
+      "qualified_milestone": "records",
+      "as_of": "2026-10-01T06:52:27.000Z",
+      "as_of_local_date": "2026-10-01",
+      "row_counts": {
+        "leads": 29740,
+        "stage_events": 87378,
+        "contacts": 113000,
+        "screener_answers": 297400,
+        "web_sessions": 78051,
+        "appointments": 8076,
+        "applications": 11357
+      },
+      "warnings": {
+        "duplicate_email_extra_rows": 702,
+        "leads_in_duplicate_email_groups": 1395,
+        "source_aliases_normalized": 2252,
+        "stage_mismatch": 0
+      },
+      "qualified_all_time": {
+        "application_submitted": 8390,
+        "consult_attended": 6701,
+        "records": 5172,
+        "accepted": 3941
+      },
+      "summary": {
+        "30d": {
+          "leads": 1175,
+          "qualified": 62,
+          "qualified_rate": 5.3,
+          "previous_leads": 1211,
+          "previous_qualified": 222,
+          "qualified_by_milestone": {
+            "application_submitted": 243,
+            "consult_attended": 124,
+            "records": 62,
+            "accepted": 2
+          }
+        },
+        "90d": {
+          "leads": 3615,
+          "qualified": 493,
+          "qualified_rate": 13.6,
+          "previous_leads": 3676,
+          "previous_qualified": 658,
+          "qualified_by_milestone": {
+            "application_submitted": 929,
+            "consult_attended": 682,
+            "records": 493,
+            "accepted": 263
+          }
+        },
+        "12m": {
+          "leads": 14860,
+          "qualified": 2487,
+          "qualified_rate": 16.7,
+          "previous_leads": 14880,
+          "previous_qualified": 2685,
+          "qualified_by_milestone": {
+            "application_submitted": 4130,
+            "consult_attended": 3260,
+            "records": 2487,
+            "accepted": 1829
+          }
+        }
+      },
+      "funnel_12m": {
+        "total": 14860,
+        "counts": {
+          "inquiry": 14860,
+          "application": 5637,
+          "consult_booked": 3630,
+          "consult_attended": 3260,
+          "records": 2487,
+          "accepted": 1829
+        },
+        "pct_of_previous": {
+          "inquiry": null,
+          "application": 37.9,
+          "consult_booked": 64.4,
+          "consult_attended": 89.8,
+          "records": 76.3,
+          "accepted": 73.5
+        },
+        "exit_reasons_top2": {
+          "inquiry": [
+            {
+              "reason": "No response",
+              "count": 1912
+            },
+            {
+              "reason": "Age",
+              "count": 1314
+            }
+          ],
+          "application": [
+            {
+              "reason": "Application not finished",
+              "count": 1124
+            },
+            {
+              "reason": "Did not book consult",
+              "count": 439
+            }
+          ],
+          "consult_booked": [
+            {
+              "reason": "Missed consult",
+              "count": 198
+            },
+            {
+              "reason": "Did not rebook consult",
+              "count": 95
+            }
+          ],
+          "consult_attended": [
+            {
+              "reason": "Not a fit after consult",
+              "count": 298
+            },
+            {
+              "reason": "Changed mind",
+              "count": 214
+            }
+          ],
+          "records": [
+            {
+              "reason": "Medical records",
+              "count": 487
+            }
+          ],
+          "accepted": []
+        }
+      },
+      "form_dropoff_12m": [
+        {
+          "section": "pregnancy_history",
+          "count": 654,
+          "pct": 43.4
+        },
+        {
+          "section": "personal_info",
+          "count": 423,
+          "pct": 28.1
+        },
+        {
+          "section": "medical_history",
+          "count": 162,
+          "pct": 10.7
+        },
+        {
+          "section": "(none)",
+          "count": 143,
+          "pct": 9.5
+        },
+        {
+          "section": "support_system",
+          "count": 125,
+          "pct": 8.3
+        }
+      ],
+      "channels_12m": {
+        "Google": {
+          "leads": 6250,
+          "qualified": 1200,
+          "rate": 19.2
+        },
+        "Unknown": {
+          "leads": 5016,
+          "qualified": 763,
+          "rate": 15.2
+        },
+        "Facebook": {
+          "leads": 2705,
+          "qualified": 314,
+          "rate": 11.6
+        },
+        "Referral": {
+          "leads": 889,
+          "qualified": 210,
+          "rate": 23.6
+        }
+      },
+      "insights_12m": {
+        "unattributed": {
+          "count": 5016,
+          "pct": 33.8
+        },
+        "out_of_area": {
+          "count": 1326,
+          "pct": 8.9,
+          "main_states": [
+            "CO",
+            "IL",
+            "IN",
+            "KY",
+            "LA",
+            "MI",
+            "MN",
+            "MO",
+            "OH",
+            "OK",
+            "TN",
+            "TX",
+            "WI"
+          ]
+        }
+      },
+      "queues_all_leads": {
+        "text_back_now": 6,
+        "nudge_applications": 149,
+        "rebook_consults": 8,
+        "paused_due_back": 17
+      },
+      "board_column_counts": {
+        "action_needed": 449,
+        "in_application": 68,
+        "consult": 122,
+        "qualified": 4112
+      },
+      "outcomes": {
+        "not_eligible": 12622,
+        "unresponsive": 10851,
+        "accepted": 3941,
+        "withdrew": 1341,
+        "open": 793,
+        "paused": 192
+      },
+      "no_show_latest_appointment": 448,
+      "coordinators_12m": {
+        "Alex Rivera": {
+          "leads": 8506,
+          "share_pct": 57.2,
+          "qualified": 1377,
+          "qualified_rate": 16.2,
+          "first_reply_minutes_median": 182.0,
+          "overdue": 88
+        },
+        "Sam Patel": {
+          "leads": 2151,
+          "share_pct": 14.5,
+          "qualified": 352,
+          "qualified_rate": 16.4,
+          "first_reply_minutes_median": 161.0,
+          "overdue": 25
+        },
+        "Jordan Wu": {
+          "leads": 2110,
+          "share_pct": 14.2,
+          "qualified": 404,
+          "qualified_rate": 19.1,
+          "first_reply_minutes_median": 139.0,
+          "overdue": 19
+        },
+        "Taylor Brooks": {
+          "leads": 2093,
+          "share_pct": 14.1,
+          "qualified": 354,
+          "qualified_rate": 16.9,
+          "first_reply_minutes_median": 192.0,
+          "overdue": 23
+        }
+      }
+    }
+  }
+}
