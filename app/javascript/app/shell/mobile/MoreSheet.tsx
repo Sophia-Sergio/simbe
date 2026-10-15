@@ -3,13 +3,10 @@ import { Link } from "react-router-dom"
 import { Modal } from "@/components/ui/Modal"
 import type { NavItem } from "../../feature"
 
-/** Bottom sheet listing the `mobile.more` rows; picking one navigates and closes. */
+/** Bottom sheet (the kit Modal draws the drag handle) listing the `mobile.more` rows; picking one navigates and closes. */
 export function MoreSheet({ items, open, onClose }: { items: NavItem[]; open: boolean; onClose: () => void }) {
   return (
     <Modal open={open} onClose={onClose} title="More">
-      <div aria-hidden className="-mt-2 mb-2 flex justify-center">
-        <span className="h-1 w-10 rounded-full bg-line-strong" />
-      </div>
       <ul className="-mx-2 flex flex-col">
         {items.map((item) => {
           const Icon = item.icon
