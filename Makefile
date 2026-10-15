@@ -28,6 +28,7 @@ verify:
 	docker compose exec web bundle exec bundler-audit check --update
 	docker compose exec web bundle exec rails boundaries:check
 	$(MAKE) spec
+	$(MAKE) contract-coverage
 	npm run lint
 	npm run typecheck
 	npm audit --omit=dev --audit-level=high

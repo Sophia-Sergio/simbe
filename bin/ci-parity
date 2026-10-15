@@ -1,36 +1,38 @@
 #!/usr/bin/env python3
-"""CI parity: every CI step marked `# parity` must be represented in `make verify`.
+"""CI parity: every CI command that gates a merge must also run in `make verify`, with the same strictness.
 
 The pipeline's rule (spec `2200`, decision 9) is "local = CI": a command a CI job runs must be
 part of `make verify`, so an agent that passes `make verify` passes CI except the
 environment-only jobs (`docker_build`, `deploy`, `e2e_real`).
 
-How it works:
-  1. Read `.github/workflows/ci.yml` and collect every step marked `# parity`. The marker sits on
-     the step's `run:` line (single-line commands) or on its `name:` line (multi-line `run: |`
-     blocks); both are collected.
-  2. Reduce each command to a set of check ids via a small table (see ``CHECKS``). The table maps
-     both the CI phrasing and the local phrasing of the same check to one id, so flag differences
-     (e.g. CI's ``rubocop --format github`` vs local ``rubocop``; CI's ``parallel_rspec`` vs local
-     ``rspec``) do not produce false failures. The commands are printed so the mapping is visible.
-  3. Collect the checks present in ``make -n verify`` (plus one level of ``make`` recursion into
-     ``spec`` and ``web-test``) and require every CI check id to be present.
-  4. Also assert `.ruby-version`'s major.minor equals the Dockerfile's ``ARG RUBY_VERSION``.
+Rules enforced:
+  1. Every `run:` step in `.github/workflows/ci.yml` must carry a marker, on the `run:` line or on
+     the step's `name:` line: `# parity` (also part of `make verify`) or `# ci-only` (setup,
+     environment-only or reporting steps). An unmarked step FAILS, so a new CI check cannot
+     silently escape the local gate.
+  2. Each `# parity` command is reduced to check ids (see ``CHECKS``) and the id must appear in
+     `make -n verify` (plus one level of `make` recursion).
+  3. Strictness must agree: for checks whose flags change what passes (``STRICT_FLAGS``, e.g.
+     `npm audit --omit=dev --audit-level=high`), the CI command and a local command for the same
+     check must carry the same flag set. Phrasing that does not change strictness
+     (`rubocop --format github`, `parallel_rspec`) is ignored.
+  4. `.ruby-version` equals the Ruby tag of the Dockerfile's base image.
 
-Exits non-zero when a parity check is missing. Run it from anywhere in the repo.
+Exits non-zero on any violation. Run it from anywhere in the repo; ``--workflow PATH`` checks
+another file (used by the specs).
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import subprocess
 import sys
 
-ROOT = subprocess.run(
-    ["git", "rev-parse", "--show-toplevel"], check=True, capture_output=True, text=True
-).stdout.strip()
-WORKFLOW = os.path.join(ROOT, ".github", "workflows", "ci.yml")
+# The repo root is the parent of bin/ (no git needed: the specs run this inside the Docker image).
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_WORKFLOW = os.path.join(ROOT, ".github", "workflows", "ci.yml")
 DOCKERFILE = os.path.join(ROOT, "Dockerfile")
 RUBY_VERSION = os.path.join(ROOT, ".ruby-version")
 
@@ -38,6 +40,7 @@ RUBY_VERSION = os.path.join(ROOT, ".ruby-version")
 CHECKS: list[tuple[str, str]] = [
     ("contract-bundle-and-lint", r"\bnpm run contract\b"),
     ("contract-types-up-to-date", r"\bnpm run types\b"),
+    ("contract-coverage", r"contract:coverage|contract-coverage"),
     ("lane-ownership-overlap", r"check-ownership\.sh"),
     ("brakeman", r"\bbrakeman\b"),
     ("bundler-audit", r"\bbundler-audit\b"),
@@ -55,81 +58,84 @@ CHECKS: list[tuple[str, str]] = [
     ("lane-tooling-loads", r"\blane list\b"),
 ]
 
+# Flags that change what a check lets through; CI and local must agree on them.
+STRICT_FLAGS: dict[str, list[str]] = {
+    "npm-audit": [r"--omit=\w+", r"--audit-level=\w+", r"--production\b"],
+    "brakeman": [r"-q\b", r"--no-pager", r"--no-exit-on-warn", r"--no-exit-on-error"],
+    "bundler-audit": [r"--update", r"--ignore\b"],
+    "rubocop": [r"--only\b", r"--except\b"],
+    "playwright-mock": [r"--grep\S*", r"--project\S*"],
+}
+
+MARKER = re.compile(r"#\s*(parity|ci-only)\s*$")
+BLOCK = ("|", ">", "|-", ">-", "|+", ">+")
+
 
 def detect(text: str) -> set[str]:
     return {cid for cid, pat in CHECKS if re.search(pat, text)}
 
 
-def parity_run_commands(text: str) -> list[str]:
-    """Every command in a `# parity`-marked step, marker on the run: or the name: line."""
+def signatures(command_lines: list[str]) -> dict[str, set[frozenset[str]]]:
+    """check id -> the flag sets (one per command line) that mention it."""
+    result: dict[str, set[frozenset[str]]] = {}
+    for line in command_lines:
+        for cid in detect(line):
+            flags = frozenset(m for pat in STRICT_FLAGS.get(cid, []) for m in re.findall(pat, line))
+            result.setdefault(cid, set()).add(flags)
+    return result
+
+
+def split_steps(text: str) -> list[list[str]]:
+    """The workflow's `- ...` list items that contain a `run:`; each is its list of lines."""
     lines = text.splitlines()
-    commands: list[str] = []
+    steps: list[list[str]] = []
     i, n = 0, len(lines)
     while i < n:
-        line = lines[i]
-        if not re.search(r"#\s*parity\s*$", line):
+        m = re.match(r"^(\s*)- ", lines[i])
+        if not m:
             i += 1
             continue
-        run = re.match(r"^(\s*)(?:-\s*)?run:\s*(.*)$", line)
-        if run:
-            indent, rest = len(run.group(1)), run.group(2)
-            if rest and rest not in ("|", ">", "|-", ">-", "|+", ">+"):
-                commands.append(re.sub(r"#.*$", "", rest).strip())
-                i += 1
-                continue
-            i += 1
-            block = []
-            while i < n:
-                nxt = lines[i]
-                if nxt.strip() == "":
-                    block.append("")
-                    i += 1
-                    continue
-                if (len(nxt) - len(nxt.lstrip())) > indent:
-                    block.append(nxt.strip())
-                    i += 1
-                    continue
-                break
-            commands.append("\n".join(block))
-            continue
-        # marker on the name: line -> find this step's run: (until the next list item / dedent)
-        indent = len(line) - len(line.lstrip())
+        indent = len(m.group(1))
         j = i + 1
-        run_idx = None
-        while j < n:
-            nxt = lines[j]
-            if nxt.strip() == "":
-                j += 1
-                continue
-            if (len(nxt) - len(nxt.lstrip())) <= indent:
-                break
-            if re.match(r"^\s*(?:-\s*)?run:\s*", nxt):
-                run_idx = j
-                break
+        while j < n and (lines[j].strip() == "" or len(lines[j]) - len(lines[j].lstrip()) > indent):
             j += 1
-        if run_idx is not None:
-            rest = re.match(r"^\s*(?:-\s*)?run:\s*(.*)$", lines[run_idx]).group(1).strip()
-            if rest in ("|", ">", "|-", ">-"):
-                base = len(lines[run_idx]) - len(lines[run_idx].lstrip())
-                k, block = run_idx + 1, []
-                while k < n:
-                    nxt = lines[k]
-                    if nxt.strip() == "":
-                        block.append("")
-                        k += 1
-                        continue
-                    if (len(nxt) - len(nxt.lstrip())) > base:
-                        block.append(nxt.strip())
-                        k += 1
-                        continue
-                    break
-                commands.append("\n".join(block))
-            else:
-                commands.append(re.sub(r"#.*$", "", rest).strip())
-            i = run_idx + 1
+        steps.append(lines[i:j])
+        i = j if j > i + 1 else i + 1
+    return [s for s in steps if any(re.match(r"^\s*(?:-\s*)?run:", line) for line in s)]
+
+
+def step_command(step: list[str]) -> str:
+    for idx, line in enumerate(step):
+        m = re.match(r"^(\s*)(?:-\s*)?run:\s*(.*)$", line)
+        if not m:
             continue
-        i += 1
-    return commands
+        base = len(line) - len(line.lstrip())
+        rest = re.sub(r"\s+#\s*(parity|ci-only)\s*$", "", m.group(2)).strip()
+        if rest not in BLOCK:
+            return rest
+        block = []
+        for nxt in step[idx + 1 :]:
+            if nxt.strip() == "" or len(nxt) - len(nxt.lstrip()) > base:
+                block.append(nxt.strip())
+            else:
+                break
+        return "\n".join(block)
+    return ""
+
+
+def classify(text: str) -> tuple[list[str], list[str]]:
+    """(parity commands, descriptions of unmarked run steps)."""
+    parity: list[str] = []
+    unmarked: list[str] = []
+    for step in split_steps(text):
+        marks = {m.group(1) for line in step if (m := MARKER.search(line))}
+        command = step_command(step)
+        if not marks:
+            first = next((ln.strip() for ln in command.splitlines() if ln.strip()), "(empty)")
+            unmarked.append(first[:80])
+        elif "parity" in marks:
+            parity.append(command)
+    return parity, unmarked
 
 
 def make_dry(target: str) -> str:
@@ -150,42 +156,53 @@ def verify_text() -> str:
     return text
 
 
-def ruby_version_check() -> list[str]:
-    declared = open(RUBY_VERSION).read().strip()  # e.g. ruby-3.4.11
-    m = re.search(r"(\d+\.\d+)", declared)
-    want = m.group(1) if m else declared
-    dockerfile = open(DOCKERFILE).read()
-    arg = re.search(r'^\s*ARG\s+RUBY_VERSION=([\d.]+)', dockerfile, re.M)
-    got = arg.group(1) if arg else "(missing ARG RUBY_VERSION)"
-    if want != got:
-        return [
-            f"Dockerfile ARG RUBY_VERSION={got} does not match .ruby-version major.minor {want}"
-        ]
+def ruby_version_problems() -> list[str]:
+    declared = open(RUBY_VERSION).read().strip().removeprefix("ruby-")  # e.g. 3.4.11
+    from_line = re.search(r"^FROM\s+\S*ruby:([\d.]+)", open(DOCKERFILE).read(), re.M)
+    got = from_line.group(1) if from_line else "(no ruby base image)"
+    if declared != got:
+        return [f"Dockerfile base image ruby:{got} does not match .ruby-version {declared}"]
     return []
 
 
-def main() -> int:
-    commands = parity_run_commands(open(WORKFLOW).read())
-    required = detect("\n".join(commands))
-    available = detect(verify_text())
-    missing = sorted(required - available)
+def problems_for(workflow_text: str, local_text: str) -> tuple[list[str], list[str]]:
+    """(problems, parity commands) for a workflow and the text of `make -n verify`."""
+    parity, unmarked = classify(workflow_text)
+    problems = [f"CI step has no `# parity` or `# ci-only` marker: {u}" for u in unmarked]
 
-    print(f"parity steps checked: {len(commands)}")
-    for cmd in commands:
+    ci_lines = [ln for cmd in parity for ln in cmd.splitlines() if ln.strip()]
+    local_lines = [ln for ln in local_text.splitlines() if ln.strip()]
+    ci_sigs, local_sigs = signatures(ci_lines), signatures(local_lines)
+    for cid in sorted(ci_sigs):
+        if cid not in local_sigs:
+            problems.append(f"'{cid}' is in CI (marked # parity) but not in `make verify`")
+            continue
+        for flags in ci_sigs[cid]:
+            if flags not in local_sigs[cid]:
+                have = sorted(sorted(s) for s in local_sigs[cid])
+                problems.append(f"'{cid}' runs with {sorted(flags)} in CI but with {have} in `make verify`")
+    return problems, parity
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--workflow", default=DEFAULT_WORKFLOW)
+    args = parser.parse_args()
+
+    problems, parity = problems_for(open(args.workflow).read(), verify_text())
+    problems += ruby_version_problems()
+
+    print(f"parity steps checked: {len(parity)}")
+    for cmd in parity:
         one = " ; ".join(line.strip() for line in cmd.splitlines() if line.strip())
         print(f"  {sorted(detect(cmd)) or '(none)'}  <-  {one}")
-    print(f"required checks: {sorted(required)}")
-    print(f"missing from `make verify`: {missing}")
-
-    problems = [f"'{cid}' is in CI (marked # parity) but not in `make verify`" for cid in missing]
-    problems += ruby_version_check()
 
     if problems:
         print("\nCI parity FAILED:", file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
-    print("\nCI parity ok: every # parity step is part of `make verify`.")
+    print("\nCI parity ok: every run step is marked and every # parity step is in `make verify` with the same flags.")
     return 0
 
 

@@ -21,7 +21,7 @@
    ```
    **Done when** `fly secrets list --app simbe` includes `DATABASE_URL` and the database is in region `ord`.
 3. **Set the secrets** ([secrets.md](./secrets.md)). **Done when** `fly secrets list` shows all six names and the AR keys are in the password manager.
-4. **Back up the AR encryption keys.** Blocking: do not continue until the three `AR_ENCRYPTION_*` values are saved in the password manager. Losing them makes stored screener answers unreadable.
+4. **Back up the AR encryption keys.** Blocking: do not continue until the three `AR_ENCRYPTION_*` values are saved in the password manager. Losing them makes stored screener answers unreadable. The app also refuses to boot without `AR_ENCRYPTION_PRIMARY_KEY` and `AR_ENCRYPTION_KEY_DERIVATION_SALT` (and `APP_URL`).
 5. **First deploy:**
    ```
    fly deploy --remote-only --ha=false --app simbe
@@ -51,3 +51,7 @@
 - `curl -fsS https://simbe.fly.dev/ | grep -qi '<div id="root">'` → SPA shell served.
 - `curl -s -o /dev/null -w '%{http_code}\n' https://simbe.fly.dev/api/v1/me` → 401.
 - `fly status --app simbe` → one healthy machine, `min_machines_running = 1` (never scaled to zero).
+
+## Deploys and running imports
+
+Imports run as Solid Queue jobs inside the app machine. A deploy stops the old machine after `kill_timeout` (60 s in `fly.toml`); an import cut off by it is re-run by Solid Queue on the new machine (loads are idempotent: re-loading replaces the agency's data in one transaction). Deploy outside an upload if you can, but nothing is lost if you cannot.

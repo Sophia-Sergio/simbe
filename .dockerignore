@@ -10,9 +10,13 @@ docs
 e2e
 **/.env*
 **/*.csv
-!spec/fixtures/**/*.csv
 log
 tmp
 storage
 coverage
 test-results
+config/master.key
+config/credentials/*.key
+*.pem
+spec
+.github

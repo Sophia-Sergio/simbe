@@ -1,6 +1,10 @@
 app = 'simbe'
 primary_region = 'ord'
 
+# A deploy stops the old machine; a running import gets this long to reach a safe point, and Solid Queue
+# re-runs whatever was cut off on the new machine.
+kill_timeout = '60s'
+
 [build]
   dockerfile = 'Dockerfile'
 

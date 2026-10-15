@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # check=error=true
-ARG RUBY_VERSION=3.4            # must match .ruby-version (bin/ci-parity checks it)
-FROM docker.io/library/ruby:${RUBY_VERSION}-slim AS base
+# Literal tag (not an ARG) so Dependabot can bump it; bin/ci-parity checks it against .ruby-version.
+FROM docker.io/library/ruby:3.4.11-slim AS base
 WORKDIR /rails
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl libjemalloc2 libpq5 postgresql-client && \
@@ -26,7 +26,8 @@ RUN chmod +x bin/fly-start bin/docker-entrypoint && bundle exec bootsnap precomp
 # vite_rails hooks `assets:precompile` into the Vite build (output: public/vite). No real secrets are needed to build.
 RUN SECRET_KEY_BASE_DUMMY=1 DATABASE_URL=postgres://build:build@127.0.0.1/build \
     AR_ENCRYPTION_PRIMARY_KEY=build AR_ENCRYPTION_DETERMINISTIC_KEY=build AR_ENCRYPTION_KEY_DERIVATION_SALT=build \
-    ./bin/rails assets:precompile && rm -rf node_modules
+    ./bin/rails assets:precompile && rm -rf node_modules && \
+    find public/vite -name '*.map' -delete   # never serve source maps publicly
 
 FROM base
 RUN groupadd --system --gid 1000 rails && useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash

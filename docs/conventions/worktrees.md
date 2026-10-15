@@ -11,7 +11,7 @@ bin/lane start F-WEEK         # git worktree add .worktrees/f-week -b lane/F-WEE
 cd .worktrees/f-week          # open THIS folder in Cursor / run `opencode` / `claude` here
 # … implement the plan task-by-task, commit after each task …
 bin/lane check                # only files in the plan's Owns list changed
-bin/lane pr                   # push, open the PR with the lane checklist
+# stop here: the orchestrator reviews, approves and runs `bin/lane pr` (agents never publish; see the review gate)
 bin/lane stop F-WEEK          # after merge: tear down this stack and remove the worktree
 ```
 

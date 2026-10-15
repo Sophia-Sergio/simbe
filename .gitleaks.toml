@@ -1,0 +1,14 @@
+# Used by the nightly/CI gitleaks scan (GITLEAKS_CONFIG in ci.yml). Extends the default ruleset.
+title = "simbe gitleaks"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "One old false positive: a generic-api-key match inside the design handoff prototype HTML (commit 84fcc2c). No real secret."
+commits = ["84fcc2c"]
+paths = ['''design_handoff_simbe/prototype/Simbe App v2\.dc\.html''']
+
+[[allowlists]]
+description = "Non-secret dummy Active Record Encryption keys used by CI and the image build only."
+regexes = ['''ci-(primary|deterministic)-key-[0-9a-f]+''', '''ci-salt-[0-9a-f]+''']

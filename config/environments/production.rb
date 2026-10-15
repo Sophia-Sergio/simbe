@@ -68,7 +68,7 @@ Rails.application.configure do
   # config.action_mailer.raise_delivery_errors = false
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
+  config.action_mailer.default_url_options = { host: URI(ENV.fetch("APP_URL", "https://simbe.fly.dev")).host }
 
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {
@@ -94,12 +94,16 @@ Rails.application.configure do
   # production environment is safe even if that initializer changes.)
   config.filter_parameters += %i[password token answer email phone key]
 
-  # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  #
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # Production boot checks. `assets:precompile` (image build) runs with SECRET_KEY_BASE_DUMMY and no real
+  # configuration, so the checks are skipped there; every real boot must have them.
+  unless ENV["SECRET_KEY_BASE_DUMMY"]
+    # Host-header injection / DNS rebinding guard: only our own host is served. Fly's health check
+    # hits the machine directly, so /up is exempt.
+    config.hosts = [ URI(ENV.fetch("APP_URL")).host ]
+    config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+
+    # Screener answers are health data (docs/conventions/sensitive-data.md): a deploy with a missing
+    # key must fail at boot, not at the first encrypted write in the middle of an import.
+    %w[AR_ENCRYPTION_PRIMARY_KEY AR_ENCRYPTION_KEY_DERIVATION_SALT].each { |name| ENV.fetch(name) }
+  end
 end

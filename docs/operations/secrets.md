@@ -13,7 +13,7 @@
 | `AR_ENCRYPTION_PRIMARY_KEY` | Active Record Encryption primary key. | `bin/rails db:encryption:init` (run in the app container/checkout). |
 | `AR_ENCRYPTION_DETERMINISTIC_KEY` | AR Encryption deterministic key (needed for encrypted lookups). | `bin/rails db:encryption:init` |
 | `AR_ENCRYPTION_KEY_DERIVATION_SALT` | AR Encryption key-derivation salt. | `bin/rails db:encryption:init` |
-| `ANTHROPIC_API_KEY` | The "Ask Simbe" agent. | Reuse the sibling project's key (`../personal/appketing/.env`). |
+| `ANTHROPIC_API_KEY` | The "Ask Simbe" agent. | Create a dedicated key for this app in the Anthropic console (do not reuse another project's key). |
 
 > **The three `AR_ENCRYPTION_*` values are health-data keys.** `screener_answers.answer` is encrypted with Active Record Encryption. **Losing them makes every stored screener answer permanently unreadable**, and there is no recovery beyond a database backup that decrypts with the same keys. Back them up **before the first deploy** and on every rotation.
 
@@ -52,4 +52,5 @@
 
 - `fly secrets list --app simbe` lists exactly the six secrets above (no more, no fewer).
 - The password manager holds the three AR keys (and their generation date).
-- `git grep -nE 'AR_ENCRYPTION_PRIMARY_KEY=.{8}'` finds nothing in the repo (only `.env.example` placeholders) — `bin/guard-no-health-data` and the CI `guards` job enforce this.
+- `git grep -nE 'AR_ENCRYPTION_PRIMARY_KEY=.{8}'` finds nothing in the repo (only `.env.example` placeholders). `bin/guard-no-health-data` fails when an `.env` file, an export or a key file is tracked, and the CI `guards` job also runs `gitleaks` (`.gitleaks.toml`) over the history.
+- The app refuses to boot in production without `APP_URL`, `AR_ENCRYPTION_PRIMARY_KEY` and `AR_ENCRYPTION_KEY_DERIVATION_SALT` (`config/environments/production.rb`), so a deploy with a missing key fails at boot, not mid-import.

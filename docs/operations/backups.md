@@ -22,16 +22,19 @@
    DATABASE_URL=<scratch-url> bin/rails runner 'puts Lead.unscoped.count'
    ```
    **Done when** the count is non-zero and matches production's order of magnitude.
-3. **Verify encrypted columns decrypt with the stored keys.** Run the app (or a runner) with the production `AR_ENCRYPTION_*` values against the scratch database and read a screener answer:
+3. **Verify encrypted columns decrypt with the stored keys.** Do not put the keys on a command line (shell history, process lists). Put the scratch `DATABASE_URL` and the three `AR_ENCRYPTION_*` values in a throwaway env file (`chmod 600`, outside the repo), run the runner with it, and delete the file afterwards:
    ```
-   DATABASE_URL=<scratch-url> AR_ENCRYPTION_PRIMARY_KEY=... AR_ENCRYPTION_DETERMINISTIC_KEY=... AR_ENCRYPTION_KEY_DERIVATION_SALT=... \
-     bin/rails runner 'puts ScreenerAnswer.where.not(answer: nil).limit(1).pick(:answer)&.length'
+   umask 077; $EDITOR /tmp/restore-drill.env      # DATABASE_URL=..., AR_ENCRYPTION_*=...
+   set -a; . /tmp/restore-drill.env; set +a
+   bin/rails runner 'puts ScreenerAnswer.where.not(answer: nil).limit(1).pick(:answer)&.length'
+   shred -u /tmp/restore-drill.env 2>/dev/null || rm -P /tmp/restore-drill.env
    ```
+   (Or run the runner with `fly ssh console` against the scratch app, which already has the keys as secrets.)
    **Done when** the answer decrypts (prints a length) with **no** `ActiveRecord::Encryption::Errors` and fails cleanly if the keys are wrong.
 4. **Record the drill**: date, backup used, row counts, decryption result. Add it to the ops log.
 
 ## Rules
 
 - The three `AR_ENCRYPTION_*` keys are part of the backup: a backup without them cannot read screener answers. Keep them in the password manager ([secrets.md](./secrets.md)).
-- Dirty-dozen drills only; never paste real rows anywhere ([`docs/conventions/real-data.md`](../conventions/real-data.md)).
+- Run drills on scratch data only; never paste real rows anywhere ([`docs/conventions/real-data.md`](../conventions/real-data.md)).
 - Prefer restoring into a scratch database; restoring over production is an incident decision, not a drill.
