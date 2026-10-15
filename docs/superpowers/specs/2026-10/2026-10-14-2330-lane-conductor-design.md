@@ -1,67 +1,74 @@
 # Lane conductor: Claude Code drives many OpenCode lanes, batch-approved — Design
 
-**Status:** Draft for review · **Depends on:** [`2100 parallel build architecture`](./2026-10-14-2100-parallel-build-architecture-design.md), [`../../parallel/review-gate.md`](../../parallel/review-gate.md), [`../../parallel/dependencies.md`](../../parallel/dependencies.md), the CI pipeline from [`2200`](./2026-10-14-2200-ci-cd-pipeline-design.md) (W0-7) · **Plans:** to be written after review
+**Status:** Approved for planning · **Depends on:** [`2100 parallel build architecture`](./2026-10-14-2100-parallel-build-architecture-design.md), [`../../parallel/review-gate.md`](../../parallel/review-gate.md), [`../../parallel/dependencies.md`](../../parallel/dependencies.md), the CI pipeline from [`2200`](./2026-10-14-2200-ci-cd-pipeline-design.md) (W0-7) · **Plan:** [`2026-10-14-2330-lane-conductor`](../../plans/2026-10/2026-10-14-2330-lane-conductor.md)
 
 ## Goal
 Let one Claude Code session run the 32 lanes through OpenCode **in parallel**: start every lane whose prerequisites are merged, verify and review each finished lane independently, publish reviewed lanes after **one human "go" per batch**, wait for the pipelines, feed failures back to the same OpenCode session, and start the next ready lanes as merges land.
 
 ## Findings
-1. **The pieces exist but nothing connects them.** `bin/lane` has `start`, `run` (headless OpenCode, `--session`, `--timeout`, main-checkout tripwire), `review` (mechanical report), `approve` (bound to the exact HEAD), `pr` (push, PR, `claude-review` status, optional auto-merge) and `status`. `bin/lane graph` already derives each lane's direct prerequisites from the plans' `Depends on` lines (`direct_deps`).
-2. **Nothing computes what may start next.** `dependencies.md` states the earliest-start table, but only as prose and a generated diagram; no command returns "ready lanes now".
+1. **The pieces exist but nothing connects them.** `bin/lane` has `start`, `run` (headless OpenCode, `--session`, `--timeout`, main-checkout tripwire), `review` (mechanical report), `approve` (bound to the exact HEAD), `pr` (push, PR, `claude-review` status, optional auto-merge) and `status`. `bin/lane graph` already derives each lane's direct prerequisites from the plans' `Depends on` lines (`direct_deps`); with W0-1 merged it yields exactly W0-2, W0-3, W0-4A, W0-7 as startable, and with W0-1 + W0-3 it adds the five `B-*` lanes.
+2. **Nothing computes what may start next.** `dependencies.md` states the earliest-start table only as prose and a generated diagram; no command returns "ready lanes now".
 3. **Nothing watches CI or feeds a failure back.** `bin/lane pr` ends at enabling auto-merge; a red check, a rebase after a `ccr` merge, or a merged lane that unblocks others is handled by hand.
 4. **No cross-step state.** The only per-lane records are `.superpowers/gate/<LANE>/` (review report, approval, event logs). The OpenCode session id, attempt counts and phase are not stored, so a `/clear` loses the run.
-5. **The review gate asks for a human push approval per lane** (G4) and a human merge (G5), which does not scale to the 5-backend + 13-frontend fan-out in Wave 1.
-6. **The review step is the bottleneck.** The playbook sets the budget at about one reviewer-hour per 4 concurrent lanes; running G3 serially in one context would cap throughput.
-7. **A CI-fix commit already invalidates the published approval.** `bin/lane pr` posts `claude-review=success` on the reviewed commit, so a new head has no such status and branch protection blocks the merge until it is re-posted.
-8. **`.github/workflows` is empty on this branch** (W0-7 not merged): there is no pipeline to wait on until W0-7 lands, and `bin/lane pr` auto-merge and the `claude-review` required check depend on `bin/setup-github --apply` having run.
+5. **`bin/lane run` blocks until OpenCode exits and does not record the session id**, although every event in the JSON log carries it (`sessionID`). Fix rounds need that id.
+6. **`bin/lane pr` cannot update an open PR.** It always runs `gh pr create` and a plain `git push`, so after a fix round it fails on the existing PR, and after a rebase the push is rejected as non-fast-forward.
+7. **The main-checkout tripwire is coarse.** `bin/lane run` compares the main checkout's HEAD, branch and number of dirty files before and after a run; any edit to the main checkout during a run, including one by the conductor, trips it.
+8. **The review gate asks for a human push approval per lane** (G4) and a human merge (G5), which does not scale to the 5-backend + 13-frontend fan-out in Wave 1. The playbook does not describe an orchestrated mode beyond "ask me to run lanes with sub-agents".
+9. **The review step is the bottleneck.** The playbook budgets about one reviewer-hour per 4 concurrent lanes; running G3 serially in one context would cap throughput.
+10. **A new commit already blocks the merge until re-reviewed.** `bin/lane pr` posts `claude-review=success` on the reviewed commit only; a new head has no such status, and `bin/setup-github` makes `claude-review` a required check. Its protection uses `strict: false`, so a lane does not have to be up to date with `main` to merge.
+11. **There is no Makefile, Docker app or CI yet** (W0-1 and W0-7 are not merged), and `bin/lane` (stdlib Python that drives `git`, `gh` and `opencode`) has no tests. The project tests through RSpec (backend) and Vitest (frontend) only, so `bin/lane` tests need the Rails app from W0-1. Inside the `web` container a linked worktree's `.git` file points at a host path, so `bin/lane` cannot run against the real checkout there; it can run against a temp git repo.
 
 ## Decisions
 1. **The conductor is this Claude Code session.** No daemon. Each OpenCode run and each CI watch is a background Bash job (`run_in_background`), so the session is notified on exit and never polls. Resuming after `/clear` rebuilds from the state file plus `bin/lane status`.
-2. **State file:** `.superpowers/orchestrator/state.json` in the main checkout (git-ignored, like `.superpowers/gate/`). One record per lane: `phase`, `session` (OpenCode session id), `model`, `fix_rounds` (G2/G3), `ci_rounds`, `pr`, `head` (last reviewed commit), `blocked_reason`. GitHub is the source of truth for PR and merge state; the file is the source for everything else.
-3. **Lane phases:** `queued → running → verifying → fixing → ready → approved → pr_open → ci → merged`, plus `blocked`. `ready` means G2 and G3 passed and the lane waits for the next batch report.
-4. **Scheduler:** a lane is *ready to start* when every direct prerequisite is `merged` (from `bin/lane status`), the lane has no worktree or branch yet, and no `ccr` PR is open. Caps, all overridable per session:
-   - `max_running` = 4 concurrent OpenCode runs;
-   - `max_backend_stacks` = 5 lanes with a Docker stack (frontend lanes run on Node only);
-   - `max_waiting` = 4 lanes in `ready`/`fixing`/`pr_open`/`ci` combined; at the cap, no new lane starts (the review budget from the playbook).
-5. **Dispatch:** `bin/lane start <LANE>` then `bin/lane run <LANE> --model <tier model>` as a background job. Model tier per lane follows the playbook table (top / mid / cheap).
-6. **Verification (G2, mine, never the agent's claim):** on a run's exit I run `bin/lane review`, re-run the plan's "Done when" commands and `make verify` in the worktree, and compare with the agent's summary. `FAIL` or an unreproducible claim goes back to the same session (`bin/lane run <LANE> --session <id>`) with the exact failing output.
-7. **Judgement review (G3):** one forked subagent per finished lane, in parallel, each reading only its own worktree diff against the lane plan, its spec, `docs/conventions/` and `docs/design/brand.md` (the G3 rubric in `review-gate.md`). Findings go back to the lane's OpenCode session. At most **2 fix rounds**; a third failure sets `blocked` and I report why.
-8. **Approval is per batch.** When one or more lanes are `ready`, I present **one report**: per lane the verdict, the commands I ran with real output, deviations, risks, screenshots (UI lanes), and what the lane unblocks. You answer `go`, `go except <LANE>`, or `change <LANE>: …`. On `go` I run `bin/lane approve <LANE> --by <you>` then `bin/lane pr` for each approved lane (head-bound, unchanged). A new batch report is produced only when a lane is `ready`; I do not interrupt you for anything else except stops (Decision 11).
-9. **Merge on green:** `bin/lane pr` enables squash auto-merge, so a lane merges when the required checks, including `claude-review`, are green. This amends G5: for batch-approved lanes the merge is automatic, your "go" is the authorization. The pilot (W0-1) stays a batch of one and keeps G5 manual (`--no-auto-merge`).
+2. **State file:** `.superpowers/orchestrator/state.json` in the main checkout (git-ignored, like `.superpowers/gate/`), overridable with `LANE_STATE` (tests use a temp file). Shape: `{"caps": {...}, "models": {...}, "lanes": {"<ID>": {...}}}`. A lane record holds `phase`, `session`, `model`, `log`, `fix_rounds`, `ci_rounds`, `pr`, `head`, `blocked_reason`, `updated_at`. Only `bin/lane` writes it, atomically (temp file + rename); subagents never do. GitHub is the source of truth for PR and merge state.
+3. **Lane phases:** `queued → running → verifying → fixing → ready → approved → ci → merged`, plus `blocked`. `ready` means G2 and G3 passed and the lane waits for the next batch report; `ci` means the PR is open with auto-merge on.
+4. **Scheduler (`bin/lane next`):** a lane can start when every direct prerequisite is merged, it has no local worktree, no remote branch and no PR, and no `ccr` PR is open. Candidates are ordered by how many lanes they transitively unblock (critical path first), then wave, then id. Caps, stored in `state.caps`, are applied by `next`:
+   - `max_running` = 4 lanes in `running`/`verifying`/`fixing`;
+   - `max_stacks` = 5 non-`F-*` lanes with a worktree (each needs a Docker stack; `F-*` lanes run on Node only);
+   - `max_waiting` = 4 lanes in `ready`/`approved`/`ci`; at the cap nothing new starts (the review budget from the playbook).
+   `--assume-merged IDS` is an offline what-if: the merged set is exactly IDS, nothing is started, caps are ignored, and GitHub is not called.
+5. **Dispatch:** `bin/lane start <LANE>` then `bin/lane run <LANE>` as a background job. Without `--model`, `run` uses `LANE_MODEL`, else `state.models[<tier>]`, where the tier comes from a fixed map in `bin/lane` that copies the playbook table (top: W0-1, W0-3, W0-5, B-INGEST, B-AGENT, W3-1; cheap: F-COORDINATORS, F-SEARCH, F-SETTINGS, F-CONNECT; mid: every other lane). `run` records `phase=running`, `model` and `log` before starting and `phase=verifying` plus the `session` id parsed from the log after exit; a tripwire sets `blocked`.
+6. **Verification (G2, mine, never the agent's claim):** on a run's exit I run `bin/lane review`, re-run the plan's "Done when" commands (and `make verify` once a Makefile exists) in the worktree, and compare with the agent's summary. `FAIL` or an unreproducible claim goes back to the same session (`bin/lane run <LANE> --session <id>`) with the exact failing output.
+7. **Judgement review (G3):** one fresh subagent per finished lane, in parallel, given only the worktree path, the lane plan, its spec, `docs/conventions/` and `docs/design/brand.md` (the G3 rubric in `review-gate.md`), read-only. Fresh rather than forked, so each review does not carry the conductor's context. Findings go back to the lane's OpenCode session. At most **2 fix rounds**; a third failure sets `blocked` and I report why.
+8. **Approval is per batch.** When one or more lanes are `ready`, I present **one report** (also saved to `.superpowers/orchestrator/batches/<timestamp>.md`): per lane the verdict, the commands I ran with real output, deviations, risks, screenshots (UI lanes), and what the lane unblocks. You answer `go`, `go except <LANE>`, or `change <LANE>: …`. On `go` I run `bin/lane approve <LANE> --by <you> --note "batch <timestamp>"` then `bin/lane pr` for each approved lane. I interrupt you only for batch reports and stops (Decision 11).
+9. **Merge on green:** `bin/lane pr` enables squash auto-merge, so a lane merges when the required checks, including `claude-review`, are green. This amends G5: for batch-approved lanes your "go" is the merge authorization. The pilot (W0-1) stays a batch of one with `--no-auto-merge` and a manual merge.
 10. **After approval, red CI or a needed rebase:**
-    - `bin/lane ci <LANE>` fetches the failing job logs; I send them to the lane's session (`ci_rounds` ≤ 2).
-    - The fix or a rebase produces a new head with no `claude-review` status, which blocks the merge. I re-run G2, review only the delta (`git range-diff` for a clean rebase), and re-post the status. **Your batch "go" covers these post-approval commits only if** the delta touches only files in the lane's `Owns` list and passes G2 and the delta review; anything else becomes a new item in the next batch report. The batch report lists post-approval fixes after the fact.
-    - A merged `ccr` PR makes me run `bin/lane rebase <LANE>` for every open lane before anything else is dispatched.
-11. **I stop and tell you** when: any `review-gate.md §6` tripwire fires; a lane reaches a third failed round; a plan defect is found; a CI failure is not caused by the lane (main red, infrastructure); `make verify` is green locally but red in CI twice; or anything touches the real exports or secrets.
-12. **After merge:** `bin/lane stop <LANE>` (tears down its Docker stack), recompute the ready set, dispatch the next lanes within the caps.
-13. **Tooling to add (one small tooling PR, outside every lane's `Owns`):**
-    - `bin/lane next [--json] [--assume-merged IDS] [--limit N]` prints lanes ready to start;
-    - `bin/lane ci LANE [--dry-run]` waits for the PR checks and prints failing job logs;
-    - `bin/lane rebase LANE` rebases the worktree on `origin/main` and prints a `range-diff`;
-    - `bin/lane state show|set` reads and updates the state file.
-14. **`review-gate.md` is amended** (G4 per batch, G5 automatic for batch-approved lanes, the trust-ladder level 1 wording). Trust ladder rules are unchanged: any hard stop, post-merge regression or canary failure drops a level.
-
+    - `bin/lane ci <LANE>` waits for the PR checks and prints the failing job logs; I send them to the lane's session (`ci_rounds` ≤ 2).
+    - Rebases are needed only after a merged `ccr` PR or a conflict (`strict: false`); `bin/lane rebase <LANE>` rebases in the worktree and prints a `range-diff`, and a merged `ccr` makes me rebase every open lane before anything else is dispatched.
+    - Either produces a new head without `claude-review`, which blocks the merge. I re-run G2 and review only the delta. **Your batch "go" covers these post-approval commits only if** the delta touches only files in the lane's `Owns` list and passes G2 and the delta review; then I re-approve (note `post-approval fix, batch <timestamp>`) and run `bin/lane pr` again, which updates the existing PR. Anything else becomes an item in the next batch report. Post-approval fixes are listed in the next report.
+11. **I stop and tell you** when: any `review-gate.md §6` tripwire fires; a lane reaches a third failed round; a plan defect is found; a CI failure is not caused by the lane (main red, infrastructure); a command is green locally but red in CI twice; or anything touches the real exports or secrets. While any run is active, neither I nor anyone else edits the main checkout (it would trip Finding 7's tripwire); conductor-owned changes live in their own worktree.
+12. **After merge:** `bin/lane stop <LANE>` (tears down its Docker stack, removes the worktree), `bin/lane state set <LANE> phase=merged`, recompute `bin/lane next`, dispatch within the caps.
+13. **Tooling (one PR, outside every lane's `Owns`; built after W0-1 merges).** Tests are **RSpec** specs in `spec/tooling/` that run `bin/lane` as a black box (`Open3`) inside a temp git repo holding copies of `bin/lane` and the lane plans, with fake `gh`/`opencode` executables first on `PATH` and `LANE_STATE` pointing at a temp file; run with `make spec ARGS=spec/tooling`. No Python test suite. Commands:
+    - `bin/lane next [--json] [--assume-merged IDS] [--limit N]`;
+    - `bin/lane state show [LANE]`, `state set LANE key=value…`, `state set-caps key=value…`, `state set-models top=… mid=… cheap=…`;
+    - `bin/lane run` records state and the session id (Decision 5);
+    - `bin/lane pr` updates an existing PR: pushes with `--force-with-lease` to the lane branch, re-posts `claude-review` on the new head, keeps auto-merge, and does not create a second PR;
+    - `bin/lane ci LANE [--dry-run] [--timeout MIN]` (exit 0 green, 1 red with failing logs printed, 2 no PR);
+    - `bin/lane rebase LANE` (exit 0 with a `range-diff`, 1 on conflict after `git rebase --abort`).
+14. **Docs:** `review-gate.md` is amended (G4 per batch, G5 automatic for batch-approved lanes, trust-ladder level 1 wording); `playbook.md` gets a "Conductor mode" section listing the commands. Trust-ladder rules are unchanged: any hard stop, post-merge regression or canary failure drops a level.
 15. **Worktrees are the unit of isolation.** One lane = one worktree `.worktrees/<lane-id>` = one branch `lane/<LANE>-<slug>` = one OpenCode session.
-    - `bin/lane start` creates it from `origin/main` with its own Docker stack; `bin/lane run` executes OpenCode with that worktree as its working directory and fails if the main checkout changes.
+    - `bin/lane start` creates it from `origin/main` with its own Docker env; `bin/lane run` executes OpenCode with that worktree as its working directory.
     - Every conductor action on a lane happens inside that lane's worktree: G2 re-runs, the G3 subagent (given the worktree path, read-only), fix rounds (`--session`, same worktree), `bin/lane ci`, `bin/lane rebase`, `bin/lane approve`/`pr`.
-    - The conductor itself works from the main checkout or any other worktree; `bin/lane` resolves the main checkout from the git common dir, so the state file and `.superpowers/gate/` are always shared, never per worktree.
+    - The conductor itself works from the main checkout or any other worktree; `bin/lane` resolves the main checkout from the git common dir, so the state file and `.superpowers/gate/` are shared, never per worktree.
     - Two agents never share a worktree; the conductor never edits lane files, it only sends findings to the lane's session. Conductor-owned changes (this tooling, docs) get their own worktree and PR.
     - `bin/lane stop` removes the worktree and its Docker stack only after the lane is `merged`.
 
 ## Non-goals
 A background daemon or GitHub-Actions-driven dispatch; changing lane plans, `Owns` lists or the OpenCode permission set; merging without green required checks; skipping independent verification; running real-data specs in CI; any change to the pilot rule that W0-1 goes first and alone.
 
-## Open assumptions (checked in the plan, not decided here)
-- The uncommitted `bin/lane` changes (auto-merge, `claude-review` status) and `bin/setup-github` are merged before this tooling is built, and `bin/setup-github --apply` has made `claude-review` a required check.
-- W0-7 has merged, so CI exists. Until then the conductor can run Decisions 1–7 and stop at `ready`.
+## Prerequisites (checked by the plan's first task)
+- W0-1 is merged (Makefile, Docker `web` service, RSpec). The `web` container has `git` and `python3`; if not, that is a W0-1 ownership change (`Dockerfile.dev`), not a workaround.
+- The uncommitted `bin/lane` (OpenCode 2.x `lane` agent, `pr --dry-run`, auto-merge, `claude-review` status), `bin/setup-github` (stage 1/2 protection) and the untracked `opencode.json` are on `main`. Note: the W0-7 plan lists `opencode.json` in its `Owns`, so committing it outside W0-7 needs an ownership note in that plan.
+- `bin/setup-github --apply` (stage 1) has made `claude-review` a required check. Until W0-7 merges there are no CI jobs, so the conductor can run Decisions 1–8 but `bin/lane ci` only sees the `claude-review` status.
 
 ## Acceptance criteria
-1. `bin/lane next --json --assume-merged W0-1 | python3 -c 'import json,sys; ids=set(json.load(sys.stdin)); sys.exit(0 if ids=={"W0-2","W0-3","W0-4A","W0-7"} else 1)'` exits 0 (the earliest-start table in `dependencies.md`).
-2. `bin/lane next --json --assume-merged W0-1,W0-3 | python3 -c 'import json,sys; ids=set(json.load(sys.stdin)); want={"B-INGEST","B-METRICS","B-LEADS","B-ACTIONS","B-ACCOUNT"}; sys.exit(0 if want<=ids else 1)'` exits 0.
+1. `bin/lane next --json --assume-merged W0-1 | python3 -c 'import json,sys; ids=set(json.load(sys.stdin)); sys.exit(0 if ids=={"W0-2","W0-3","W0-4A","W0-7"} else 1)'` exits 0 (Finding 1).
+2. `bin/lane next --json --assume-merged W0-1,W0-3 | python3 -c 'import json,sys; ids=set(json.load(sys.stdin)); want={"B-INGEST","B-METRICS","B-LEADS","B-ACTIONS","B-ACCOUNT"}; sys.exit(0 if want<=ids else 1)'` exits 0 (Finding 1).
 3. `bin/lane next --json --assume-merged W0-1,W0-3 --limit 2 | python3 -c 'import json,sys; sys.exit(0 if len(json.load(sys.stdin))==2 else 1)'` exits 0.
-4. `bin/lane next --json --assume-merged W0-1 | python3 -c 'import json,sys; sys.exit(1 if "B-AGENT" in json.load(sys.stdin) else 0)'` exits 0 (nothing starts before its prerequisites).
-5. `bin/lane ci F-WEEK --dry-run` exits 0 and prints the `gh pr checks` command it would run.
-6. `bin/lane state set F-WEEK phase=running session=abc && bin/lane state show F-WEEK | grep -q '"session": "abc"'` exits 0.
-7. `bin/lane rebase --help` exits 0.
-8. `grep -q 'per batch' docs/superpowers/parallel/review-gate.md && grep -q 'bin/lane next' docs/superpowers/parallel/playbook.md` exits 0.
-9. `bin/lane graph --file docs/superpowers/parallel/dependencies.md --check` exits 0 (the scheduler reads the same graph and the generated doc is still current).
+4. `bin/lane next --json --assume-merged W0-1 | python3 -c 'import json,sys; sys.exit(1 if "B-AGENT" in json.load(sys.stdin) else 0)'` exits 0.
+5. `export LANE_STATE=$(mktemp -d)/s.json && bin/lane state set F-WEEK phase=running session=abc && bin/lane state show F-WEEK | grep -q '"session": "abc"'` exits 0, and `bin/lane state set F-WEEK phase=bogus` exits non-zero (Finding 4).
+6. `make spec ARGS=spec/tooling` exits 0 (Finding 11); the specs cover caps, ordering, state validation, session-id parsing, the PR-update path and the `ci`/`rebase` exit codes with fake `gh`/`opencode`.
+7. `bin/lane ci F-WEEK --dry-run` exits 0 and prints the `gh pr checks` command it would run (Finding 3).
+8. `bin/lane rebase --help` and `bin/lane pr --help | grep -q -- --no-auto-merge` exit 0 (Findings 3, 6).
+9. `grep -q 'per batch' docs/superpowers/parallel/review-gate.md && grep -q 'bin/lane next' docs/superpowers/parallel/playbook.md` exits 0 (Finding 8).
+10. `bin/lane graph --file docs/superpowers/parallel/dependencies.md --check` exits 0 (the scheduler reads the same graph as the generated doc).
