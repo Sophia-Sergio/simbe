@@ -11,8 +11,8 @@ Analytics for surrogacy agencies: connects ad spend (Meta, Google) to the recrui
 
 | Path | What |
 |------|------|
-| `design_handoff_simbe/` | Hi-fi design reference (README, screenshots, HTML prototype) |
-| `harbor-takehome/` | Source brief, data model docs, sample CSV exports (exports are git-ignored) |
+| `handoff/design/` | Hi-fi design reference (README, screenshots, HTML prototype) |
+| `handoff/takehome/` | Source brief, data model docs, sample CSV exports (exports are git-ignored) |
 | `docs/conventions/` | Binding coding rules |
 | `docs/superpowers/specs/` | Design specs |
 | `docs/superpowers/plans/` | Implementation plans (hand these to Cursor / OpenCode) |

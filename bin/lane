@@ -124,7 +124,7 @@ def cmd_check(a):
     for f in changed_files(a.base):
         if any(p.match(f) for p in pats): continue
         if f == l["rel"]: continue                                   # own plan checkboxes
-        if "ccr" in labels and (f.startswith("contracts/") or f.startswith("frontend/src/api/generated/")): continue
+        if "ccr" in labels and (f.startswith("contracts/") or f.startswith("app/javascript/api/generated/")): continue
         bad.append(f)
     if bad:
         print(f"OUTSIDE LANE {l['id']}:")

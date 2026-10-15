@@ -2,7 +2,7 @@
 
 > **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
 
-> **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`**. Layout/behavior: `design_handoff_simbe/README.md` §2, §10, §12; screenshots `02`, `03`, `12`, `13`, `15`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(onboarding): task N – <title>`) after the task's tests (+ `make verify` for backend tasks).
+> **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`**. Layout/behavior: `handoff/design/README.md` §2, §10, §12; screenshots `02`, `03`, `12`, `13`, `15`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(onboarding): task N – <title>`) after the task's tests (+ `make verify` for backend tasks).
 
 **Goal:** Sign-up wizard, ad-account (stub) connections, validated snapshot upload UI, team invitations, Settings and Data sources screens.
 
@@ -34,13 +34,13 @@
 
 | Action | Path |
 |--------|------|
-| Create | `backend/db/migrate/*_create_invitations_and_ad_connections.rb`, `backend/app/models/{invitation,ad_connection}.rb` |
-| Create | `backend/app/controllers/api/v1/{signups,invitations,team,ad_connections,coordinator_names}_controller.rb`, `backend/app/services/signup/create_agency.rb` |
-| Create | `backend/config/initializers/rack_attack.rb`, `backend/app/mailers/invitation_mailer.rb` |
-| Create | `backend/spec/requests/{signup,invitations,ad_connections}_spec.rb` |
-| Create | `frontend/src/api/{signup,team,data}.ts`, `frontend/src/features/onboarding/**`, `frontend/src/features/data/**`, `frontend/src/features/settings/**` |
-| Modify | `backend/config/routes.rb`, `backend/spec/support/isolation.rb`, `frontend/src/routes/router.tsx` |
-| Create | `frontend/e2e/onboarding.spec.ts` |
+| Create | `db/migrate/*_create_invitations_and_ad_connections.rb`, `app/models/{invitation,ad_connection}.rb` |
+| Create | `app/controllers/api/v1/{signups,invitations,team,ad_connections,coordinator_names}_controller.rb`, `app/packs/identity/app/services/signup/create_agency.rb` |
+| Create | `config/initializers/rack_attack.rb`, `app/mailers/invitation_mailer.rb` |
+| Create | `spec/requests/{signup,invitations,ad_connections}_spec.rb` |
+| Create | `app/javascript/api/{signup,team,data}.ts`, `app/javascript/features/onboarding/**`, `app/javascript/features/data/**`, `app/javascript/features/settings/**` |
+| Modify | `config/routes.rb`, `spec/support/isolation.rb`, `app/javascript/routes/router.tsx` |
+| Create | `e2e/onboarding.spec.ts` |
 
 ---
 
@@ -166,8 +166,8 @@ end
 
 ## Task 3: Frontend data layer, wizard shell, steps 1–2
 
-**Files:** Create `src/api/{signup,team,data}.ts`, `src/features/onboarding/{SignUpPage,WizardShell,Stepper,steps/AccountStep,steps/AgencyStep}.tsx`, tests; Modify `router.tsx` (`/signup` public).
-**Interfaces — Produces:** `signup(payload)`, `useTeam()`, `useInviteCoordinator()`, `useAdConnections()`, `useConnectPlatform()`, `useCurrentSnapshot()`; constants `TIMEZONES = [{label:"Pacific", value:"America/Los_Angeles"}, …]`, `QUALIFIED_OPTIONS = [{value, title, description, recommended?}]` in `src/features/agency/options.ts` (shared with Settings).
+**Files:** Create `app/javascript/api/{signup,team,data}.ts`, `app/javascript/features/onboarding/{SignUpPage,WizardShell,Stepper,steps/AccountStep,steps/AgencyStep}.tsx`, tests; Modify `router.tsx` (`/signup` public).
+**Interfaces — Produces:** `signup(payload)`, `useTeam()`, `useInviteCoordinator()`, `useAdConnections()`, `useConnectPlatform()`, `useCurrentSnapshot()`; constants `TIMEZONES = [{label:"Pacific", value:"America/Los_Angeles"}, …]`, `QUALIFIED_OPTIONS = [{value, title, description, recommended?}]` in `app/javascript/features/agency/options.ts` (shared with Settings).
 
 - [ ] **Step 1: Failing tests**
 ```tsx
@@ -198,7 +198,7 @@ it("double-clicking Continue on step 2 posts once", async () => { /* fetch calle
 
 ## Task 4: SnapshotUploader, UploadModal and Data sources page
 
-**Files:** Create `src/features/data/{SnapshotUploader,UploadModal,ReviewReport,FileList,DataSourcesPage}.tsx`, tests; Modify `router.tsx` (`/data`).
+**Files:** Create `app/javascript/features/data/{SnapshotUploader,UploadModal,ReviewReport,FileList,DataSourcesPage}.tsx`, tests; Modify `router.tsx` (`/data`).
 **Interfaces — Produces:** `useSnapshotUpload()` → `{ state: "idle"|"validating"|"review"|"committing"|"done"|"error", files, report, upload(files), commit(), cancel() }`; `<SnapshotUploader onReport />` (dropzone + picker, shared by the wizard step and the modal); `<ReviewReport report agencyName />`.
 Report row mapping (`ReviewReport`): `Leads {current} → {incoming} (+{delta})` (success), `Duplicate rows {n}` (success when 0 else danger), `Files matched to {agency} {x of 7}` (success when 7 of 7), `Screener answers Encrypted` (success), each warning → amber row `message (count)`, each error → red row `file row message`. `Replace snapshot` disabled when `report.ok === false`.
 
@@ -252,7 +252,7 @@ it("final CTA 'Open my dashboard' routes to '/'", async () => { /* ... */ });
 
 ## Task 6: Settings page and invite acceptance page
 
-**Files:** Create `src/features/settings/{SettingsPage,QualifiedCards,TimezoneChips,TeamCard}.tsx`, `src/features/onboarding/AcceptInvitePage.tsx`, tests; Modify `router.tsx` (`/settings`, `/invite/:token` public).
+**Files:** Create `app/javascript/features/settings/{SettingsPage,QualifiedCards,TimezoneChips,TeamCard}.tsx`, `app/javascript/features/onboarding/AcceptInvitePage.tsx`, tests; Modify `router.tsx` (`/settings`, `/invite/:token` public).
 
 - [ ] **Step 1: Failing tests**
 ```tsx
@@ -276,9 +276,9 @@ it("is max 720px wide and three cards", () => { /* snapshot of structure: 3 head
 
 ## Task 7: E2E and final verification
 
-**Files:** Create `frontend/e2e/onboarding.spec.ts`; Modify `backend/lib/tasks/e2e.rake` (add `e2e:alpha_files` that writes the Alpha CSVs to `frontend/e2e/fixtures/alpha/`, git-ignored).
+**Files:** Create `e2e/onboarding.spec.ts`; Modify `lib/tasks/e2e.rake` (add `e2e:alpha_files` that writes the Alpha CSVs to `e2e/fixtures/alpha/`, git-ignored).
 
 - [ ] **Step 1:** Playwright: visit `/signup`, create "E2E Agency" (Pacific, records definition), skip ad accounts, upload the seven Alpha CSVs, review shows `Leads 0 → 10 (+10)`, Replace, then team step invite `Jess Kim`, "Open my dashboard" → `/` shows `10` leads; Settings → switch to "Attended a consult" and the KPI qualified changes (3). Screenshots at 1280×800 and 390×844.
-- [ ] **Step 2:** `docker compose exec api bundle exec rails e2e:alpha_files && make e2e ARGS=onboarding` → pass.
-- [ ] **Step 3:** `grep -rniE 'localStorage|sessionStorage' frontend/src/features/onboarding` prints nothing.
+- [ ] **Step 2:** `docker compose exec web bundle exec rails e2e:alpha_files && make e2e ARGS=onboarding` → pass.
+- [ ] **Step 3:** `grep -rniE 'localStorage|sessionStorage' app/javascript/features/onboarding` prints nothing.
 - [ ] **Step 4:** `make verify` → exit 0. Commit; open PR.

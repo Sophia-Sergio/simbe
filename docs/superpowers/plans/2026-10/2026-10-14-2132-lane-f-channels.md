@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-channels): task N – <title>`).
 
 **Lane:** F-CHANNELS · **Wave:** 1 (frontend, mock API)
-**Owns:** `frontend/src/features/channels/**`, `frontend/e2e/channels.spec.ts`
+**Owns:** `app/javascript/features/channels/**`, `e2e/channels.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useChannels(range)`, `useChannel(channel, range)` (`@/api/hooks/metrics`), `useAgent()`, `useRange()`
 **Kit consumed:** `Table` (responsive), `ChannelTile`, `KpiCard`, `SegmentBar`, `BarRow`, `Pill`, `RangeControl`, `Button`, `Skeleton`, `ErrorState`, `EmptyState`, `formatMoney/Int/Pct`
@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2006-owner-insights-ui-design.md` (decisions 5, 6, 8)
 **Detail reference:** `plans/2026-10/2026-10-14-2007-owner-insights-ui.md` **Task 5 (Channels and Channel detail)** — execute as written. Skip its Tasks 1–4, 6.
 
-## Feature registration (`src/features/channels/feature.ts`)
+## Feature registration (`app/javascript/features/channels/feature.ts`)
 ```ts
 export const feature: FeatureModule = {
   id: "channels",
@@ -37,10 +37,10 @@ export const feature: FeatureModule = {
 
 ## Done when (acceptance commands)
 ```bash
-make web-test ARGS=src/features/channels
+make web-test ARGS=app/javascript/features/channels
 make e2e ARGS=channels             # channels-{desktop,mobile}.png, channel-{desktop,mobile}.png
-grep -rnE '#[0-9a-fA-F]{6}' frontend/src/features/channels | wc -l      # 0
+grep -rnE '#[0-9a-fA-F]{6}' app/javascript/features/channels | wc -l      # 0
 docker compose exec web npm run typecheck && docker compose exec web npm run lint
 make verify
 ```
-`e2e/channels.spec.ts`: owner → `/channels` shows `Facebook` with `$150` (green pill), `66.7%`, `10% of leads have no source`; click Facebook → `/channels/Facebook` shows `c-a`; unknown channel → not-found state; coordinator redirected. Compare with `design_handoff_simbe/screenshots/06-channels.png` and `07-channel-detail.png`. Branch `lane/F-CHANNELS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.
+`e2e/channels.spec.ts`: owner → `/channels` shows `Facebook` with `$150` (green pill), `66.7%`, `10% of leads have no source`; click Facebook → `/channels/Facebook` shows `c-a`; unknown channel → not-found state; coordinator redirected. Compare with `handoff/design/screenshots/06-channels.png` and `07-channel-detail.png`. Branch `lane/F-CHANNELS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.

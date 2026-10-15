@@ -25,7 +25,7 @@ Written by **Claude Code** (superpowers `writing-plans`), executed task-by-task 
 
 ## Rules for plan authors
 
-- Verification commands run through Docker/`make` (`docker compose exec api bundle exec …`, `make spec ARGS=…`).
+- Verification commands run through Docker/`make` (`docker compose exec web bundle exec …`, `make spec ARGS=…`).
 - One owner spec per HTTP path; no service spec for a happy path a request spec already covers.
 - Every task ends with a verifiable step and a commit; the last task runs `make verify`.
 - New routes are added to `ISOLATION_ROUTES` in the same task.

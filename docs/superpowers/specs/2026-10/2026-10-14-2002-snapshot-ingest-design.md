@@ -5,14 +5,14 @@
 ## Goal
 Load an agency's seven CSV exports (a *full snapshot*, not a delta) into Postgres, tagged with the agency, validated before commit, replacing the previous snapshot atomically and never double counting.
 
-## Findings (from `harbor-takehome/` and a profile of both exports)
+## Findings (from `handoff/takehome/` and a profile of both exports)
 - Seven files per agency, all keyed by `lead_id`; **no agency id** in any file (`docs/data-model.md`). Timestamps are UTC ISO-8601 with ms.
 - Real sizes — Harbor: leads 3,530 · stage_history 9,257 · contact_log 10,446 · screener_answers 35,300 · web_sessions 9,901 · appointments 642 · applications 918. Lakeside: 29,740 · 87,378 · 113,000 · 297,400 · 78,051 · 8,076 · 11,357.
 - No duplicate natural keys and no orphan rows today, but a newer export will be loaded: the loader must enforce both.
 - `source` is messy: `facebook`, `fb`, `Facebook`, `instagram`, `ig`, `google`, `Google`, `tiktok`, `referral`, blank (Harbor: 1,045 blank = 30%).
 - Duplicate people exist by email (Harbor 79, Lakeside 702) with distinct `lead_id`s.
 - `leads.current_stage` is a snapshot; `stage_history` is the authoritative trail (docs). Qualified is not a column; it is a milestone per agency (`consult_attended` Harbor, `records` Lakeside).
-- The reference loader `harbor-takehome/db/load.sql` already proves the schema/replace-in-one-transaction approach and the `lead_milestones` / `lead_qualification` derivations.
+- The reference loader `handoff/takehome/db/load.sql` already proves the schema/replace-in-one-transaction approach and the `lead_milestones` / `lead_qualification` derivations.
 
 ## Decisions
 1. **Schema** (all tenant tables carry `agency_id`, composite-safe): `leads` (UUID `id`, `external_id` = export `lead_id`, unique per agency; plus normalized `channel`), `stage_events`, `contacts`, `screener_answers` (`answer` **encrypted**), `web_sessions`, `appointments`, `applications`, `lead_facts`, `snapshots`, `snapshot_uploads`.
@@ -25,7 +25,7 @@ Load an agency's seven CSV exports (a *full snapshot*, not a delta) into Postgre
 8. **Replace in one transaction**: advisory lock per agency → delete agency leads (children cascade) → bulk insert (5,000-row batches; screener answers encrypted per row) → compute `lead_facts` → insert `snapshots` row → commit. Any error rolls back to the previous snapshot. A concurrent commit for the same agency returns `409 already_in_progress`; progress phases: `storing → parsing → validating → importing → computing → finalizing`, with row counters; the import of Lakeside must finish in **< 120 s** on a laptop (COPY or `insert_all` in 5,000-row batches; screener encryption is the long pole). Failures leave the previous snapshot intact and set `status: failed` with a readable `error`.
 9. **Other tables that reference leads** (e.g. completed next-actions) must reference `leads.external_id`, never `leads.id`, because lead rows are re-created on every snapshot.
 10. **Owner only.** Coordinators get 403. A CLI `rake snapshot:load[slug,dir]` uses the same service for local data loading.
-11. **Fixtures**: an `ExportBuilder` DSL writes tiny synthetic exports; the **Alpha scenario** (10 leads, known answers; defined in the plan) is the reference dataset reused by later plans. The **real sample exports** (`harbor-takehome/exports/`, local only) are verified against the independent oracle `backend/spec/real_data/golden.json` (see `docs/conventions/real-data.md`).
+11. **Fixtures**: an `ExportBuilder` DSL writes tiny synthetic exports; the **Alpha scenario** (10 leads, known answers; defined in the plan) is the reference dataset reused by later plans. The **real sample exports** (`handoff/takehome/exports/`, local only) are verified against the independent oracle `spec/real_data/golden.json` (see `docs/conventions/real-data.md`).
 12. **Same data, many agencies**: an agency's rows are unique per `(agency_id, external_id)`; loading identical files into two agencies yields two independent, equal-sized copies. Owners load data **during sign-up (wizard step 4)** and later from Data sources; each agency chooses its own qualified definition and time zone, so the same CSVs give different numbers per agency.
 
 ## Non-goals
@@ -35,7 +35,7 @@ Incremental/delta loads, automatic cross-snapshot history/diffing of individual 
 1. `make spec ARGS=spec/requests/snapshot_uploads_spec.rb` passes (create → poll → validated report; commit → 202 → poll → committed; errors block commit with 422; commit before validation finishes → 409 `not_validated`; coordinator 403; second concurrent commit 409; other agency's upload id 404; `GET /snapshots/current` shows `pending` while a job runs).
 2. `make spec ARGS=spec/services/snapshot` passes: Alpha counts; loading Alpha twice leaves identical row counts; a corrupt file rolls back and keeps the previous snapshot; **the same Alpha files loaded into two agencies produce two independent copies and neither validation nor import reports anything about the other**; `as_of` ignores `scheduled_for`/`paused_until`.
 3. `make spec ARGS=spec/services/channels/normalizer_spec.rb` passes for all aliases above.
-4. With the real exports present locally, `make spec ARGS="--tag real_data spec/real_data/ingest_golden_spec.rb"` passes: for **both** agencies, loading through the real importer (upload job path, not the direct loader) produces `row_counts`, `as_of`, warning counts (`duplicate_email`, `source_aliases_normalized`, `stage_mismatch`) and `lead_facts` aggregates equal to `backend/spec/real_data/golden.json`; running it twice leaves identical counts; Lakeside finishes in < 120 s (the spec prints the timing).
+4. With the real exports present locally, `make spec ARGS="--tag real_data spec/real_data/ingest_golden_spec.rb"` passes: for **both** agencies, loading through the real importer (upload job path, not the direct loader) produces `row_counts`, `as_of`, warning counts (`duplicate_email`, `source_aliases_normalized`, `stage_mismatch`) and `lead_facts` aggregates equal to `spec/real_data/golden.json`; running it twice leaves identical counts; Lakeside finishes in < 120 s (the spec prints the timing).
 5. `docker compose exec db psql -U simbe simbe_development -c "select count(*) from screener_answers where answer ~ '^[0-9]+$'"` prints `0` (answers are stored encrypted).
-6. `docker compose exec api bundle exec rails boundaries:check` exits 0 (`unscoped` appears only under `app/services/snapshot/`).
+6. `docker compose exec web bundle exec rails boundaries:check` exits 0 (`unscoped` appears only under `app/services/snapshot/`).
 7. Uploading Harbor's seven real files into a **second, freshly signed-up agency** (different name, Central time, "reached records") through the browser (`make e2e ARGS="journeys --grep real-data"`) succeeds and shows leads `3,530`, while the first agency's numbers are unchanged.

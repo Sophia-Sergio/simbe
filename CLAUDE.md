@@ -6,7 +6,7 @@ Detailed rules live in `docs/conventions/`.
 ## Required reading
 
 At the start of **every session**, read every file listed in [`docs/conventions/README.md`](docs/conventions/README.md). They are binding.
-For product/UI questions read `design_handoff_simbe/README.md` (layout, screens, behavior) and **`docs/design/brand.md`** (colors, fonts, shapes, logo from simbefamily.com — overrides the handoff's brand values) and `harbor-takehome/docs/data-model.md` (source of truth for data).
+For product/UI questions read `handoff/design/README.md` (layout, screens, behavior) and **`docs/design/brand.md`** (colors, fonts, shapes, logo from simbefamily.com — overrides the handoff's brand values) and `handoff/takehome/docs/data-model.md` (source of truth for data).
 
 ## Tool roles
 
@@ -23,23 +23,23 @@ For product/UI questions read `design_handoff_simbe/README.md` (layout, screens,
 
 ## Stack
 
-Rails 8 API-only (`backend/`) · PostgreSQL 16 · React + TypeScript + Vite + Tailwind (`frontend/`) · Anthropic Claude for the agent. Everything runs in Docker Compose.
+Rails 8 API-only (``) · PostgreSQL 16 · React + TypeScript + Vite + Tailwind (`frontend/`) · Anthropic Claude for the agent. Everything runs in Docker Compose.
 
 ## Non-negotiables
 
 1. **Agency isolation.** Every tenant row has `agency_id`; every query goes through `Current.agency` scoping. See `docs/conventions/multi-tenancy.md`.
 2. **Screener answers are health data.** Encrypted at rest, never logged, never sent to the AI provider verbatim, visible only to the assigned coordinator. See `docs/conventions/sensitive-data.md`.
-3. **Never commit the exports** (`harbor-takehome/exports/*/` is git-ignored) or any `.env`.
+3. **Never commit the exports** (`handoff/takehome/exports/*/` is git-ignored) or any `.env`.
 4. **Snapshot loads are idempotent**: re-loading a newer full export replaces the agency's data in one transaction and never double counts.
 5. **Qualified is config, not a column**: `agencies.qualified_milestone`.
 6. **Commit after every task** — one commit per plan task, message names the task. Run `make verify` (lint + tests + security scans) before committing; do not commit while it fails.
-7. **Verification commands use Docker** (`docker compose exec api bundle exec …`, `make` targets), never host `rails`/`bundle`/`npm`.
-8. **UI is not done until seen**: run the app and look at desktop (>=860px) and mobile (<860px) screenshots against `design_handoff_simbe/screenshots/`.
+7. **Verification commands use Docker** (`docker compose exec web bundle exec …`, `make` targets), never host `rails`/`bundle`/`npm`.
+8. **UI is not done until seen**: run the app and look at desktop (>=860px) and mobile (<860px) screenshots against `handoff/design/screenshots/`.
 9. **Single-flight actions**: a clicked mutation cannot run twice (`useAsyncAction` on the front, idempotency/lock on the back).
 
 ## Parallel lanes (many agents)
 
-The build is split into 32 independent lanes: [`docs/superpowers/parallel/README.md`](docs/superpowers/parallel/README.md) (matrix, lane rules) and [`playbook.md`](docs/superpowers/parallel/playbook.md) (how to run them with Cursor, OpenCode and Claude Code). Use `bin/lane start <LANE>` / `check` / `pr` / `status` / `stop`. Touch **only** the files in your lane plan's `Owns` list; shared changes go through a Contract Change Request. The only real data is `harbor-takehome/exports/` (local-only; golden numbers in `backend/spec/real_data/golden.json`; see `docs/conventions/real-data.md`).
+The build is split into 32 independent lanes: [`docs/superpowers/parallel/README.md`](docs/superpowers/parallel/README.md) (matrix, lane rules) and [`playbook.md`](docs/superpowers/parallel/playbook.md) (how to run them with Cursor, OpenCode and Claude Code). Use `bin/lane start <LANE>` / `check` / `pr` / `status` / `stop`. Touch **only** the files in your lane plan's `Owns` list; shared changes go through a Contract Change Request. The only real data is `handoff/takehome/exports/` (local-only; golden numbers in `spec/real_data/golden.json`; see `docs/conventions/real-data.md`).
 
 ## Testing
 

@@ -77,17 +77,17 @@ Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B comp
 
 ## Real data and uploads (read `docs/conventions/real-data.md`)
 
-- The **only real data** is `harbor-takehome/exports/{harbor,lakeside}/` (8 MB and 69 MB, local only, never committed). Owners load it by **uploading the seven CSVs at sign-up (wizard step 4)** or later in Data sources; the same files may be uploaded by any number of agencies, each isolated by `agency_id`.
+- The **only real data** is `handoff/takehome/exports/{harbor,lakeside}/` (8 MB and 69 MB, local only, never committed). Owners load it by **uploading the seven CSVs at sign-up (wizard step 4)** or later in Data sources; the same files may be uploaded by any number of agencies, each isolated by `agency_id`.
 - Uploads are **asynchronous** (jobs on Solid Queue inside Puma, progress polled by the UI, `pending` on `/snapshots/current`), because the Lakeside import is ~625k rows.
-- Three data sources, three jobs: **Alpha** (exact hand-computed specs, contract examples, mocks) · **golden numbers** (`backend/spec/real_data/golden.json`, computed independently by `bin/golden-numbers`; the oracle for the real exports) · **real exports** (`:real_data` specs and `@real` e2e journeys, auto-skipped when absent, never in CI). Synthetic volume data for CI: `bin/generate-sample-export`.
+- Three data sources, three jobs: **Alpha** (exact hand-computed specs, contract examples, mocks) · **golden numbers** (`spec/real_data/golden.json`, computed independently by `bin/golden-numbers`; the oracle for the real exports) · **real exports** (`:real_data` specs and `@real` e2e journeys, auto-skipped when absent, never in CI). Synthetic volume data for CI: `bin/generate-sample-export`.
 
 ## Frontend lane rules (binding for every `F-*` plan)
 
-1. **Register, don't edit.** Add `src/features/<lane>/feature.ts` exporting `feature: FeatureModule` (routes, nav, overlays, providers, fab). Never edit the router, nav, shell, providers or another lane's files.
+1. **Register, don't edit.** Add `app/javascript/features/<lane>/feature.ts` exporting `feature: FeatureModule` (routes, nav, overlays, providers, fab). Never edit the router, nav, shell, providers or another lane's files.
 2. **No data layer work.** Hooks come from `@/api/hooks/<domain>` and types from `@/api/types` (Wave 0). If you need a field or endpoint that isn't in `contracts/openapi`, open a **Contract Change Request** (label `ccr`); don't hack around it.
-3. **Compose the kit.** Use `src/components/ui/**` and `src/components/shared/**` read-only. If a kit component is missing a prop you need, file an issue against W0-4A/B; for a lane-specific component, build it inside your feature folder.
+3. **Compose the kit.** Use `app/javascript/components/ui/**` and `app/javascript/components/shared/**` read-only. If a kit component is missing a prop you need, file an issue against W0-4A/B; for a lane-specific component, build it inside your feature folder.
 4. **Mock first.** Develop in mock mode (`VITE_API_MODE=mock`, scenarios `?mock=empty|error|slow|coordinator|new`); tests use `renderWithProviders` + `mockApi` and the contract fixtures.
-5. **Both viewports, always.** Every lane's e2e runs the Playwright `desktop` (1280×800) and `mobile` (390×844) projects, saves screenshots, and the PR description includes them next to the matching `design_handoff_simbe/screenshots/` file.
+5. **Both viewports, always.** Every lane's e2e runs the Playwright `desktop` (1280×800) and `mobile` (390×844) projects, saves screenshots, and the PR description includes them next to the matching `handoff/design/screenshots/` file.
 6. **Brand = `docs/design/brand.md`.** Tokens only (no raw hex), Inter/Outfit, pill buttons, plum text, un-tinted logo; icons from `lucide-react`.
 7. **Single-flight and dialogs.** Mutations via `useAsyncAction`; no native `alert/confirm/prompt`; no overlay on an overlay (use `ConfirmInline`).
 8. **Privacy.** Render raw screener answers only when the API response includes them; never persist passwords/tokens/keys in storage.
@@ -97,7 +97,7 @@ Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B comp
 ## Backend lane rules (binding for every `B-*` plan)
 
 0. Heavy work (parsing, imports) never runs in a request: it runs in jobs on the `ingest` queue; the API returns immediately and the client polls.
-1. Routes in `backend/config/routes/<lane>.rb`; isolation entries in `backend/spec/support/isolation/<lane>.rb`; Rack::Attack throttles in `backend/config/rack_attack/<lane>.rb`. No migrations (schema shipped in W0-3).
+1. Routes in `config/routes/<lane>.rb`; isolation entries in `spec/support/isolation/<lane>.rb`; Rack::Attack throttles in `config/rack_attack/<lane>.rb`. No migrations (schema shipped in W0-3).
 2. Test data through `AlphaScenario.load!` (and `AlphaSpend.load!`), never the CSV importer (except B-INGEST for its own specs). Lanes with real-data checks add a `:real_data` spec that compares against `Golden.agency(slug)` using `RealData.load!`.
 3. Every request spec runs with OpenAPI conformance on; payloads equal `contracts/examples/**` where the plan says so.
 4. Tenancy and privacy rules from `docs/conventions/` are tested in the lane (404 across agencies/coordinators, no raw answers in JSON/logs).
@@ -139,6 +139,6 @@ Give the agent (Cursor, OpenCode or Claude Code) this prompt, with the plan path
 
 ## Where the "other" docs fit
 
-- Product/UI source of truth: `design_handoff_simbe/` (layout, behavior) + `docs/design/brand.md` (look) · data: `harbor-takehome/docs/data-model.md`.
+- Product/UI source of truth: `handoff/design/` (layout, behavior) + `docs/design/brand.md` (look) · data: `handoff/takehome/docs/data-model.md`.
 - Feature specs `2000`–`2014` still hold the product decisions; the lane plans carry the execution slicing.
 - The first-draft plans (`2001`, `2003`, `2005`, `2007`, `2009`, `2010`, `2012`, `2014`) are **not executed directly** any more — they are referenced task-by-task from the lane plans.

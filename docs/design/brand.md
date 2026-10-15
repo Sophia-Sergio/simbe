@@ -1,10 +1,10 @@
 # Simbe brand (from https://www.simbefamily.com/)
 
-**Binding override of the colors, type, radii and logo in `design_handoff_simbe/README.md`.**
+**Binding override of the colors, type, radii and logo in `handoff/design/README.md`.**
 The handoff still defines layout, screens, spacing, behavior and the semantic status colors; where it names a brand color, shape or logo, use this file instead. Extracted from the live site's CSS/bundle on 2026-10-14.
 
 ## Logo
-- Mark: `frontend/public/brand/simbe-mark.png` — two interlocking arcs forming an "S", flat `#FF1B5A`, transparent background (source: site favicon). Do **not** recolor, outline, or put it inside a tinted tile.
+- Mark: `public/brand/simbe-mark.png` — two interlocking arcs forming an "S", flat `#FF1B5A`, transparent background (source: site favicon). Do **not** recolor, outline, or put it inside a tinted tile.
 - Header lockup: mark (28px high) + "Simbe" in Outfit 600 18px, `ink`. Sidebar collapse chevron stays on the right. Favicon = the mark.
 - On the sign-in / sign-up card: mark 40px high above the title. Agent header: mark 20px in place of the sparkle tile (sparkle icon stays for "Ask" buttons).
 

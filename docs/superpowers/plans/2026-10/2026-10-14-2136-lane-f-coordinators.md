@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-coordinators): task N – <title>`).
 
 **Lane:** F-COORDINATORS · **Wave:** 1 (frontend, mock API)
-**Owns:** `frontend/src/features/coordinators/**`, `frontend/e2e/coordinators.spec.ts`
+**Owns:** `app/javascript/features/coordinators/**`, `e2e/coordinators.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useCoordinators()`, `useCoordinator(name)` (`@/api/hooks/coordinators`), `useLeadPanel().open`
 **Kit consumed:** `Avatar`, `Pill`, `KpiCard`, `SegmentBar`, `Table`, `StatusPill`, `Skeleton`, `EmptyState`, `ErrorState`, `formatDuration`, `formatPct`
@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2008-leads-workflow-design.md` (decision 9)
 **Detail reference:** `plans/2026-10/2026-10-14-2010-leads-workflow-ui.md` **Task 6 (Coordinators and detail)** — execute as written. Skip the rest.
 
-## Feature registration (`src/features/coordinators/feature.ts`)
+## Feature registration (`app/javascript/features/coordinators/feature.ts`)
 ```ts
 export const feature: FeatureModule = {
   id: "coordinators",
@@ -38,10 +38,10 @@ export const feature: FeatureModule = {
 
 ## Done when (acceptance commands)
 ```bash
-make web-test ARGS=src/features/coordinators
+make web-test ARGS=app/javascript/features/coordinators
 make e2e ARGS=coordinators         # coordinators-{desktop,mobile}.png, coordinator-detail-{desktop,mobile}.png
-grep -rnE '#[0-9a-fA-F]{6}' frontend/src/features/coordinators | wc -l      # 0
+grep -rnE '#[0-9a-fA-F]{6}' app/javascript/features/coordinators | wc -l      # 0
 docker compose exec web npm run typecheck && docker compose exec web npm run lint
 make verify
 ```
-`e2e/coordinators.spec.ts`: owner → three cards, `Owner only`, footnote text; click Dana → detail with `L4 Alpha`; clicking a needs-action row sets `?lead=`; coordinator visiting `/coordinators` → redirected to `/next-actions`. Compare with `design_handoff_simbe/screenshots/11-coordinators.png`. Branch `lane/F-COORDINATORS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.
+`e2e/coordinators.spec.ts`: owner → three cards, `Owner only`, footnote text; click Dana → detail with `L4 Alpha`; clicking a needs-action row sets `?lead=`; coordinator visiting `/coordinators` → redirected to `/next-actions`. Compare with `handoff/design/screenshots/11-coordinators.png`. Branch `lane/F-COORDINATORS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.

@@ -32,6 +32,6 @@ Attribution modeling beyond `leads.channel`/`campaign`, real Google/Meta API syn
 1. `make spec ARGS=spec/services/metrics` passes using the Alpha scenario: leads 10, qualified 3 (consult_attended) / 2 (records) / 4 (application_submitted) / 1 (accepted); channel table Facebook 3/2, Instagram 1/0, Google 3/0, Referral 1/1, TikTok 1/0, Unknown 1/0; funnel 10/5/4/3/2/1; Facebook cost per qualified $150.00.
 2. `make spec ARGS=spec/requests/metrics_spec.rb` passes (owner 200, coordinator 403, signed-out 401, bad range 422).
 3. `make spec ARGS=spec/isolation` passes with the new routes registered.
-4. With real data loaded: `docker compose exec api bundle exec rails "spend:sample[harbor]"`, then `curl -s -b cookies localhost:3000/api/v1/metrics/channels | jq '.insights.unattributed.pct, .insights.out_of_area.pct'` prints `29.6` and `14.9` for Harbor (1,045/3,530 and 526/3,530).
-5. `docker compose exec api bundle exec rspec spec/performance --tag perf` passes (Lakeside endpoints < 500 ms, skipped unless real data is loaded).
-6. `docker compose exec api bundle exec rails boundaries:check` exits 0.
+4. With real data loaded: `docker compose exec web bundle exec rails "spend:sample[harbor]"`, then `curl -s -b cookies localhost:3000/api/v1/metrics/channels | jq '.insights.unattributed.pct, .insights.out_of_area.pct'` prints `29.6` and `14.9` for Harbor (1,045/3,530 and 526/3,530).
+5. `docker compose exec web bundle exec rspec spec/performance --tag perf` passes (Lakeside endpoints < 500 ms, skipped unless real data is loaded).
+6. `docker compose exec web bundle exec rails boundaries:check` exits 0.
