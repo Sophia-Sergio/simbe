@@ -117,19 +117,9 @@ module AlphaScenario
     end
 
     # Replaces the agency's data with the Alpha rows (v1 by default), recomputes the facts
-    # and records a Snapshot. Returns the Snapshot.
+    # and records a Snapshot. Delegates to the shared RowsLoader (task 4b). Returns the Snapshot.
     def load!(agency, version = :v1)
-      rows = builder(version).rows
-      previous = Current.agency
-      Current.agency = agency
-      ActiveRecord::Base.transaction do
-        load_rows!(agency, rows)
-        Snapshot::Facts.call(agency.id)
-        Snapshot.create!(agency: agency, as_of: as_of(version), loaded_at: Time.current,
-                         row_counts: row_counts(rows), warnings: [])
-      end
-    ensure
-      Current.agency = previous
+      RowsLoader.load!(agency, builder(version).rows, as_of: as_of(version))
     end
 
     def as_of(version = :v1)
@@ -137,72 +127,6 @@ module AlphaScenario
     end
 
     private
-
-    def load_rows!(agency, rows)
-      Lead.unscoped.where(agency_id: agency.id).delete_all
-      now = Time.current
-      Lead.unscoped.insert_all!(rows[:leads].map { |row| lead_attributes(agency, row, now) })
-      ids = Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h
-
-      insert_children(StageEvent, rows[:stage_events], ids, agency, now) do |row|
-        { stage: row[:stage], entered_at: row[:entered_at] }
-      end
-      insert_children(Contact, rows[:contacts], ids, agency, now) do |row|
-        { contacted_at: row[:contacted_at], direction: row[:direction], channel: row[:channel],
-          contacted_by: row[:contacted_by] }
-      end
-      insert_children(WebSession, rows[:web_sessions], ids, agency, now) do |row|
-        { started_at: row[:started_at], landing_url: row[:landing_url], pages_viewed: row[:pages_viewed],
-          referrer: row[:referrer], device: row[:device] }
-      end
-      insert_children(Appointment, rows[:appointments], ids, agency, now) do |row|
-        { booked_at: row[:booked_at], scheduled_for: row[:scheduled_for], status: row[:status] }
-      end
-      insert_children(Application, rows[:applications], ids, agency, now) do |row|
-        { started_at: row[:started_at], submitted_at: row[:submitted_at],
-          percent_complete: row[:percent_complete], last_section_completed: row[:last_section_completed] }
-      end
-      insert_screener(rows[:screener_answers], ids, agency)
-    end
-
-    def lead_attributes(agency, row, now)
-      {
-        agency_id: agency.id,
-        external_id: row[:external_id],
-        lead_created_at: row[:created_at],
-        first_name: row[:first_name], last_name: row[:last_name],
-        email: row[:email], phone: row[:phone], state: row[:state],
-        source_raw: row[:source],
-        channel: Channels::Normalizer.call(row[:source]).first,
-        campaign: row[:campaign], ad: row[:ad], coordinator_name: row[:coordinator],
-        current_stage: row[:current_stage], outcome: row[:outcome], outcome_reason: row[:outcome_reason],
-        outcome_updated_at: row[:outcome_updated_at], paused_until: row[:paused_until],
-        created_at: now, updated_at: now
-      }
-    end
-
-    def insert_children(model, rows, ids, agency, now)
-      return if rows.empty?
-
-      attributes = rows.map do |row|
-        yield(row).merge(agency_id: agency.id, lead_id: ids.fetch(row[:external_id]),
-                         created_at: now, updated_at: now)
-      end
-      model.unscoped.insert_all!(attributes)
-    end
-
-    # Screener answers go through the model so `encrypts :answer` applies (health data).
-    def insert_screener(rows, ids, agency)
-      rows.each do |row|
-        ScreenerAnswer.create!(agency_id: agency.id, lead_id: ids.fetch(row[:external_id]),
-                               submitted_at: row[:submitted_at], question: row[:question],
-                               answer: row[:answer], meets_requirement: row[:meets_requirement])
-      end
-    end
-
-    def row_counts(rows)
-      rows.transform_values(&:size).transform_keys(&:to_s)
-    end
 
     def uuids_for(version)
       count = version == :v2 ? 12 : 10

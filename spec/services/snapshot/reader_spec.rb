@@ -1,0 +1,25 @@
+require "rails_helper"
+
+RSpec.describe Snapshot::Reader do
+  it "reads Alpha into the same shape as ExportBuilder#rows" do
+    rows = described_class.call(AlphaScenario.copy_dir)
+    expect(rows.errors).to be_empty
+    expect(rows[:leads].size).to eq(10)
+    expected = AlphaScenario.builder.rows
+    expect(rows[:stage_events].map { _1.values_at(:external_id, :stage) }).to match_array(expected[:stage_events].map { _1.values_at(:external_id, :stage) })
+  end
+
+  it "tolerates BOM, CRLF, quoted commas and blank fields" do
+    dir = AlphaScenario.copy_dir; path = File.join(dir, "leads.csv")
+    File.write(path, "\uFEFF" + File.read(path).gsub("\n", "\r\n").sub("L1", "\"L1, Jr\""))
+    rows = described_class.call(dir)
+    expect(rows[:leads].first[:first_name]).to eq("L1, Jr"); expect(rows[:leads].find { _1[:first_name] == "L7" }[:campaign]).to be_nil
+  end
+
+  it "reports unparseable values with file and row" do
+    dir = AlphaScenario.copy_dir; path = File.join(dir, "leads.csv")
+    File.write(path, File.read(path).sub(/2026-09-2\dT[\d:.]+Z/, "yesterday"))
+    err = described_class.call(dir).errors.find { _1[:code] == "bad_value" }
+    expect(err).to include(file: "leads.csv"); expect(err[:row]).to be_a(Integer)
+  end
+end
