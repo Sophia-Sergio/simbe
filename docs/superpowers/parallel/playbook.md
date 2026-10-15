@@ -2,6 +2,8 @@
 
 How to actually run the 32 lanes with the three tools, in what order, with how many agents, and how to keep it orderly. Lane list and rules: [`README.md`](./README.md). Everything below uses `bin/lane` (start, check, pr, status, stop).
 
+> **Controlled handoffs:** when Claude Code hands lanes to OpenCode, follow the [review gate](./review-gate.md): locked-down headless runs, independent verification, a recorded human approval before anything is pushed, and a trust ladder that starts with one lane at a time.
+
 ## 1. The idea in one paragraph
 
 You are the **conductor**. Claude Code is the **orchestrator and reviewer** (critical-path lanes, PR review against the plan, integration). Cursor and OpenCode are the **workers**: each takes one lane in its own git worktree, follows its plan task by task, commits after every task, and opens one PR. Lanes can't collide (disjoint `Owns`, extension points, contract-first, mock API), so the only real limits are your **review bandwidth** and your **machine**.
