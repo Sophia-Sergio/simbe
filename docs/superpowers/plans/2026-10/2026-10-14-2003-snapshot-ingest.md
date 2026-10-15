@@ -1,6 +1,6 @@
 # Snapshot Ingest Implementation Plan
 
-> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, per-pack route files, contract paths per `contracts/openapi`). **Layout:** the app is a Rails monolith with embedded React and backend packs ([spec 2300](../../specs/2026-10/2026-10-14-2300-rails-monolith-and-packs-design.md)); file paths here were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`) and a lane plan's `Owns` list is authoritative. Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
 
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. Steps use checkbox (`- [ ]`) syntax. **Commit after every task** (`feat(ingest): task N – <title>`) after the task's checks (and `make verify` once it exists) pass.
 
