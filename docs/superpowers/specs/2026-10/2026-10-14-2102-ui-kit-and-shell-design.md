@@ -54,6 +54,6 @@ Dark mode, i18n, a design-token build pipeline (tokens are hand-written), compon
 1. `make web-test ARGS=app/javascript/components/ui app/javascript/app` passes (every kit component renders, is keyboard-operable where interactive; registry builds routes/nav/overlays from two fixture feature modules; role guard redirects; `useLeadPanel` URL round-trips).
 2. `make web-test ARGS=app/javascript/app/shell` passes: owner desktop nav shows Insights/Operations/Agency; coordinator shows only Today; at 500px width the tab bar renders with Home/Pipeline/Channels/Ask/More for owners and Next actions/My leads/Ask for coordinators; More sheet lists the `mobile.more` items.
 3. `make e2e ARGS=kit` passes and writes `kit-desktop.png` and `kit-mobile.png`; `make e2e ARGS=shell` passes (sign in as owner and coordinator in mock mode, both viewports, screenshots saved).
-4. `grep -rniE '#be3a5f|#fdf2f5|#1c1917|#fafaf9' app/javascript tailwind.config.ts` prints nothing; `grep -rnE '#[0-9a-fA-F]{6}' frontend/src --include=*.tsx | grep -v "ChannelTile\|\.test\." | wc -l` prints `0`.
+4. `grep -rniE '#be3a5f|#fdf2f5|#1c1917|#fafaf9' app/javascript tailwind.config.ts` prints nothing; `grep -rnE '#[0-9a-fA-F]{6}' app/javascript --include=*.tsx | grep -v "ChannelTile\|\.test\." | wc -l` prints `0`.
 5. Adding `app/javascript/features/demo/feature.ts` (fixture) with one route, one nav item and one overlay makes all three appear without editing any other file: `make web-test ARGS=app/javascript/app/registry` includes that case.
-6. `grep -rn "window.confirm\|window.alert\|prompt(" frontend/src | wc -l` prints `0`.
+6. `grep -rn "window.confirm\|window.alert\|prompt(" app/javascript | wc -l` prints `0`.
