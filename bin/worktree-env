@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Writes this worktree's .env so its Docker stack cannot touch another checkout's:
 # own compose project (containers, network, volumes), own databases, and host ports
-# left to Docker (no fixed 3000/5173/5434 to collide on). Run once per linked worktree:
+# left to Docker (no fixed 3000/3036/5434 to collide on). It also points SIMBE_EXPORTS_DIR at the main
+# checkout's local-only exports (git-ignored, so linked worktrees don't contain them). Run once per linked worktree:
 #   make worktree-env      (or it is run for you by `bin/lane start`)
 set -euo pipefail
 
@@ -23,15 +24,16 @@ if [ ! -f "$main_root/.env" ]; then
   exit 1
 fi
 
-managed='^(COMPOSE_PROJECT_NAME|POSTGRES_DB|API_PORTS|WEB_PORTS|DB_PORTS|E2E_BASE_URL)='
+managed='^(COMPOSE_PROJECT_NAME|POSTGRES_DB|WEB_PORTS|VITE_PORTS|DB_PORTS|SIMBE_EXPORTS_DIR)='
 {
   grep -Ev "$managed" "$main_root/.env" || true
   cat <<VARS
 COMPOSE_PROJECT_NAME=simbe-wt-$slug
 POSTGRES_DB=$db
-API_PORTS=3000
-WEB_PORTS=5173
+WEB_PORTS=3000
+VITE_PORTS=3036
 DB_PORTS=5432
+SIMBE_EXPORTS_DIR=$main_root/handoff/takehome/exports
 VARS
 } > "$root/.env"
 

@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. **Commit after every task** (`chore(integration): task N – <title>`). After all Wave 1–2 lanes are merged, ownership rules relax: fixes may touch any file, **one small PR per fix** referencing the failing check.
 
 **Lane:** W3-1 · **Wave:** 3 (one agent; starts when every Wave 1 lane and B-AGENT/B-MCP are merged)
-**Owns:** `backend/lib/tasks/e2e.rake`, `backend/spec/contract/**`, `backend/spec/security/**`, `frontend/.env*`, `frontend/vite.config.ts` (mode defaults only), `.github/workflows/ci.yml` (add `e2e-real` job), `docs/superpowers/parallel/integration-log.md`
+**Owns:** `lib/tasks/e2e.rake`, `spec/contract/**`, `spec/security/**`, `.env.example` (VITE_API_MODE default), `vite.config.ts` (mode defaults only), `.github/workflows/ci.yml` (add `e2e-real` job), `docs/superpowers/parallel/integration-log.md`
 **Depends on (merged):** all Wave 0, Wave 1 and Wave 2 lanes
 **Unblocks:** W3-2, W3-3
 **Goal:** The frontend talks to the real Rails API by default; every contract operation is exercised by a backend spec; mock fixtures and real responses agree; the role/tenancy matrix is proven; real Harbor/Lakeside data loads and renders.
@@ -22,8 +22,8 @@
 
 ## Task 1: Real-mode default and e2e seeding
 
-- [ ] **Step 1:** `frontend/.env.development` → `VITE_API_MODE=real` (mock mode stays available: `VITE_API_MODE=mock`); Vite proxy targets `api:3000`; document both in `README.md` (owned by lane maintainers; append a "Mock vs real" section).
-- [ ] **Step 2: `backend/lib/tasks/e2e.rake`**
+- [ ] **Step 1:** In the Rails-embedded app the API is already the real one (same origin, no proxy): make sure `.env.example` documents `VITE_API_MODE=real` (default) and `mock` (embedded dev against MSW), and that **Playwright's `real-*` projects** are selected with `E2E_API=real E2E_BASE_URL=$(make ports → web)`. The standalone mock host (`npm run dev:mock`) stays always-mock. Document both in `README.md` ("Mock vs real" section).
+- [ ] **Step 2: `lib/tasks/e2e.rake`**
 ```ruby
 namespace :e2e do
   desc "Load Alpha for harbor + coordinator logins (development/test only)"
@@ -44,36 +44,36 @@ namespace :e2e do
   desc "Write the Alpha CSVs for browser upload tests"
   task :alpha_files, [:dir] => :environment do |_, a|
     require Rails.root.join("spec/support/export_builder"); require Rails.root.join("spec/support/alpha_scenario")
-    FileUtils.cp_r(Dir[File.join(AlphaScenario.copy_dir, "*")], FileUtils.mkdir_p(a[:dir] || Rails.root.join("../frontend/e2e/fixtures/alpha")))
+    FileUtils.cp_r(Dir[File.join(AlphaScenario.copy_dir, "*")], FileUtils.mkdir_p(a[:dir] || Rails.root.join("../e2e/fixtures/alpha")))
   end
 end
 ```
-- [ ] **Step 3: Verify:** `make up && make setup && docker compose exec api bundle exec rails e2e:seed` twice (idempotent); `curl` sign-in as `erin@harbor.test` and `GET /api/v1/metrics/summary` → `kpis.leads.value == 10`. Commit.
+- [ ] **Step 3: Verify:** `make up && make setup && docker compose exec web bundle exec rails e2e:seed` twice (idempotent); `curl` sign-in as `erin@harbor.test` and `GET /api/v1/metrics/summary` → `kpis.leads.value == 10`. Commit.
 
 ---
 
 ## Task 2: Contract coverage = 39/39
 
-- [ ] **Step 1:** `make contract-coverage` must print `39/39 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `backend/spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
-- [ ] **Step 2:** Add `backend/spec/contract/fixture_parity_spec.rb`: load Alpha, sign in as owner/coordinator, call each operation that has an example fixture under `contracts/examples/**`, and compare the real response to the fixture after normalizing ids, timestamps and tokens (`UUID`→`<uuid>`, ISO times→`<time>`). Operations with expected, documented differences (upload report contents, MCP key, agent answer) assert **shape equality** only (same keys and value types). Failures are listed in `docs/superpowers/parallel/integration-log.md` with the chosen resolution (code fix vs CCR).
+- [ ] **Step 1:** `make contract-coverage` must print `39/39 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
+- [ ] **Step 2:** Add `spec/contract/fixture_parity_spec.rb`: load Alpha, sign in as owner/coordinator, call each operation that has an example fixture under `contracts/examples/**`, and compare the real response to the fixture after normalizing ids, timestamps and tokens (`UUID`→`<uuid>`, ISO times→`<time>`). Operations with expected, documented differences (upload report contents, MCP key, agent answer) assert **shape equality** only (same keys and value types). Failures are listed in `docs/superpowers/parallel/integration-log.md` with the chosen resolution (code fix vs CCR).
 - [ ] **Step 3:** `make spec ARGS=spec/contract` → pass. Commit.
 
 ---
 
 ## Task 3: Role and tenancy matrix
 
-- [ ] **Step 1: Failing spec** `backend/spec/security/role_matrix_spec.rb`: a table of every operation × {signed-out, coordinator, owner, owner-of-another-agency} with the expected status (from the contract: owner-only operations → 403 for coordinators; signed-out → 401 except public operations; other agency's ids → 404). Generated from the bundled OpenAPI (`x-roles` is **not** in the contract, so derive from each operation's documented `403` response: present ⇒ owner-only) and asserted against the real app.
+- [ ] **Step 1: Failing spec** `spec/security/role_matrix_spec.rb`: a table of every operation × {signed-out, coordinator, owner, owner-of-another-agency} with the expected status (from the contract: owner-only operations → 403 for coordinators; signed-out → 401 except public operations; other agency's ids → 404). Generated from the bundled OpenAPI (`x-roles` is **not** in the contract, so derive from each operation's documented `403` response: present ⇒ owner-only) and asserted against the real app.
 - [ ] **Step 2:** Run; fix gaps in the owning lane's code via small PRs. **Step 3:** pass; commit.
 
 ---
 
 ## Task 4: Real-data run (Harbor + Lakeside) through the sign-up upload
 
-The only real data is `harbor-takehome/exports/` (local only, never committed) and owners load it **by uploading the seven CSVs during sign-up**; this task proves that path end to end against the independent oracle `backend/spec/real_data/golden.json` (`docs/conventions/real-data.md`).
+The only real data is `handoff/takehome/exports/` (local only, never committed) and owners load it **by uploading the seven CSVs during sign-up**; this task proves that path end to end against the independent oracle `spec/real_data/golden.json` (`docs/conventions/real-data.md`).
 
 - [ ] **Step 1: Oracle is current:** `bin/golden-numbers --check` → `golden.json is up to date` (exports present locally).
 - [ ] **Step 2: Backend real-data specs:** `make spec ARGS="--tag real_data"` → every `:real_data` spec from B-INGEST, B-METRICS, B-LEADS, B-ACTIONS passes for **both** agencies (Harbor: *attended a consult*, Pacific; Lakeside: *reached records*, Central). Record timings (Lakeside import must be < 120 s).
-- [ ] **Step 3: Browser journey with real files** (Playwright `@real`, local, `E2E_API=real`, Rails running with Solid Queue in Puma): sign up `Harbor demo` → step 4 upload `harbor-takehome/exports/harbor/*.csv` → watch progress → open the dashboard and assert against golden: This week `3,530` leads / `496` qualified / `14.1%`; Funnel rows `3,530 / 918 / 579 / 496 / 400 / 300`; Channels `Facebook`, `Google`, … with `unattributed 29.6%` and `outside your main states 14.9%`; Pipeline column counts `90 / 11 / 15 / 321`; Coordinators: `Dana Ortiz 2,252 · 63.8%`, `overdue 19`; Next actions totals `6 / 22 / 3 / 3`. Repeat for **Lakeside** with `Reached medical records` + Central (leads `29,740` in Coordinators totals; This week 12m `14,860` leads / `2,487` qualified). Then sign up a **third** agency with **Harbor's files again** (Mountain, *Submitted an application*) and assert qualified = golden `qualified_all_time.application_submitted` = `674` while the first agency's numbers are unchanged (same data, many agencies, strict isolation).
+- [ ] **Step 3: Browser journey with real files** (Playwright `@real`, local, `E2E_API=real`, Rails running with Solid Queue in Puma): sign up `Harbor demo` → step 4 upload `handoff/takehome/exports/harbor/*.csv` → watch progress → open the dashboard and assert against golden: This week `3,530` leads / `496` qualified / `14.1%`; Funnel rows `3,530 / 918 / 579 / 496 / 400 / 300`; Channels `Facebook`, `Google`, … with `unattributed 29.6%` and `outside your main states 14.9%`; Pipeline column counts `90 / 11 / 15 / 321`; Coordinators: `Dana Ortiz 2,252 · 63.8%`, `overdue 19`; Next actions totals `6 / 22 / 3 / 3`. Repeat for **Lakeside** with `Reached medical records` + Central (leads `29,740` in Coordinators totals; This week 12m `14,860` leads / `2,487` qualified). Then sign up a **third** agency with **Harbor's files again** (Mountain, *Submitted an application*) and assert qualified = golden `qualified_all_time.application_submitted` = `674` while the first agency's numbers are unchanged (same data, many agencies, strict isolation).
 - [ ] **Step 4: Resilience:** start a Lakeside upload, reload the browser mid-`importing` → the page resumes at the same progress and finishes; stop the `api` container mid-import (`docker compose kill api`), restart → upload ends `failed` (or is swept to `failed` within 30 min), the agency's previous data is intact, and a fresh upload succeeds.
 - [ ] **Step 5:** Latency: metrics/board/next-actions/coordinators each < 500 ms on Lakeside (p95 over 20 calls). Walk the UI as Harbor owner, Harbor coordinator and Lakeside owner (isolation: Lakeside owner never sees Harbor names). Record findings and screenshots in `integration-log.md`. Commit.
 
@@ -91,6 +91,6 @@ make contract-coverage                                   # 39/39 operations exer
 make spec ARGS="spec/contract spec/security spec/isolation"
 bin/golden-numbers --check && make spec ARGS="--tag real_data"   # real exports present locally; both agencies vs the oracle
 E2E_API=real make e2e                                    # every lane e2e spec, desktop + mobile
-docker compose exec api bundle exec rails e2e:seed && docker compose exec api bundle exec rails e2e:seed   # idempotent
+docker compose exec web bundle exec rails e2e:seed && docker compose exec web bundle exec rails e2e:seed   # idempotent
 make verify
 ```

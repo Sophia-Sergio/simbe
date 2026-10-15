@@ -7,9 +7,9 @@ bad=0
 report() { # label, matches
   if [ -n "$2" ]; then echo "FORBIDDEN ($1):"; echo "$2" | sed 's/^/  /'; bad=1; fi
 }
-report "sample exports" "$(git ls-files | grep -E 'harbor-takehome/exports/(harbor|lakeside)/' || true)"
+report "sample exports" "$(git ls-files | grep -E 'handoff/takehome/exports/(harbor|lakeside)/' || true)"
 report "env files"      "$(git ls-files | grep -E '(^|/)\.env(\.|$)' | grep -vE '\.env\.example$' || true)"
 report "key material"   "$(git ls-files | grep -E '(^|/)(master\.key)$|\.(pem|key|p12)$' || true)"
-report "csv outside backend/spec/fixtures or contracts" "$(git ls-files '*.csv' | grep -Ev '^(backend/spec/fixtures/|contracts/)' || true)"
+report "csv outside spec/fixtures or contracts" "$(git ls-files '*.csv' | grep -Ev '^(spec/fixtures/|contracts/)' || true)"
 [ "$bad" -eq 0 ] && echo "guard ok: no exports, env files, keys or stray CSVs tracked"
 exit "$bad"

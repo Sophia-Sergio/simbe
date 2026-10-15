@@ -1,14 +1,14 @@
 # Real data, golden numbers and synthetic fixtures
 
-The **only real data we have** is `harbor-takehome/exports/{harbor,lakeside}/` (fictional but health-like; 8 MB and 69 MB). It is git-ignored and **never committed** (`bin/guard-no-health-data` enforces it in CI). Everything below follows from that.
+The **only real data we have** is `handoff/takehome/exports/{harbor,lakeside}/` (fictional but health-like; 8 MB and 69 MB). It is git-ignored and **never committed** (`bin/guard-no-health-data` enforces it in CI). Everything below follows from that.
 
 ## Three kinds of data, three jobs
 
 | Data | Where | Used for |
 |---|---|---|
-| **Alpha** (10/12 hand-built leads) | `backend/spec/support/alpha_scenario.rb` | Exact, hand-computable unit/request specs; contract examples; mocks |
-| **Golden numbers** | `backend/spec/real_data/golden.json` (committed, aggregates only) + `bin/golden-numbers` | Independent oracle for the real exports: row counts, as_of, qualified per milestone, funnel, channels, insights, queues, board columns, coordinator stats. Computed by a stdlib Python script that shares **no code** with the app |
-| **Real exports** | `harbor-takehome/exports/` (local only) | `:real_data` specs and the real-data e2e journeys; skipped automatically when the files are absent (always the case in CI) |
+| **Alpha** (10/12 hand-built leads) | `spec/support/alpha_scenario.rb` | Exact, hand-computable unit/request specs; contract examples; mocks |
+| **Golden numbers** | `spec/real_data/golden.json` (committed, aggregates only) + `bin/golden-numbers` | Independent oracle for the real exports: row counts, as_of, qualified per milestone, funnel, channels, insights, queues, board columns, coordinator stats. Computed by a stdlib Python script that shares **no code** with the app |
+| **Real exports** | `handoff/takehome/exports/` (local only) | `:real_data` specs and the real-data e2e journeys; skipped automatically when the files are absent (always the case in CI) |
 
 ## Rules
 

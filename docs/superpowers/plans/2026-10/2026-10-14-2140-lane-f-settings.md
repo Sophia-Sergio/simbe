@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-settings): task N – <title>`).
 
 **Lane:** F-SETTINGS · **Wave:** 1 (frontend, mock API)
-**Owns:** `frontend/src/features/settings/**`, `frontend/e2e/settings.spec.ts`
+**Owns:** `app/javascript/features/settings/**`, `e2e/settings.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useAuth()`, `useUpdateAgency()`, `useTeam()`, `useInviteCoordinator()`, `useDeleteInvitation()`, `useCoordinatorNames()`, `useInvitationPreview(token)`, `useAcceptInvitation(token)` (`@/api/hooks/account`), `useToast()`
 **Kit consumed:** `QualifiedRadioCards`, `TimezoneChips`, `Field`, `Input`, `Button`, `Pill`, `Avatar`, `BrandMark`, `Skeleton`, `ErrorState`, `ConfirmInline`
@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2011-onboarding-settings-data-design.md` (decisions 3, 7, 8, 9)
 **Detail reference:** `plans/2026-10/2026-10-14-2012-onboarding-settings-data.md` **Task 6 (Settings page and invite acceptance page)** — execute as written, using the kit's `QualifiedRadioCards`/`TimezoneChips`. Skip the rest.
 
-## Feature registration (`src/features/settings/feature.ts`)
+## Feature registration (`app/javascript/features/settings/feature.ts`)
 ```ts
 export const feature: FeatureModule = {
   id: "settings",
@@ -35,10 +35,10 @@ export const feature: FeatureModule = {
 
 ## Done when (acceptance commands)
 ```bash
-make web-test ARGS=src/features/settings
+make web-test ARGS=app/javascript/features/settings
 make e2e ARGS=settings             # settings-{desktop,mobile}.png, invite-{desktop,mobile}.png
-grep -rnE '#[0-9a-fA-F]{6}' frontend/src/features/settings | wc -l      # 0
+grep -rnE '#[0-9a-fA-F]{6}' app/javascript/features/settings | wc -l      # 0
 docker compose exec web npm run typecheck && docker compose exec web npm run lint
 make verify
 ```
-`e2e/settings.spec.ts`: owner → choose "Reached medical records" → toast; Central chip → toast; invite `Jess Kim` → toast + copy link; open the accept link (mock token) in a fresh context → create account → lands on `/next-actions`; `/invite/expired` → friendly message; coordinator visiting `/settings` redirected. Compare with `design_handoff_simbe/screenshots/15-settings.png`. Branch `lane/F-SETTINGS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.
+`e2e/settings.spec.ts`: owner → choose "Reached medical records" → toast; Central chip → toast; invite `Jess Kim` → toast + copy link; open the accept link (mock token) in a fresh context → create account → lands on `/next-actions`; `/invite/expired` → friendly message; coordinator visiting `/settings` redirected. Compare with `handoff/design/screenshots/15-settings.png`. Branch `lane/F-SETTINGS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.

@@ -7,7 +7,7 @@ Feature design and implementation docs for the **Claude Code → Cursor / OpenCo
 | [`specs/`](./specs/) | Claude Code | Design specs: findings, decisions, non-goals, runnable acceptance criteria |
 | [`plans/`](./plans/) | Claude Code | Task-by-task implementation plans with tests, code and verification commands |
 
-Project rules live in `../../CLAUDE.md` / `../../AGENTS.md` and `../conventions/`. UI layout comes from `../../design_handoff_simbe/`; **colors, type, shapes and logo come from [`../design/brand.md`](../design/brand.md)** (simbefamily.com), which overrides the handoff's brand values.
+Project rules live in `../../CLAUDE.md` / `../../AGENTS.md` and `../conventions/`. UI layout comes from `../../handoff/design/`; **colors, type, shapes and logo come from [`../design/brand.md`](../design/brand.md)** (simbefamily.com), which overrides the handoff's brand values.
 
 > **Building with many agents at once?** Use the parallel lane plans: [`parallel/README.md`](./parallel/README.md) (31 lanes in 4 waves, contract-first, mock API for the frontend, per-lane file ownership). The sequence below is the original single-track plan set, kept as the detail reference.
 
@@ -39,7 +39,7 @@ flowchart LR
 ```
 
 **Recommended sequence:** 1 → 2 → (3 ∥ 4 ∥ 7 in parallel worktrees) → (5 after 3, 6 after 4) → 8.
-Plans that run in parallel touch different files, but all append to `backend/config/routes.rb`, `backend/spec/support/isolation.rb` and `frontend/src/routes/router.tsx` — merge in order and resolve those append-only conflicts by keeping both sides.
+Plans that run in parallel touch different files, but in the original single-track plan set they all appended to shared route/isolation/router files; the lane plans replace that with per-pack route files and per-lane `feature.ts` registration (no shared-file edits) — merge in order and resolve those append-only conflicts by keeping both sides.
 
 ## How to implement a plan (Cursor or OpenCode)
 
@@ -54,14 +54,14 @@ Plans that run in parallel touch different files, but all append to `backend/con
    > Implement `@docs/superpowers/plans/2026-10/<plan>.md` task by task. Read the plan **and the spec it links**, plus every file in `docs/conventions/` and `docs/design/brand.md`, before writing code. Follow `AGENTS.md`. Run every verification exactly as written. **Commit after each task** (message names the task) once its checks pass. Stop and ask if you are blocked or a verification fails repeatedly — do not replan silently.
    - Cursor loads `.cursor/rules/*.mdc` automatically (conventions + `implement-plans.mdc`). OpenCode reads `AGENTS.md`.
 3. **Per task**: write the failing test → see it fail → implement → see it pass → `make verify` (or the task's own checks) → commit. Tick the plan's checkboxes as you go.
-4. **Before opening the PR**: run `make verify`; for UI plans run the Playwright screenshot step and compare with `design_handoff_simbe/screenshots/` (layout) and `docs/design/brand.md` (colors/shapes/logo); paste the outputs of the spec's **Acceptance criteria** commands into the PR description. Finishing a worktree always opens a pull request.
+4. **Before opening the PR**: run `make verify`; for UI plans run the Playwright screenshot step and compare with `handoff/design/screenshots/` (layout) and `docs/design/brand.md` (colors/shapes/logo); paste the outputs of the spec's **Acceptance criteria** commands into the PR description. Finishing a worktree always opens a pull request.
 5. **Review (optional)**: ask Claude Code to review the diff against the plan and spec.
 
 ## Environment you need on the host
 
 - Docker Desktop (everything runs in Compose: `make up`, `make setup`, `make verify`).
-- A `.env` (git-ignored) with `ANTHROPIC_API_KEY` reused from `../personal/appketing/.env`. Generate the Rails encryption keys with `docker compose exec api bundle exec rails db:encryption:init` (plan 2, Task 1).
-- The sample CSV exports in `harbor-takehome/exports/{harbor,lakeside}/` (git-ignored; health data — never commit). Only needed for the "real data" verification steps; all specs use the synthetic **Alpha** scenario.
+- A `.env` (git-ignored) with `ANTHROPIC_API_KEY` reused from `../personal/appketing/.env`. Generate the Rails encryption keys with `docker compose exec web bundle exec rails db:encryption:init` (plan 2, Task 1).
+- The sample CSV exports in `handoff/takehome/exports/{harbor,lakeside}/` (git-ignored; health data — never commit). Only needed for the "real data" verification steps; all specs use the synthetic **Alpha** scenario.
 
 ## Shared test data: the Alpha scenario
 

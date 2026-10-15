@@ -1,6 +1,6 @@
 # Owner Insights UI Implementation Plan
 
-> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, per-pack route files, contract paths per `contracts/openapi`). **Layout:** the app is a Rails monolith with embedded React and backend packs ([spec 2300](../../specs/2026-10/2026-10-14-2300-rails-monolith-and-packs-design.md)); file paths here were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`) and a lane plan's `Owns` list is authoritative. Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
 
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`** (colors, type, shapes, logo override the handoff). Stop if blocked — do not replan silently. Steps use checkbox (`- [ ]`) syntax. **Commit after every task** (`feat(insights-ui): task N – <title>`) after the task's tests + `npm run typecheck && npm run lint`.
 
@@ -10,14 +10,14 @@
 
 **Depends on:** `2026-10-14-2001-foundation` (shell, tokens, `jsonRequest`, `Pill`, `Button`) and `2026-10-14-2005-metrics` merged. **Unblocks:** agent plan wires `openAgent`.
 
-**Architecture:** Feature folder `src/features/insights/` with typed API hooks, presentational components (`KpiCard`, `Donut`, `BarRow`, `RecommendationCard`, `ChannelTable`…) and four route pages. `range` is URL state.
+**Architecture:** Feature folder `app/javascript/features/insights/` with typed API hooks, presentational components (`KpiCard`, `Donut`, `BarRow`, `RecommendationCard`, `ChannelTable`…) and four route pages. `range` is URL state.
 
 **Tech Stack:** React 18, TypeScript, TanStack Query, React Router, Tailwind (brand tokens), Vitest + Testing Library, Playwright.
 
 ## Global Constraints
 - Layout per handoff §3–5; styling per `docs/design/brand.md`. Breakpoint 860px.
-- All HTTP through `src/api/` + `jsonRequest`. No hardcoded hex outside `tailwind.config.ts`/`tokens.css`.
-- Money arrives in cents; formatting is centralized in `src/lib/format.ts`.
+- All HTTP through `app/javascript/api/` + `jsonRequest`. No hardcoded hex outside `tailwind.config.ts`/`tokens.css`.
+- Money arrives in cents; formatting is centralized in `app/javascript/lib/format.ts`.
 
 ## Review Focus
 - `snapshot: null` → empty state linking to Data sources, no crash on `undefined` KPIs.
@@ -32,19 +32,19 @@
 
 | Action | Path |
 |--------|------|
-| Create | `frontend/src/lib/format.ts` (+test) |
-| Create | `frontend/src/api/metrics.ts` (types + hooks, +test) |
-| Create | `frontend/src/features/insights/{useRange.ts,AgentContext.tsx}` |
-| Create | `frontend/src/features/insights/components/{RangeControl,KpiCard,Donut,BarRow,RecommendationCard,ChannelTile,EmptyInsights,Skeletons}.tsx` |
-| Create | `frontend/src/features/insights/pages/{WeekPage,FunnelPage,ChannelsPage,ChannelPage}.tsx` |
-| Modify | `frontend/src/routes/router.tsx` (replace ComingSoon for `/`, `/funnel`, `/channels`, `/channels/:channel`), `frontend/src/components/shell/TopBar.tsx` (Snapshot pill) |
-| Create | `frontend/e2e/insights.spec.ts` |
+| Create | `app/javascript/lib/format.ts` (+test) |
+| Create | `app/javascript/api/metrics.ts` (types + hooks, +test) |
+| Create | `app/javascript/features/insights/{useRange.ts,AgentContext.tsx}` |
+| Create | `app/javascript/features/insights/components/{RangeControl,KpiCard,Donut,BarRow,RecommendationCard,ChannelTile,EmptyInsights,Skeletons}.tsx` |
+| Create | `app/javascript/features/insights/pages/{WeekPage,FunnelPage,ChannelsPage,ChannelPage}.tsx` |
+| Modify | `app/javascript/routes/router.tsx` (replace ComingSoon for `/`, `/funnel`, `/channels`, `/channels/:channel`), `app/javascript/components/shell/TopBar.tsx` (Snapshot pill) |
+| Create | `e2e/insights.spec.ts` |
 
 ---
 
 ## Task 1: Formatting and API hooks
 
-**Files:** Create `src/lib/format.ts`, `src/lib/format.test.ts`, `src/api/metrics.ts`, `src/api/metrics.test.tsx`.
+**Files:** Create `app/javascript/lib/format.ts`, `app/javascript/lib/format.test.ts`, `app/javascript/api/metrics.ts`, `app/javascript/api/metrics.test.tsx`.
 **Interfaces — Produces:**
 ```ts
 export type Range = "30d" | "90d" | "12m";
@@ -77,14 +77,14 @@ it("formats deltas", () => {
 });
 ```
 `metrics.test.tsx`: renders a hook under `QueryClientProvider` with `fetch` mocked; asserts it calls `/api/v1/metrics/summary?range=90d` and that the query key changes with range (second render with `12m` triggers a second fetch).
-- [ ] **Step 2:** `make web-test ARGS=src/lib` → FAIL. **Step 3:** implement (`Intl.NumberFormat("en-US")`; money rounds to whole dollars at ≥ $100 else 2 decimals; deltas use the true minus sign `−`). Hooks use `useQuery({ queryKey: ["metrics","summary",range], queryFn: () => jsonRequest("GET", `/api/v1/metrics/summary?range=${range}`), staleTime: 60_000 })`, channel path uses `encodeURIComponent`.
+- [ ] **Step 2:** `make web-test ARGS=app/javascript/lib` → FAIL. **Step 3:** implement (`Intl.NumberFormat("en-US")`; money rounds to whole dollars at ≥ $100 else 2 decimals; deltas use the true minus sign `−`). Hooks use `useQuery({ queryKey: ["metrics","summary",range], queryFn: () => jsonRequest("GET", `/api/v1/metrics/summary?range=${range}`), staleTime: 60_000 })`, channel path uses `encodeURIComponent`.
 - [ ] **Step 4:** pass; typecheck. Commit.
 
 ---
 
 ## Task 2: Range state, agent context, shared components
 
-**Files:** Create `src/features/insights/{useRange.ts,AgentContext.tsx}`, components `RangeControl`, `KpiCard`, `Donut`, `BarRow`, `ChannelTile`, `RecommendationCard`, `EmptyInsights`, `Skeletons`, tests for each.
+**Files:** Create `app/javascript/features/insights/{useRange.ts,AgentContext.tsx}`, components `RangeControl`, `KpiCard`, `Donut`, `BarRow`, `ChannelTile`, `RecommendationCard`, `EmptyInsights`, `Skeletons`, tests for each.
 
 **Interfaces — Produces:**
 - `useRange(): [Range, (r: Range) => void]` — reads/writes `?range=`; default `"30d"`; invalid values fall back to `"30d"`.
@@ -121,7 +121,7 @@ it("Donut exposes a text alternative", () => {
 });
 it("useRange falls back to 30d for junk values", () => { /* MemoryRouter initialEntries ["/?range=zzz"] → "30d" */ });
 ```
-- [ ] **Step 2:** FAIL; **Step 3:** implement with brand tokens only (class names, no raw hex except the channel-tile map in `ChannelTile.tsx`, documented as placeholders); **Step 4:** `make web-test ARGS=src/features/insights/components` → pass; typecheck/lint. Commit.
+- [ ] **Step 2:** FAIL; **Step 3:** implement with brand tokens only (class names, no raw hex except the channel-tile map in `ChannelTile.tsx`, documented as placeholders); **Step 4:** `make web-test ARGS=app/javascript/features/insights/components` → pass; typecheck/lint. Commit.
 
 ---
 
@@ -155,7 +155,7 @@ it("CTA navigates with the range preserved", async () => { /* click Open funnel 
 it("shows 'sample' next to cost when spend is sample", async () => { /* spend_source 'sample' */ });
 ```
 - [ ] **Step 2:** FAIL; **Step 3:** implement. KPI bar rules: leads `fill` = `value / max(value, previous || value) * 100`; qualified `fill` = `qualified/leads*100`; rate `fill` = rate; cost `thirds` active = 0 if cost ≤ best channel cost × 1.15, 2 if ≥ worst × 0.85, else 1 (all-green when only one channel). Notes: Leads `<range label>`, Qualified `<definition label>` ("Attended a consult" etc. from `agency.qualified_milestone`), Rate "Recent leads still maturing", Cost "Paid spend $X" (+ muted `sample`). Grid: `grid-cols-2 md:grid-cols-4 gap-3`; body `md:grid-cols-[1.6fr_1fr]`. Right-column cost bars use `BarRow` tones (best success, worst danger, others muted).
-- [ ] **Step 4:** `make web-test ARGS=src/features/insights/pages/WeekPage` → pass. **Step 5 (visual):** `make up`, load Harbor (`snapshot:load` + `spend:sample`), open `/`, compare against `design_handoff_simbe/screenshots/04-owner-this-week.png` at 1280px and 390px. Commit.
+- [ ] **Step 4:** `make web-test ARGS=app/javascript/features/insights/pages/WeekPage` → pass. **Step 5 (visual):** `make up`, load Harbor (`snapshot:load` + `spend:sample`), open `/`, compare against `handoff/design/screenshots/04-owner-this-week.png` at 1280px and 390px. Commit.
 
 ---
 
@@ -218,9 +218,9 @@ it("renders a not-found state for an unknown channel", async () => { /* 404 → 
 
 ## Task 6: E2E, screenshots, polish
 
-**Files:** Create `frontend/e2e/insights.spec.ts`; Modify seed script for e2e (`backend/lib/tasks/e2e.rake`: `rake e2e:seed` loads Alpha from `spec/support` into a `harbor` agency + `AlphaSpend`).
+**Files:** Create `e2e/insights.spec.ts`; Modify seed script for e2e (`lib/tasks/e2e.rake`: `rake e2e:seed` loads Alpha from `spec/support` into a `harbor` agency + `AlphaSpend`).
 
 - [ ] **Step 1:** Playwright test signs in as `erin@harbor.test`, visits `/`, `/funnel`, `/channels`, `/channels/Facebook` at 1280×800 and 390×844, asserts key text (`Good`, `10 leads`, `Facebook`, `Campaigns`) and writes `e2e/screenshots/{week,funnel,channels,channel}-{desktop,mobile}.png`.
-- [ ] **Step 2:** `docker compose exec api bundle exec rails e2e:seed && make e2e ARGS=insights` → pass.
+- [ ] **Step 2:** `docker compose exec web bundle exec rails e2e:seed && make e2e ARGS=insights` → pass.
 - [ ] **Step 3:** Review screenshots against handoff 04–07 (layout) and `docs/design/brand.md` (colors, shapes, logo). Fix gaps in the same task.
 - [ ] **Step 4:** `make verify` → exit 0. Commit; open PR.

@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(api-layer): task N – <title>`). Tasks 4–8 touch disjoint files and may be split across agents.
 
 **Lane:** W0-2 · **Wave:** 0 (parallel with W0-3, W0-4A after W0-1)
-**Owns:** `frontend/src/api/**`, `frontend/src/mocks/**`, `frontend/src/test/mockApi.ts`, `frontend/src/test/setup.ts`, `frontend/e2e/mock-smoke.spec.ts`, `contracts/README.md`, `contracts/.redocly.yaml`
+**Owns:** `app/javascript/api/**`, `app/javascript/mocks/**`, `app/javascript/test/mockApi.ts`, `app/javascript/test/setup.ts`, `e2e/mock-smoke.spec.ts`, `contracts/README.md`, `contracts/.redocly.yaml`
 **Depends on (merged):** W0-1
 **Unblocks:** every frontend lane (hooks + mocks), W0-5
 **Goal:** Executable contract: `make contract`, generated types, `client.ts`, typed hooks for all 39 operations, a stateful MSW mock of the whole API, conformance tests, and the `mockApi` test helper.
@@ -11,7 +11,7 @@
 
 ## Global Constraints
 - The OpenAPI files under `contracts/openapi/**` and examples under `contracts/examples/**` are **read-only here** (already merged); changes go through a CCR.
-- All HTTP in the app goes through `src/api/client.ts`. No barrel file in `src/api/hooks/`.
+- All HTTP in the app goes through `app/javascript/api/client.ts`. No barrel file in `app/javascript/api/hooks/`.
 - Query keys are exactly those in spec `2101` decision 3.
 - Handlers read fixtures from `@contracts/examples/**`; no inline payloads.
 
@@ -28,19 +28,19 @@
 
 | Action | Path |
 |--------|------|
-| Create | `frontend/src/api/{client.ts,types.ts,range.ts,format.ts}`, `frontend/src/api/generated/schema.d.ts` |
-| Create | `frontend/src/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` (+ `.test.tsx` each) |
-| Create | `frontend/src/mocks/{db.ts,browser.ts,server.ts,scenarios.ts,conformance.test.ts}`, `frontend/src/mocks/handlers/<domain>.ts` |
-| Create | `frontend/src/test/{setup.ts,mockApi.ts,mockApi.test.ts}`, `frontend/e2e/mock-smoke.spec.ts` |
-| Modify | `contracts/README.md` (CCR procedure), `Makefile` targets already stubbed |
-| Create | `frontend/src/mocks/bootstrap.ts` (`startMocks`, `MockChip`; consumed by W0-5's `main.tsx`) |
+| Create | `app/javascript/api/{client.ts,types.ts,range.ts,format.ts}`, `app/javascript/api/generated/schema.d.ts` |
+| Create | `app/javascript/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` (+ `.test.tsx` each) |
+| Create | `app/javascript/mocks/{db.ts,browser.ts,server.ts,scenarios.ts,conformance.test.ts}`, `app/javascript/mocks/handlers/<domain>.ts` |
+| Create | `app/javascript/test/{setup.ts,mockApi.ts,mockApi.test.ts}`, `e2e/mock-smoke.spec.ts` |
+| Modify | `contracts/README.md` (CCR procedure); `make contract` / `make types` already exist (W0-1) |
+| Create | `app/javascript/mocks/bootstrap.ts` (`startMocks`, `MockChip`; consumed by W0-5's `main.tsx`) |
 
 ---
 
 ## Task 1: Bundle, lint, generate types
 
-- [ ] **Step 1:** `make contract` (script from W0-1) → bundle + lint exit 0. **Step 2:** `make types` generates `frontend/src/api/generated/schema.d.ts`; commit it. **Step 3:** CI job `contract` already diff-checks it.
-- [ ] **Step 4:** `frontend/src/api/types.ts`:
+- [ ] **Step 1:** `npm run contract` (script from W0-1, runs on the host with Node 22 — no Docker) → bundle + lint exit 0. **Step 2:** `make types` generates `app/javascript/api/generated/schema.d.ts`; commit it. **Step 3:** CI job `contract` already diff-checks it.
+- [ ] **Step 4:** `app/javascript/api/types.ts`:
 ```ts
 import type { components } from "./generated/schema";
 type S = components["schemas"];
@@ -62,7 +62,7 @@ Commit.
 
 ## Task 2: client.ts
 
-**Files:** `src/api/client.ts`, `src/api/client.test.ts`.
+**Files:** `app/javascript/api/client.ts`, `app/javascript/api/client.test.ts`.
 **Interfaces — Produces:**
 ```ts
 export class ApiError extends Error { constructor(public status: number, public code: string, message: string, public extra: Record<string, unknown> = {}) }
@@ -123,13 +123,13 @@ export async function uploadFiles<T = unknown>(path: string, files: File[]): Pro
   return parse<T>(res);
 }
 ```
-- [ ] **Step 4:** `make web-test ARGS=src/api/client` → pass. Commit.
+- [ ] **Step 4:** `make web-test ARGS=app/javascript/api/client` → pass. Commit.
 
 ---
 
 ## Task 3: Mock core — db, scenarios, server/browser, mockApi helper
 
-**Files:** `src/mocks/{db.ts,scenarios.ts,browser.ts,server.ts,bootstrap.ts}`, `src/test/{setup.ts,mockApi.ts,mockApi.test.ts}`. (`src/main.tsx` is owned by W0-5; this task only provides `startMocks()`.)
+**Files:** `app/javascript/mocks/{db.ts,scenarios.ts,browser.ts,server.ts,bootstrap.ts}`, `app/javascript/test/{setup.ts,mockApi.ts,mockApi.test.ts}`. (The React entrypoint `app/javascript/entrypoints/application.tsx` is owned by W0-1/W0-5; this task only provides `startMocks()` and `MockChip`.)
 **Interfaces — Produces:**
 ```ts
 // db.ts — in-memory state, reset(): void, persisted session in localStorage "simbe_mock_session" (mock only)
@@ -163,14 +163,14 @@ it("setViewport flips matchMedia and fires resize", () => {
 it("unhandled requests fail the test", async () => { await expect(fetch("/api/v1/nope")).rejects.toThrow(); });
 ```
 In the test setup, `db.session` defaults to the owner (`erin@harbor.test`) so default handlers authenticate; a helper `asRole("coordinator")` in `mockApi.ts` flips it.
-- [ ] **Step 2:** FAIL; **Step 3:** implement. `src/mocks/bootstrap.ts`: `export async function startMocks(): Promise<void> { if (import.meta.env.VITE_API_MODE === "real") return; const { worker } = await import("./browser"); await worker.start({ onUnhandledRequest: "bypass" }); }` plus `export const MockChip` (dev-only corner chip "Mock API · <scenario>", rendered by W0-5's `main.tsx`). Generate the MSW service worker file: `npx msw init public/ --save`.
+- [ ] **Step 2:** FAIL; **Step 3:** implement. `app/javascript/mocks/bootstrap.ts`: `export async function startMocks(): Promise<void> { if (!__MOCKS_ENABLED__) return; const { worker } = await import("./browser"); await worker.start({ onUnhandledRequest: "bypass" }); }` plus `export const MockChip` (dev-only corner chip "Mock API · <scenario>", rendered by W0-5's entrypoint). **The MSW service worker file is generated into the mock host's own public dir, never into Rails' `public/`** (so it can never ship in the production image): `npx msw init app/javascript/mock-host/public --save=false`, committed. `__MOCKS_ENABLED__` is a build-time constant defined by W0-1's Vite configs (`false` in every Rails build, so the MSW/mocks chunk is eliminated from production bundles; a test in this plan greps the built `public/vite-test` for `mockServiceWorker` and `msw` and expects no match). `startMocks()` runs in two situations: the standalone **mock host** (`npm run dev:mock`, always mock) and the Rails-embedded dev server when `VITE_API_MODE=mock` is set in `.env` (default `real` there).
 - [ ] **Step 4:** pass. Commit.
 
 ---
 
 ## Task 4: Mock handlers — auth, account, snapshots (parallelizable)
 
-**Files:** `src/mocks/handlers/{auth,account,snapshots}.ts`, `src/mocks/handlers/index.ts` (the only aggregator; add each domain in its own task's commit).
+**Files:** `app/javascript/mocks/handlers/{auth,account,snapshots}.ts`, `app/javascript/mocks/handlers/index.ts` (the only aggregator; add each domain in its own task's commit).
 Rules (spec `2101` decision 4): sign-in `erin@harbor.test` → owner session; `dana@harbor.test` → coordinator; others → 401 `invalid_credentials`; `GET /me` → 401 without session; `DELETE /session` clears; `signup` creates a session as a new owner (email `taken@x.test` → 422 `email_taken`; password < 10 → 422 `weak_password`); `GET/PATCH /agency` mutate `db.agency` (owner only, else 403); `team` returns `db.team`; `POST /invitations` → unknown coordinator names (not in `["Dana Ortiz","Jess Kim","Priya Shah"]`) → 422 `unknown_coordinator` with `valid_names`, else 201 with `accept_url` `http://localhost:5173/invite/<token>` and a pending row; `GET /invitations/{token}/preview` → fixture, token `expired` → 410; accept → session as coordinator; `ad_connections` list/connect/disconnect mutate `db.connections`; `snapshot_uploads` are **asynchronous** (mirror the real API): `POST` reads the uploaded file names, stores a session in `db.uploads` and returns `201` `upload-created.json` shape (`status: validating`); `GET /snapshot_uploads/{id}` advances a small state machine per poll — `validating` for the first 2 polls (progress phases `storing → parsing → validating`, pct rising), then `validated` with the report (all seven names present → `upload-ok.json` report with `ignored` for unknown names; otherwise `upload-errors.json` with a `missing_file` error per missing name); `POST …/commit` → `409 not_validated` if still validating, `422 invalid_snapshot` + report if `report.ok === false`, `409 already_in_progress` if another upload of the session is committing (and always in the `slow` scenario's second call), else `202` `upload-committing.json` shape; subsequent polls report `committing` with `importing`/`computing` progress (pct 10 → 100 over ~4 polls, `rows_done/rows_total`) then `committed` with the new `snapshot` (also written to `db.snapshot`); `DELETE` marks `cancelled`; `GET /snapshots/current` returns `pending` (`upload_id`, `status`, `progress`) while an upload is validating/committing, honors scenario `empty/new` (→ `{snapshot:null,pending:null,files:[]}`) and `?mock=loading` (→ `current-loading.json`). Tick speed is injectable (`db.uploadTickMs`, 0 in tests so polls advance instantly).
 - [ ] **Step 1:** Write one Vitest file per domain (`handlers/auth.test.ts`, …) exercising each rule above through `fetch` (examples: wrong email 401; coordinator `GET /team` 403; invitation with `Nobody` 422 with `valid_names`; upload with 6 files → polling reaches `validated` with `report.ok === false` and a `missing_file` error naming the absent file; commit invalid → 422; commit before validated → 409 `not_validated`; commit ok → 202, polling shows `committing` with rising `pct` then `committed`, and `GET /snapshots/current` shows the new `as_of` and `pending: null` — and `pending` is non-null while committing).
 - [ ] **Step 2:** FAIL; **Step 3:** implement with `http` from `msw`, fixtures via `import ... from "@contracts/examples/…json"`; **Step 4:** pass. Commit (one commit per domain file).
@@ -179,7 +179,7 @@ Rules (spec `2101` decision 4): sign-in `erin@harbor.test` → owner session; `d
 
 ## Task 5: Mock handlers — metrics, leads, next actions, coordinators (parallelizable)
 
-**Files:** `src/mocks/handlers/{metrics,leads,nextActions,coordinators}.ts` (+ tests).
+**Files:** `app/javascript/mocks/handlers/{metrics,leads,nextActions,coordinators}.ts` (+ tests).
 Rules: all four are **owner-only** except where noted. `range` ∉ {30d,90d,12m} → 422 `bad_range`; empty/`new` scenarios return `summary-empty.json`, `[]`, empty board, zero queues; `channels/{channel}`: `Facebook` → fixture, others in `Instagram|Google|Referral|TikTok|Unknown` → fixture with `channel` swapped and zeroed KPIs, anything else → 404; `GET /leads/board` returns `board.json` (coordinator sessions: only cards whose `coordinator` is Dana, counts recomputed); `GET /leads` supports `status` (open default; `all` adds closed/paused cards from an in-file extra array), `q` (case-insensitive contains on name, max 8 results, `%`/`_` literal), `coordinator` (owner only); `GET /leads/{id}`: only `aaaaaaaa-…0004` has a full detail fixture (owner/coordinator variants chosen by the session; coordinator whose name ≠ lead's coordinator → 404); other known lead ids synthesize a detail from the card fixture with empty process/activity; unknown ids → 404; `next_actions` returns the fixture with `done` flags and counts recomputed from `db.completions`, coordinator sessions only see Dana's three items; `POST/DELETE …/completion` update `db.completions` (unknown lead/queue combo → 404, bad queue → 422); `coordinators` list/detail owner-only (coordinator → 403), unknown name → 404.
 - [ ] **Step 1:** tests per domain (e.g. board for a coordinator session has `action_needed.count === 3` and no `qualified` cards of other coordinators; `POST completion` twice → `done: true` twice and `GET next_actions` progress `{done:1,total:4}`; `DELETE` twice → back to 0; `GET /leads?q=%` → `leads: []`; `GET /leads/<L1 id>` as Dana → 404).
 - [ ] **Step 2:** FAIL; **Step 3:** implement; **Step 4:** pass. Commit per domain.
@@ -188,7 +188,7 @@ Rules: all four are **owner-only** except where noted. `range` ∉ {30d,90d,12m}
 
 ## Task 6: Mock handlers — agent and MCP settings
 
-**Files:** `src/mocks/handlers/{agent,mcp}.ts` (+ tests).
+**Files:** `app/javascript/mocks/handlers/{agent,mcp}.ts` (+ tests).
 Rules: `POST /agent/messages`: empty text → 422 `empty_text`; > 500 chars → 422 `text_too_long`; scenario `error` → 502 `model_unavailable`; a second call while the first is pending (scenario `slow` delays 1500 ms) → 409 `already_in_progress`; otherwise 201 with `answer.json` (text echoes the question when it contains "Google" → a shorter canned answer) and appends to `db.conversations`; `GET /agent/conversations/{id}`; `GET /agent/suggestions` → 4 owner chips or 3 coordinator chips; `GET /agent/usage` owner-only; `GET /mcp` → fixture (`key_prefix: null` in `new`); `POST /mcp/rotate` → 201 with a fresh random key `simbe_live_<24 chars>` and updates `db.mcp.key_prefix` (owner only).
 - [ ] **Steps 1–4** as above (tests for each rule). Commit.
 
@@ -196,7 +196,7 @@ Rules: `POST /agent/messages`: empty text → 422 `empty_text`; > 500 chars → 
 
 ## Task 7: Typed hooks (parallelizable by file)
 
-**Files:** `src/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` + tests. Tests use `mockApi` and a `renderHook` wrapper (`QueryClientProvider` with `retry: false`).
+**Files:** `app/javascript/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` + tests. Tests use `mockApi` and a `renderHook` wrapper (`QueryClientProvider` with `retry: false`).
 **Interfaces — Produces (exact names; these are what every lane imports):**
 
 | File | Exports |
@@ -232,13 +232,13 @@ it("useLeadSearch ignores one-character queries and debounces", async () => { /*
 it("useInviteCoordinator exposes valid_names from ApiError.extra", async () => { /* 422 */ });
 it("useCoordinator encodes spaces", async () => { /* 'Dana Ortiz' → Dana%20Ortiz */ });
 ```
-- [ ] **Step 2:** FAIL; **Step 3:** implement each file (typed with `types.ts`; mutations through `jsonRequest`/`uploadFiles`); **Step 4:** `make web-test ARGS=src/api` → pass. Commit per file.
+- [ ] **Step 2:** FAIL; **Step 3:** implement each file (typed with `types.ts`; mutations through `jsonRequest`/`uploadFiles`); **Step 4:** `make web-test ARGS=app/javascript/api` → pass. Commit per file.
 
 ---
 
 ## Task 8: Conformance tests
 
-**Files:** `src/mocks/conformance.test.ts`.
+**Files:** `app/javascript/mocks/conformance.test.ts`.
 - [ ] **Step 1: Test**
 ```ts
 import Ajv2020 from "ajv/dist/2020"; import addFormats from "ajv-formats"; import { readFileSync } from "node:fs"; import { parse } from "yaml";
@@ -252,13 +252,13 @@ it.each(ops.filter(({ op }) => op.responses["200"] ?? op.responses["201"]))("$me
 });
 ```
 (Add `yaml` dev dependency; run `make contract` before tests via the `pretest` npm script.) Operations with special request bodies (multipart upload, signup, invite) use canned bodies defined in a table at the top of the test.
-- [ ] **Step 2:** run → fix any fixture/handler that fails validation (this is the point of the test). **Step 3:** `make web-test ARGS=src/mocks` → pass. Commit.
+- [ ] **Step 2:** run → fix any fixture/handler that fails validation (this is the point of the test). **Step 3:** `make web-test ARGS=app/javascript/mocks` → pass. Commit.
 
 ---
 
 ## Task 9: Mock-mode smoke, docs, finish
 
-- [ ] **Step 1: e2e** `frontend/e2e/mock-smoke.spec.ts`: with the Rails `api` container stopped (`docker compose stop api`), open `/` in mock mode and assert the page loads without network errors (the app shell is not built yet: assert the MSW worker is active by `await page.evaluate(() => fetch("/api/v1/me").then(r => r.status))` → `401`, sign in via `fetch` POST `/api/v1/session` with `erin@harbor.test`, then `/api/v1/metrics/summary?range=30d` → `200` and `kpis.leads.value === 10`).
-- [ ] **Step 2: Docs** — append to `contracts/README.md`: the CCR procedure (branch `ccr/<topic>`, only `contracts/**` + regenerated `schema.d.ts`, label `ccr`, add/adjust mock handler + hook in the same PR if the change affects them — in that case the PR is allowed to touch `frontend/src/api/**` and `frontend/src/mocks/**`).
+- [ ] **Step 1: e2e** `e2e/mock-smoke.spec.ts`: (Playwright `mock-*` projects against `npm run dev:mock`; **no Rails and no Docker running**) open `/` and assert the page loads without network errors (the app shell is not built yet: assert the MSW worker is active by `await page.evaluate(() => fetch("/api/v1/me").then(r => r.status))` → `401`, sign in via `fetch` POST `/api/v1/session` with `erin@harbor.test`, then `/api/v1/metrics/summary?range=30d` → `200` and `kpis.leads.value === 10`).
+- [ ] **Step 2: Docs** — append to `contracts/README.md`: the CCR procedure (branch `ccr/<topic>`, only `contracts/**` + regenerated `schema.d.ts`, label `ccr`, add/adjust mock handler + hook in the same PR if the change affects them — in that case the PR is allowed to touch `app/javascript/api/**` and `app/javascript/mocks/**`).
 - [ ] **Step 3: Acceptance** (from spec `2101`): run commands 1–4 and 6; paste output in the PR.
 - [ ] **Step 4:** `make verify` → exit 0. Commit; open PR.

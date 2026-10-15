@@ -5,6 +5,6 @@
 - Never query by position (`.first`/`.last`) — keys are UUIDs; scope to the record you made.
 - `build`/`build_stubbed` when the example never reads the DB; `create` only when it reads back or goes through HTTP. No `let!` unless every example uses it.
 - Frontend: Vitest + Testing Library for components/hooks; Playwright for flows and screenshots. Components are tested through the DOM, not implementation details.
-- **Fixtures for data**: `backend/spec/fixtures/exports/{alpha,beta}/` are tiny (≈20 leads) synthetic CSVs committed to the repo. The real exports are never committed.
+- **Fixtures for data**: `spec/fixtures/exports/{alpha,beta}/` are tiny (≈20 leads) synthetic CSVs committed to the repo. The real exports are never committed.
 - Every metric has a spec with hand-computed expected numbers on the tiny fixtures.
 - Run only failures: `make spec ARGS=--only-failures`.

@@ -1,8 +1,8 @@
 # Leads Workflow — UI Implementation Plan
 
-> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, per-pack route files, contract paths per `contracts/openapi`). **Layout:** the app is a Rails monolith with embedded React and backend packs ([spec 2300](../../specs/2026-10/2026-10-14-2300-rails-monolith-and-packs-design.md)); file paths here were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`) and a lane plan's `Owns` list is authoritative. Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
 
-> **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`** (colors, type, shapes, logo override the handoff). Layout/behavior: `design_handoff_simbe/README.md` §6–9 and screenshots `08`–`11`, `16`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(leads-ui): task N – <title>`) after the task's tests + typecheck + lint.
+> **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`** (colors, type, shapes, logo override the handoff). Layout/behavior: `handoff/design/README.md` §6–9 and screenshots `08`–`11`, `16`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(leads-ui): task N – <title>`) after the task's tests + typecheck + lint.
 
 **Goal:** Pipeline board/list, lead slide-over panel, coordinator Next actions, Coordinators screens and the ⌘K search palette.
 
@@ -10,7 +10,7 @@
 
 **Depends on:** `2026-10-14-2001-foundation` (shell, `Sheet`, `Toast`, `useAsyncAction`) and `2026-10-14-2009-leads-workflow-api` merged. (Insights UI plan is independent.) **Unblocks:** agent plan (navigation actions open the lead panel).
 
-**Architecture:** `src/features/leads/` — typed API hooks, a URL-driven lead panel (`?lead=<id>&tab=summary`), page components per route, shared `LeadCard`, `ProgressBar`, `StatusPill`, `Ring`. Role gating is cosmetic; the API enforces it.
+**Architecture:** `app/javascript/features/leads/` — typed API hooks, a URL-driven lead panel (`?lead=<id>&tab=summary`), page components per route, shared `LeadCard`, `ProgressBar`, `StatusPill`, `Ring`. Role gating is cosmetic; the API enforces it.
 
 **Tech Stack:** React 18 + TS, TanStack Query (optimistic updates), React Router, Tailwind (brand tokens), Vitest/Testing Library, Playwright.
 
@@ -33,19 +33,19 @@
 
 | Action | Path |
 |--------|------|
-| Create | `frontend/src/api/leads.ts` (+test) |
-| Create | `frontend/src/features/leads/components/{LeadCard,ProgressBar,StatusPill,Ring,SourcePill,ColumnChips,TaskCard}.tsx` |
-| Create | `frontend/src/features/leads/panel/{LeadPanel,SummaryTab,ScreenerTab,ActivityTab,SourceTab,useLeadPanel}.tsx` |
-| Create | `frontend/src/features/leads/pages/{PipelinePage,NextActionsPage,CoordinatorsPage,CoordinatorPage}.tsx` |
-| Create | `frontend/src/features/leads/search/SearchPalette.tsx` |
-| Modify | `frontend/src/routes/router.tsx`, `frontend/src/components/shell/{Sidebar,TopBar,MobileTabBar,nav}.tsx` (count pills, search button) |
-| Create | `frontend/e2e/leads.spec.ts` |
+| Create | `app/javascript/api/leads.ts` (+test) |
+| Create | `app/javascript/features/leads/components/{LeadCard,ProgressBar,StatusPill,Ring,SourcePill,ColumnChips,TaskCard}.tsx` |
+| Create | `app/javascript/features/leads/panel/{LeadPanel,SummaryTab,ScreenerTab,ActivityTab,SourceTab,useLeadPanel}.tsx` |
+| Create | `app/javascript/features/leads/pages/{PipelinePage,NextActionsPage,CoordinatorsPage,CoordinatorPage}.tsx` |
+| Create | `app/javascript/features/leads/search/SearchPalette.tsx` |
+| Modify | `app/javascript/routes/router.tsx`, `app/javascript/components/shell/{Sidebar,TopBar,MobileTabBar,nav}.tsx` (count pills, search button) |
+| Create | `e2e/leads.spec.ts` |
 
 ---
 
 ## Task 1: API hooks
 
-**Files:** Create `src/api/leads.ts`, `src/api/leads.test.tsx`.
+**Files:** Create `app/javascript/api/leads.ts`, `app/javascript/api/leads.test.tsx`.
 **Interfaces — Produces:** types `LeadCard`, `LeadDetail`, `Board`, `NextActions`, `CoordinatorRow` (mirroring the API plan exactly) and hooks `useBoard(coordinator?)`, `useLeadList({status,coordinator,q})` (infinite query on `next_cursor`), `useLead(id)`, `useNextActions(coordinator?)`, `useToggleDone()` → `{ toggle(lead_id, queue, done) }`, `useCoordinators()`, `useCoordinator(name)`, `useLeadSearch(q)` (enabled when `q.length ≥ 2`, debounced 200 ms).
 `useToggleDone` does optimistic update of `["next_actions"]`: flips the item's `done`, adjusts the queue `count` and `progress.done`; on error restores the snapshot and calls `toast.show("Couldn't save — try again")`.
 
@@ -61,7 +61,7 @@ it("optimistically marks an item done and rolls back on failure", async () => {
 it("search is disabled for one character", () => { /* useLeadSearch('a') does not fetch */ });
 it("encodes coordinator names in /coordinators/:name", async () => { /* 'Dana Ortiz' → Dana%20Ortiz */ });
 ```
-- [ ] **Step 2:** FAIL; **Step 3:** implement; **Step 4:** `make web-test ARGS=src/api/leads` → pass. Commit.
+- [ ] **Step 2:** FAIL; **Step 3:** implement; **Step 4:** `make web-test ARGS=app/javascript/api/leads` → pass. Commit.
 
 ---
 
@@ -101,7 +101,7 @@ it("Ring prints the legend", () => {
 it("TaskCard done state and button label", async () => { /* done → 'Undo', opacity-50; click calls onToggle(false) */ });
 it("TaskCard hides Text/Call when canContact is false", () => { /* ... */ });
 ```
-- [ ] **Step 2:** FAIL; **Step 3:** implement; **Step 4:** `make web-test ARGS=src/features/leads/components` → pass. Commit.
+- [ ] **Step 2:** FAIL; **Step 3:** implement; **Step 4:** `make web-test ARGS=app/javascript/features/leads/components` → pass. Commit.
 
 ---
 
@@ -158,7 +158,7 @@ it("Mark done toggles through the completion API and turns green", async () => {
 it("Book consult is disabled with an explanatory title", () => { /* aria-disabled + title 'Booking integration not connected' */ });
 ```
 - [ ] **Step 2:** FAIL; **Step 3:** implement per handoff §7 with brand shapes: `Sheet` 620px (full-screen under 860px), header (name `font-display` 17px, coordinator + user icon, "Stage · Status" subline, Prev/Next/Close — icon-only on mobile), action row (Send text outline-brand, Call secondary, Mark done, Actions ▾ menu), top grid (Contact / Screener Ring / Consult cards; stacked on mobile), segmented tabs. Summary: Process card with state icons (complete green ✓, ongoing brand ring, stopped red, upcoming grey ring) + "Simbe summary" card (`bg-app`, Sparkles icon, `summary.text`, "Suggested next step: …"). Activity: vertical timeline, newest first, newest dot `bg-brand`, others grey. Source: key/value rows (Channel, Campaign, Ad, First visit, Pages viewed, Self-reported → "Not collected"). Slide-in 200 ms ease-out from `translateX(24px)`.
-- [ ] **Step 4:** `make web-test ARGS=src/features/leads/panel` → pass. Visual check vs `09-lead-panel-summary.png`, `10-lead-panel-screener.png`. Commit.
+- [ ] **Step 4:** `make web-test ARGS=app/javascript/features/leads/panel` → pass. Visual check vs `09-lead-panel-summary.png`, `10-lead-panel-screener.png`. Commit.
 
 ---
 
@@ -235,12 +235,12 @@ it("shows 'No matches' for an empty result", async () => { /* ... */ });
 
 ## Task 8: E2E, screenshots, final verification
 
-**Files:** Create `frontend/e2e/leads.spec.ts`; extend `e2e:seed` (backend rake from the insights plan) to also create Alpha coordinators `dana@alpha.test` (coordinator_name `Dana Ortiz`) and owner `owner@alpha.test`.
+**Files:** Create `e2e/leads.spec.ts`; extend `e2e:seed` (backend rake from the insights plan) to also create Alpha coordinators `dana@alpha.test` (coordinator_name `Dana Ortiz`) and owner `owner@alpha.test`.
 
 - [ ] **Step 1:** Playwright flows:
   1. Coordinator `dana@alpha.test`: lands on `/next-actions`, sees 3 items, opens L4, clicks Mark done, count/progress update, panel shows no raw answers for a lead she is *not* assigned (navigate by URL → "isn't available").
   2. Owner: Pipeline → card → Screener tab shows 10 `Met` pills and no raw-answer elements; Coordinators page lists 4; ⌘K finds a lead.
   3. Screenshots at 1280×800 and 390×844 for pipeline, lead-panel, next-actions, coordinators.
-- [ ] **Step 2:** `docker compose exec api bundle exec rails e2e:seed && make e2e ARGS=leads` → pass.
+- [ ] **Step 2:** `docker compose exec web bundle exec rails e2e:seed && make e2e ARGS=leads` → pass.
 - [ ] **Step 3:** Compare screenshots with handoff `08`–`11`, `16` (layout) and `docs/design/brand.md` (colors/shapes/logo). Fix gaps.
 - [ ] **Step 4:** `make verify` → exit 0. Commit; open PR.

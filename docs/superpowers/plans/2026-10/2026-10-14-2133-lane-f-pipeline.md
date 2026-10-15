@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-pipeline): task N – <title>`).
 
 **Lane:** F-PIPELINE · **Wave:** 1 (frontend, mock API)
-**Owns:** `frontend/src/features/pipeline/**`, `frontend/e2e/pipeline.spec.ts`
+**Owns:** `app/javascript/features/pipeline/**`, `e2e/pipeline.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useBoard(coordinator?)`, `useLeadList({status, coordinator, q})`, `useCoordinatorNames()` (owner dropdown) from `@/api/hooks/{leads,account}`; `useLeadPanel()` (`open`, `setIds`); `useAuth()`
 **Kit consumed:** `ProgressBar`, `StatusPill`, `SourcePill`, `Segmented`, `Chip`, `Select`, `Pill`, `Input`, `Skeleton`, `EmptyState`, `ErrorState`, `Button`
@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2008-leads-workflow-design.md` (decisions 1, 3, 4, 11)
 **Detail reference:** `plans/2026-10/2026-10-14-2010-leads-workflow-ui.md` **Task 3 (Pipeline page)** and the `LeadCard` + `ColumnChips` components from its Task 2 (feature-specific; live here). **Skip** Tasks 1 (hooks), the kit components in Task 2, and Tasks 4–8.
 
-## Feature registration (`src/features/pipeline/feature.ts`)
+## Feature registration (`app/javascript/features/pipeline/feature.ts`)
 ```ts
 export const feature: FeatureModule = {
   id: "pipeline",
@@ -38,10 +38,10 @@ export const feature: FeatureModule = {
 
 ## Done when (acceptance commands)
 ```bash
-make web-test ARGS=src/features/pipeline
+make web-test ARGS=app/javascript/features/pipeline
 make e2e ARGS=pipeline             # pipeline-{desktop,mobile}.png
-grep -rnE '#[0-9a-fA-F]{6}' frontend/src/features/pipeline | wc -l      # 0
+grep -rnE '#[0-9a-fA-F]{6}' app/javascript/features/pipeline | wc -l      # 0
 docker compose exec web npm run typecheck && docker compose exec web npm run lint
 make verify
 ```
-`e2e/pipeline.spec.ts`: owner → four wells with counts `4/0/0/3`; clicking a card sets `?lead=…`; List view filters with `l4`; mobile shows chips and one column; coordinator (Dana) sees no coordinator dropdown and only her cards. Compare with `design_handoff_simbe/screenshots/08-pipeline-board.png`. Branch `lane/F-PIPELINE-<slug>`; `bin/pr-ownership`; paste outputs in the PR.
+`e2e/pipeline.spec.ts`: owner → four wells with counts `4/0/0/3`; clicking a card sets `?lead=…`; List view filters with `l4`; mobile shows chips and one column; coordinator (Dana) sees no coordinator dropdown and only her cards. Compare with `handoff/design/screenshots/08-pipeline-board.png`. Branch `lane/F-PIPELINE-<slug>`; `bin/pr-ownership`; paste outputs in the PR.

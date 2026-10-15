@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-nextactions): task N – <title>`).
 
 **Lane:** F-NEXTACTIONS · **Wave:** 1 (frontend, mock API)
-**Owns:** `frontend/src/features/next-actions/**`, `frontend/e2e/next-actions.spec.ts`
+**Owns:** `app/javascript/features/next-actions/**`, `e2e/next-actions.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useNextActions(coordinator?)`, `useToggleDone()` (`@/api/hooks/nextActions`), `useLeadPanel().open`, `useAuth()`
 **Kit consumed:** `Pill`, `Button`, `SegmentBar`, `Skeleton`, `EmptyState`, `ErrorState`, `Chip`, `formatDate`
@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2008-leads-workflow-design.md` (decisions 2, 7, 8)
 **Detail reference:** `plans/2026-10/2026-10-14-2010-leads-workflow-ui.md` **Task 5 (Next actions)** and the `TaskCard` component from its Task 2 (feature-specific; lives here). Skip the rest.
 
-## Feature registration (`src/features/next-actions/feature.ts`)
+## Feature registration (`app/javascript/features/next-actions/feature.ts`)
 ```ts
 export const feature: FeatureModule = {
   id: "next-actions",
@@ -36,10 +36,10 @@ export const feature: FeatureModule = {
 
 ## Done when (acceptance commands)
 ```bash
-make web-test ARGS=src/features/next-actions
+make web-test ARGS=app/javascript/features/next-actions
 make e2e ARGS=next-actions         # next-actions-{desktop,mobile}.png
-grep -rnE '#[0-9a-fA-F]{6}' frontend/src/features/next-actions | wc -l      # 0
+grep -rnE '#[0-9a-fA-F]{6}' app/javascript/features/next-actions | wc -l      # 0
 docker compose exec web npm run typecheck && docker compose exec web npm run lint
 make verify
 ```
-`e2e/next-actions.spec.ts`: sign in as `dana@harbor.test` → lands on `/next-actions`; three open items; clicking Done on one → header `2 open`, progress `1 / 3`, card dims and button reads Undo; Undo restores; clicking a card opens `?lead=`; owner visiting `/next-actions` → redirected `/`. Compare with `design_handoff_simbe/screenshots/16-coordinator-next-actions.png`. Branch `lane/F-NEXTACTIONS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.
+`e2e/next-actions.spec.ts`: sign in as `dana@harbor.test` → lands on `/next-actions`; three open items; clicking Done on one → header `2 open`, progress `1 / 3`, card dims and button reads Undo; Undo restores; clicking a card opens `?lead=`; owner visiting `/next-actions` → redirected `/`. Compare with `handoff/design/screenshots/16-coordinator-next-actions.png`. Branch `lane/F-NEXTACTIONS-<slug>`; `bin/pr-ownership`; paste outputs in the PR.

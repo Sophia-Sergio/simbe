@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Independent oracle: computes the numbers Simbe must show for the real sample exports, straight from the CSVs
 (stdlib only, no Rails, no shared code with the app). Writes aggregates only (no names/emails/phones/answers) to
-backend/spec/real_data/golden.json, which IS committed; the exports themselves never are.
+spec/real_data/golden.json, which IS committed; the exports themselves never are.
 
-  bin/golden-numbers [exports_dir]        default: harbor-takehome/exports
+  bin/golden-numbers [exports_dir]        default: handoff/takehome/exports
   bin/golden-numbers --check              recompute and fail if golden.json differs (used locally and in the real-data specs)
 
 Definitions mirror docs/superpowers/specs (ingest 2002, metrics 2004, leads workflow 2008):
@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "backend/spec/real_data/golden.json")
+OUT = os.path.join(ROOT, "spec/real_data/golden.json")
 AGENCIES = {"harbor": ("America/Los_Angeles", "consult_attended"), "lakeside": ("America/Chicago", "records")}
 STAGES = ["inquiry", "pre_screen", "application", "consult", "records", "accepted"]
 CLOSED = {"not_eligible", "withdrew", "unresponsive"}
@@ -161,7 +161,7 @@ def agency(d, slug):
 def main():
     check = "--check" in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    base = args[0] if args else os.path.join(ROOT, "harbor-takehome/exports")
+    base = args[0] if args else os.path.join(ROOT, "handoff/takehome/exports")
     result = {"_note": "Aggregates computed independently from the CSV exports by bin/golden-numbers. No personal or health data.", "agencies": {}}
     for slug in AGENCIES:
         d = os.path.join(base, slug)

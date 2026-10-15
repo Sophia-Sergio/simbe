@@ -12,6 +12,6 @@ Every line is a command (or spec file) someone can run and get yes/no from — n
 2. A criterion may not contradict Decisions or Non-goals — re-read both against every criterion.
 3. Run every criterion before calling the work complete and paste the output into the PR.
 
-A criterion worth enforcing forever belongs in `backend/lib/tasks/boundaries.rake` (CI runs it on every change).
+A criterion worth enforcing forever belongs in `lib/tasks/boundaries.rake` (CI runs it on every change).
 
 Index and build order: [`../README.md`](../README.md).

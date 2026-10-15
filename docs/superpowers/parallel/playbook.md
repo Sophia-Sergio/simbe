@@ -43,7 +43,7 @@ Suggested assignment (change freely — any tool can run any lane, the plans are
 3. **Tools**: Docker Desktop (give it ≥ 8 GB RAM if you will run more than ~4 backend stacks), Node 22, Python 3, `gh` (logged in), Cursor, OpenCode (`opencode` on PATH), Claude Code.
 4. **Machine budget**: a frontend lane in mock mode needs **only Node** (no Docker). A backend lane needs one Docker stack (db + api, ~1–1.5 GB). Rule of thumb: ≤ 5 backend stacks + any number of frontend lanes on a 16 GB laptop.
 5. **GitHub** (once W0-7 has merged): `bin/setup-github` (dry run) then `bin/setup-github --apply` (labels, squash-only merges, branch protection with the CI jobs as required checks). Add `FLY_API_TOKEN` to the `production` environment only when you are ready to deploy.
-6. **Real data**: confirm `harbor-takehome/exports/{harbor,lakeside}/` exist locally and `bin/golden-numbers --check` says up to date. They never leave your machine (CI has none; agents must not paste rows anywhere).
+6. **Real data**: confirm `handoff/takehome/exports/{harbor,lakeside}/` exist locally and `bin/golden-numbers --check` says up to date. They never leave your machine (CI has none; agents must not paste rows anywhere).
 
 ## 4. Running one lane (the loop every agent follows)
 
@@ -127,7 +127,7 @@ Rule of thumb: **one reviewer-hour per ~4 concurrent lanes**. If PRs pile up, do
 | Port already in use | worktrees use Docker-assigned ports; `make ports` shows them; never hardcode 3000/5173 |
 | `bin/lane check` flags a file you must change | it's outside your lane: CCR or ownership issue, not a workaround |
 | Mock and backend disagree | the contract (`contracts/openapi`) is the arbiter; CCR if the contract is wrong |
-| Real-data spec skipped | exports missing locally (`ls harbor-takehome/exports`); they are never in CI |
-| Lakeside import slow/OOM | check `docker stats`; the job runs on the single `ingest` thread; Docker needs ≥ 4 GB for the api container |
+| Real-data spec skipped | exports missing locally (`ls handoff/takehome/exports`); they are never in CI |
+| Lakeside import slow/OOM | check `docker stats`; the job runs on the single `ingest` thread; Docker needs ≥ 4 GB for the web container |
 | Agent keeps re-planning | point it at the plan's "detail reference" task and the overrides; plans win over its own ideas |
 | Many PRs red after a `ccr` merge | everyone `git fetch && git rebase origin/main`; regenerate types (`make types`) if they conflict — never hand-merge `schema.d.ts` |

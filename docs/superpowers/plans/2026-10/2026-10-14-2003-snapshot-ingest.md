@@ -1,6 +1,6 @@
 # Snapshot Ingest Implementation Plan
 
-> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, per-pack route files, contract paths per `contracts/openapi`). **Layout:** the app is a Rails monolith with embedded React and backend packs ([spec 2300](../../specs/2026-10/2026-10-14-2300-rails-monolith-and-packs-design.md)); file paths here were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`) and a lane plan's `Owns` list is authoritative. Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
 
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. Steps use checkbox (`- [ ]`) syntax. **Commit after every task** (`feat(ingest): task N – <title>`) after the task's checks (and `make verify` once it exists) pass.
 
@@ -34,14 +34,14 @@
 
 | Action | Path |
 |--------|------|
-| Create | `backend/db/migrate/*_create_ingest_tables.rb` |
-| Create | `backend/app/models/{lead,stage_event,contact,screener_answer,web_session,appointment,application,lead_fact,snapshot,snapshot_upload}.rb` |
-| Create | `backend/app/services/channels/normalizer.rb` |
-| Create | `backend/app/services/snapshot/{reader,validator,importer,facts,constants}.rb` |
-| Create | `backend/app/controllers/api/v1/{snapshot_uploads,snapshots}_controller.rb`, `backend/app/serializers/snapshot_serializer.rb` |
-| Create | `backend/lib/tasks/snapshot.rake` |
-| Create | `backend/spec/support/{export_builder.rb,alpha_scenario.rb}`, specs listed per task |
-| Modify | `backend/config/routes.rb`, `backend/config/environments/*.rb` (encryption), `backend/spec/support/isolation.rb`, `.env.example` |
+| Create | `db/migrate/*_create_ingest_tables.rb` |
+| Create | `app/models/{lead,stage_event,contact,screener_answer,web_session,appointment,application,lead_fact,snapshot,snapshot_upload}.rb` |
+| Create | `app/services/channels/normalizer.rb` |
+| Create | `app/packs/ingest/app/services/snapshot/{reader,validator,importer,facts,constants}.rb` |
+| Create | `app/controllers/api/v1/{snapshot_uploads,snapshots}_controller.rb`, `app/packs/ingest/app/serializers/snapshot_serializer.rb` |
+| Create | `lib/tasks/snapshot.rake` |
+| Create | `spec/support/{export_builder.rb,alpha_scenario.rb}`, specs listed per task |
+| Modify | `config/routes.rb`, `config/environments/*.rb` (encryption), `spec/support/isolation.rb`, `.env.example` |
 
 ---
 
@@ -64,7 +64,7 @@
 | `snapshots` | `agency_id`, `as_of timestamptz NOT NULL`, `loaded_at`, `row_counts jsonb`, `warnings jsonb`, `loaded_by uuid` |
 | `snapshot_uploads` | `agency_id`, `user_id`, `status` (`validated\|committed\|expired`), `report jsonb`, `dir text` |
 
-Constants in `Snapshot::Constants`: `STAGES = %w[inquiry pre_screen application consult records accepted]`, `OUTCOMES = %w[open not_eligible withdrew unresponsive paused accepted]`, `REQUIRED_FILES`, `HEADERS` (exact per file, from `harbor-takehome/exports/README.md`; leads headers: `lead_id,created_at,first_name,last_name,email,phone,state,source,campaign,ad,coordinator,current_stage,outcome,outcome_reason,outcome_updated_at,paused_until`).
+Constants in `Snapshot::Constants`: `STAGES = %w[inquiry pre_screen application consult records accepted]`, `OUTCOMES = %w[open not_eligible withdrew unresponsive paused accepted]`, `REQUIRED_FILES`, `HEADERS` (exact per file, from `handoff/takehome/exports/README.md`; leads headers: `lead_id,created_at,first_name,last_name,email,phone,state,source,campaign,ad,coordinator,current_stage,outcome,outcome_reason,outcome_updated_at,paused_until`).
 
 - [ ] **Step 1: Failing spec** `spec/models/ingest_schema_spec.rb`
 ```ruby
@@ -91,8 +91,8 @@ RSpec.describe "ingest schema" do
 end
 ```
 - [ ] **Step 2:** `make spec ARGS=spec/models/ingest_schema_spec.rb` → FAIL.
-- [ ] **Step 3: Implement.** Migration per table above (`id: :uuid`, `t.references :agency, type: :uuid, null: false, foreign_key: true`, child `t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }`, check constraints for enums). Models: `Lead has_many :stage_events, :contacts, :screener_answers, :web_sessions, :appointments, :applications (dependent: :delete_all), has_one :lead_fact`. `ScreenerAnswer`: `encrypts :answer`. Generate dev encryption keys: `docker compose exec api bundle exec rails db:encryption:init`, put the three values in `.env` (and test keys in `config/environments/test.rb`: `config.active_record.encryption.primary_key = "test-primary"` etc.), wire `config.active_record.encryption.*` from `ENV` in `config/application.rb`.
-- [ ] **Step 4:** `docker compose exec api bundle exec rails db:migrate && make spec ARGS=spec/models/ingest_schema_spec.rb` → pass. Commit.
+- [ ] **Step 3: Implement.** Migration per table above (`id: :uuid`, `t.references :agency, type: :uuid, null: false, foreign_key: true`, child `t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }`, check constraints for enums). Models: `Lead has_many :stage_events, :contacts, :screener_answers, :web_sessions, :appointments, :applications (dependent: :delete_all), has_one :lead_fact`. `ScreenerAnswer`: `encrypts :answer`. Generate dev encryption keys: `docker compose exec web bundle exec rails db:encryption:init`, put the three values in `.env` (and test keys in `config/environments/test.rb`: `config.active_record.encryption.primary_key = "test-primary"` etc.), wire `config.active_record.encryption.*` from `ENV` in `config/application.rb`.
+- [ ] **Step 4:** `docker compose exec web bundle exec rails db:migrate && make spec ARGS=spec/models/ingest_schema_spec.rb` → pass. Commit.
 
 ---
 
@@ -338,7 +338,7 @@ Update `ExportBuilder` so `first_name` = `"L#{n}"`, `last_name` = `"Alpha"`.
 - [ ] **Step 1:**
 ```ruby
 namespace :snapshot do
-  desc "Load an agency snapshot: rails 'snapshot:load[harbor,../harbor-takehome/exports/harbor]'"
+  desc "Load an agency snapshot: rails 'snapshot:load[harbor,../handoff/takehome/exports/harbor]'"
   task :load, %i[slug dir] => :environment do |_, args|
     agency = Agency.find_by!(slug: args[:slug])
     Current.agency = agency
@@ -349,10 +349,10 @@ namespace :snapshot do
   end
 end
 ```
-- [ ] **Step 2: Real data** (exports are git-ignored; they must be present locally). Mount them: add `../harbor-takehome:/harbor-takehome:ro` to the `api` service volumes in `docker-compose.yml`. Run, twice each:
+- [ ] **Step 2: Real data** (exports are git-ignored; they must be present locally). Mount them: add `../handoff/takehome:/handoff/takehome:ro` to the `api` service volumes in `docker-compose.yml`. Run, twice each:
 ```bash
-docker compose exec api bundle exec rails "snapshot:load[harbor,/harbor-takehome/exports/harbor]"
-docker compose exec api bundle exec rails "snapshot:load[lakeside,/harbor-takehome/exports/lakeside]"
+docker compose exec web bundle exec rails "snapshot:load[harbor,/handoff/takehome/exports/harbor]"
+docker compose exec web bundle exec rails "snapshot:load[lakeside,/handoff/takehome/exports/lakeside]"
 docker compose exec db psql -U simbe simbe_development -c "select a.slug, (select count(*) from leads l where l.agency_id=a.id) leads, (select count(*) from screener_answers s where s.agency_id=a.id) screener from agencies a order by 1"
 ```
 Expected: harbor 3530 / 35300; lakeside 29740 / 297400 — identical after the second run. Record load time in the PR (target < 60 s for Lakeside; if slower, switch the bulk insert to `COPY` via `connection.raw_connection.copy_data`, keeping encryption).
@@ -430,5 +430,5 @@ RSpec.describe "Snapshot uploads", type: :request do
 end
 ```
 - [ ] **Step 2:** FAIL. **Step 3: Implement** controllers (thin: `require_owner!` on uploads; `SnapshotUpload` is looked up through `Current.agency.snapshot_uploads.find(params[:id])` → 404 for others; `rescue_from Snapshot::InProgress` → 409; `Snapshot::Invalid` → 422 with report). Cap upload size at 250 MB total (`413 too_large`). Add `has_many :snapshot_uploads` to Agency. Expire uploads: a `rake snapshot:expire_uploads` task deletes dirs older than 24h.
-- [ ] **Step 4:** Append to `ISOLATION_ROUTES`: `{ method: :post, path: "/api/v1/snapshot_uploads/:id/commit" }`, `{ method: :delete, path: "/api/v1/snapshot_uploads/:id" }`, `{ method: :get, path: "/api/v1/snapshots/current" }`, `{ method: :post, path: "/api/v1/snapshot_uploads" }`. Run `make spec ARGS="spec/requests/snapshot_uploads_spec.rb spec/isolation"` → pass. Run `docker compose exec api bundle exec rails boundaries:check` → ok.
+- [ ] **Step 4:** Append to `ISOLATION_ROUTES`: `{ method: :post, path: "/api/v1/snapshot_uploads/:id/commit" }`, `{ method: :delete, path: "/api/v1/snapshot_uploads/:id" }`, `{ method: :get, path: "/api/v1/snapshots/current" }`, `{ method: :post, path: "/api/v1/snapshot_uploads" }`. Run `make spec ARGS="spec/requests/snapshot_uploads_spec.rb spec/isolation"` → pass. Run `docker compose exec web bundle exec rails boundaries:check` → ok.
 - [ ] **Step 5:** `make verify` → exit 0. Commit; open PR.

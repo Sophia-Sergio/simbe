@@ -38,6 +38,6 @@ Sending SMS/calls (buttons open `sms:`/`tel:` for the assigned coordinator only)
 1. `make spec ARGS=spec/services/leads` passes on Alpha (v1): 4 queue items (L7 text_back_now, L4 nudge, L3 rebook, L10 paused_due_back), board counts `action_needed 4, in_application 0, consult 0, qualified 3`; on v2 L12 sits in `in_application`.
 2. `make spec ARGS=spec/requests/leads_spec.rb spec/requests/next_actions_spec.rb spec/requests/coordinators_spec.rb` passes, including coordinator scoping, 404 across agencies and coordinators 403 on `/coordinators`.
 3. `make spec ARGS=spec/privacy` passes: owner JSON never contains a screener `answer` (except age); non-assigned coordinator gets 404; phone masked for owner.
-4. `make web-test ARGS=src/features/leads` passes (board columns, mobile column chips, lead panel tabs, Done toggle updates counts and progress, coordinator nav gating).
+4. `make web-test ARGS=app/javascript/features/leads` passes (board columns, mobile column chips, lead panel tabs, Done toggle updates counts and progress, coordinator nav gating).
 5. `make e2e ARGS=leads` passes: coordinator signs in → Next actions → opens a lead → marks done → counts update; owner opens Pipeline → lead panel → Screener tab shows verdict pills but no raw answers. Screenshots `{pipeline,lead-panel,next-actions,coordinators}-{desktop,mobile}.png` saved.
-6. `docker compose exec api bundle exec rails boundaries:check` exits 0.
+6. `docker compose exec web bundle exec rails boundaries:check` exits 0.

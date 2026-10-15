@@ -1,6 +1,6 @@
 # Leads Workflow — API Implementation Plan
 
-> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, routes via per-lane files, contract paths per `contracts/openapi`). Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
+> **Detail reference, not executed directly.** The work in this plan is sliced into parallel lanes — see [`docs/superpowers/parallel/README.md`](../../parallel/README.md). Lane plans execute specific tasks of this plan with explicit overrides (data via `AlphaScenario.load!`, hooks/kit/shell from Wave 0, per-pack route files, contract paths per `contracts/openapi`). **Layout:** the app is a Rails monolith with embedded React and backend packs ([spec 2300](../../specs/2026-10/2026-10-14-2300-rails-monolith-and-packs-design.md)); file paths here were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`) and a lane plan's `Owns` list is authoritative. Where this plan differs from a lane plan or the contract, **the lane plan and `contracts/` win**.
 
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` (especially `multi-tenancy.md`, `sensitive-data.md`, `controllers.md`). Stop if blocked — do not replan silently. Steps use checkbox (`- [ ]`) syntax. **Commit after every task** (`feat(leads-api): task N – <title>`) after `make verify`.
 
@@ -33,12 +33,12 @@
 
 | Action | Path |
 |--------|------|
-| Create | `backend/db/migrate/*_create_action_completions.rb`, `backend/app/models/action_completion.rb` |
-| Create | `backend/app/services/leads/{access,queues,board,list,detail,status,summarizer,masking,next_actions,coordinator_stats}.rb` |
-| Create | `backend/app/serializers/{lead_card,lead_detail,next_actions,coordinator}_serializer.rb` |
-| Create | `backend/app/controllers/api/v1/{leads,next_actions,completions,coordinators}_controller.rb` |
-| Modify | `backend/config/routes.rb`, `backend/spec/support/isolation.rb` |
-| Create | `backend/spec/services/leads/*_spec.rb`, `backend/spec/requests/{leads,next_actions,coordinators}_spec.rb`, `backend/spec/privacy/privacy_spec.rb` |
+| Create | `db/migrate/*_create_action_completions.rb`, `app/models/action_completion.rb` |
+| Create | `app/packs/leads/app/services/leads/{access,queues,board,list,detail,status,summarizer,masking,next_actions,coordinator_stats}.rb` |
+| Create | `app/serializers/{lead_card,lead_detail,next_actions,coordinator}_serializer.rb` |
+| Create | `app/controllers/api/v1/{leads,next_actions,completions,coordinators}_controller.rb` |
+| Modify | `config/routes.rb`, `spec/support/isolation.rb` |
+| Create | `spec/services/leads/*_spec.rb`, `spec/requests/{leads,next_actions,coordinators}_spec.rb`, `spec/privacy/privacy_spec.rb` |
 
 ---
 
@@ -373,6 +373,6 @@ end
 ```
 Privacy spec: owner JSON of `/leads/:id` contains no `"answer"` key inside `screener.items` and the phone matches `\A•••-••••-\d{4}\z`; assigned coordinator JSON contains `answer`; `Rails.logger` captured during the request does not include any answer string (`StringIO` logger).
 Isolation entries (agency B ids → 404): `GET /api/v1/leads/:id`, `POST|DELETE /api/v1/next_actions/:lead_id/:queue/completion`; list endpoints must return only agency A rows (`/leads`, `/next_actions`, `/coordinators`, `/coordinators/:name`).
-- [ ] **Step 2:** FAIL; **Step 3:** implement controllers (`rescue_from` bad queue). **Step 4:** `make spec ARGS="spec/requests spec/privacy spec/isolation spec/services/leads"` → all pass; `docker compose exec api bundle exec rails boundaries:check` ok.
+- [ ] **Step 2:** FAIL; **Step 3:** implement controllers (`rescue_from` bad queue). **Step 4:** `make spec ARGS="spec/requests spec/privacy spec/isolation spec/services/leads"` → all pass; `docker compose exec web bundle exec rails boundaries:check` ok.
 - [ ] **Step 5: Real data**: load Harbor, then as the Harbor owner `curl` `/api/v1/leads?view=board` and `/api/v1/coordinators` — Dana Ortiz `leads: 2252`, `share_pct: 63.8`; board returns ≤25 per column with accurate `count`s; each request < 500 ms.
 - [ ] **Step 6:** `make verify` → exit 0. Commit; open PR.

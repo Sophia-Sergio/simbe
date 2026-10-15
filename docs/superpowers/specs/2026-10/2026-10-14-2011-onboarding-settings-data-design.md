@@ -28,7 +28,7 @@ Email verification, password reset, SSO, real OAuth/ad syncs, billing, deleting 
 ## Acceptance criteria
 1. `make spec ARGS=spec/requests/signup_spec.rb spec/requests/invitations_spec.rb spec/requests/ad_connections_spec.rb` passes (signup creates agency+owner and signs in; duplicate email 422; short password 422; invite → accept creates a coordinator tied to a real coordinator name; expired/used token 410; unknown coordinator 422; coordinators 403 on team routes).
 2. `make spec ARGS=spec/isolation` passes with the new routes.
-3. `make web-test ARGS=src/features/onboarding src/features/settings src/features/data` passes (wizard step gating, qualified radios, upload modal three states incl. error review with disabled Replace, settings toasts).
+3. `make web-test ARGS=app/javascript/features/onboarding app/javascript/features/settings app/javascript/features/data` passes (wizard step gating, qualified radios, upload modal three states incl. error review with disabled Replace, settings toasts).
 4. `make e2e ARGS=onboarding` passes: sign up a new agency, upload the Alpha CSVs in the wizard, land on a dashboard with 10 leads; screenshots `{signup-agency,signup-load-data,data-sources,upload-review,settings}-{desktop,mobile}.png` saved.
-5. `grep -rniE 'localStorage|sessionStorage' frontend/src/features/onboarding` prints nothing (passwords never persisted client-side).
-6. `docker compose exec api bundle exec rails boundaries:check` exits 0.
+5. `grep -rniE 'localStorage|sessionStorage' app/javascript/features/onboarding` prints nothing (passwords never persisted client-side).
+6. `docker compose exec web bundle exec rails boundaries:check` exits 0.

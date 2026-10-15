@@ -29,7 +29,7 @@ Streaming tokens, voice, file uploads, memory across conversations beyond the st
 1. `make spec ARGS=spec/services/agent spec/services/ai` passes with WebMock-stubbed Anthropic: tool loop dispatches tools and finishes with `respond`; invalid action routes dropped; 6-round cap ends with a safe message; a ledger row exists per model call; `Ai::Client` without `ledger:` raises `ArgumentError`.
 2. `make spec ARGS=spec/privacy/agent_privacy_spec.rb` passes (no Alpha email/phone/answer in any outbound request body).
 3. `make spec ARGS=spec/requests/agent_spec.rb spec/requests/mcp_spec.rb` passes (cross-agency 404s, wrong key 401, slug/key mismatch 404, rotation revokes the old key, 409 on concurrent turn, coordinator limited to `get_next_actions`, `tools/list` returns exactly the five tools for an owner key).
-4. `make spec ARGS=spec/isolation` passes with the new routes; `docker compose exec api bundle exec rails boundaries:check` exits 0.
-5. `make web-test ARGS=src/features/agent src/features/connect` passes.
-6. With a real key in `.env`: `docker compose exec api bundle exec rails "agent:smoke[alpha,Which channel costs the most per qualified lead?]"` prints an answer that mentions Facebook and a ledger row (`select task, input_tokens > 0 from ai_usage_events order by created_at desc limit 1` → `agent | t`).
+4. `make spec ARGS=spec/isolation` passes with the new routes; `docker compose exec web bundle exec rails boundaries:check` exits 0.
+5. `make web-test ARGS=app/javascript/features/agent app/javascript/features/connect` passes.
+6. With a real key in `.env`: `docker compose exec web bundle exec rails "agent:smoke[alpha,Which channel costs the most per qualified lead?]"` prints an answer that mentions Facebook and a ledger row (`select task, input_tokens > 0 from ai_usage_events order by created_at desc limit 1` → `agent | t`).
 7. `make e2e ARGS=agent` passes (FAB opens panel, question answered from stubbed model, action chip navigates, mobile Ask tab full screen) and writes `agent-{desktop,mobile}.png`.

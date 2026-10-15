@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` (`sensitive-data.md`) and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-leadpanel): task N – <title>`).
 
 **Lane:** F-LEADPANEL · **Wave:** 1 (frontend, mock API)
-**Owns:** `frontend/src/features/lead-panel/**`, `frontend/e2e/lead-panel.spec.ts`
+**Owns:** `app/javascript/features/lead-panel/**`, `e2e/lead-panel.spec.ts`
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useLead(id)` (`@/api/hooks/leads`), `useToggleDone()` (`@/api/hooks/nextActions`), `useLeadPanel()` (`@/app/leadPanel`: `leadId`, `tab`, `close`, `prev`, `next`, `hasPrev/hasNext`), `useAuth()`, `useToast()`
 **Kit consumed:** `Sheet`, `Tabs`, `Ring`, `StatusPill`, `SourcePill`, `Timeline`, `Pill`, `Button`, `Skeleton`, `ErrorState`, `Avatar`
@@ -11,7 +11,7 @@
 **Spec:** `docs/superpowers/specs/2026-10/2026-10-14-2008-leads-workflow-design.md` (decisions 5, 6, 7)
 **Detail reference:** `plans/2026-10/2026-10-14-2010-leads-workflow-ui.md` **Task 4 (Lead panel)** — execute as written. Skip Tasks 1–3 and 5–8.
 
-## Feature registration (`src/features/lead-panel/feature.ts`)
+## Feature registration (`app/javascript/features/lead-panel/feature.ts`)
 ```ts
 export const feature: FeatureModule = {
   id: "lead-panel",
@@ -34,10 +34,10 @@ No routes and no nav: any screen opens the panel through `useLeadPanel().open(id
 
 ## Done when (acceptance commands)
 ```bash
-make web-test ARGS=src/features/lead-panel
+make web-test ARGS=app/javascript/features/lead-panel
 make e2e ARGS=lead-panel           # lead-panel-{desktop,mobile}.png (summary + screener tabs)
-grep -rnE '#[0-9a-fA-F]{6}' frontend/src/features/lead-panel | wc -l      # 0
+grep -rnE '#[0-9a-fA-F]{6}' app/javascript/features/lead-panel | wc -l      # 0
 docker compose exec web npm run typecheck && docker compose exec web npm run lint
 make verify
 ```
-`e2e/lead-panel.spec.ts`: open `/?lead=aaaaaaaa-0000-4000-8000-000000000004&tab=screener` as owner → 10 `Met` pills, no raw answers, masked phone; as coordinator Dana → raw answers visible, Send text/Call links present; coordinator opening another coordinator's lead id → "isn't available"; Esc closes; Mark done toggles. Compare with `design_handoff_simbe/screenshots/09-lead-panel-summary.png` and `10-lead-panel-screener.png`. Branch `lane/F-LEADPANEL-<slug>`; `bin/pr-ownership`; paste outputs in the PR.
+`e2e/lead-panel.spec.ts`: open `/?lead=aaaaaaaa-0000-4000-8000-000000000004&tab=screener` as owner → 10 `Met` pills, no raw answers, masked phone; as coordinator Dana → raw answers visible, Send text/Call links present; coordinator opening another coordinator's lead id → "isn't available"; Esc closes; Mark done toggles. Compare with `handoff/design/screenshots/09-lead-panel-summary.png` and `10-lead-panel-screener.png`. Branch `lane/F-LEADPANEL-<slug>`; `bin/pr-ownership`; paste outputs in the PR.

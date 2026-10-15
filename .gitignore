@@ -3,7 +3,7 @@
 .env.*
 !.env.example
 # Sensitive: fictional health data, never commit exports (take-home ground rule)
-harbor-takehome/exports/*/
+handoff/takehome/exports/*/
 /node_modules
 /log
 /tmp
