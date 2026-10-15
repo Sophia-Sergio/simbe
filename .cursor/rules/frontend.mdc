@@ -1,0 +1,7 @@
+---
+description: Simbe frontend conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/frontend.md` (read it in full).

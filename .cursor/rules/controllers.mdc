@@ -1,0 +1,7 @@
+---
+description: Simbe controllers conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/controllers.md` (read it in full).

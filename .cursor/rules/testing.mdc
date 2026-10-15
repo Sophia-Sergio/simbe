@@ -1,0 +1,7 @@
+---
+description: Simbe testing conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/testing.md` (read it in full).

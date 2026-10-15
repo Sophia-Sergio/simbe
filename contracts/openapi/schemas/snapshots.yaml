@@ -1,0 +1,85 @@
+RowDiff:
+  type: object
+  required: [current, incoming, delta]
+  properties: { current: { type: integer }, incoming: { type: integer }, delta: { type: integer } }
+ReportIssue:
+  type: object
+  required: [code, message]
+  properties:
+    code: { type: string, enum: [missing_file, bad_headers, bad_value, duplicate_key, orphan_row, agency_mismatch] }
+    file: { type: string }
+    row: { type: [integer, 'null'] }
+    message: { type: string }
+ReportWarning:
+  type: object
+  required: [code, count, message]
+  properties:
+    code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, source_aliases_normalized] }
+    count: { type: integer, description: "stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails)" }
+    message: { type: string }
+Report:
+  type: object
+  required: [ok, errors, warnings, diff, checks]
+  properties:
+    ok: { type: boolean }
+    errors: { type: array, items: { $ref: '#/ReportIssue' } }
+    warnings: { type: array, items: { $ref: '#/ReportWarning' } }
+    ignored: { type: array, items: { type: string }, description: uploaded files that matched none of the seven names }
+    diff:
+      type: object
+      description: "Keys: leads, stage_events, contacts, screener_answers, web_sessions, appointments, applications"
+      additionalProperties: { $ref: '#/RowDiff' }
+    checks:
+      type: object
+      required: [files_matched, duplicates, screener_encrypted]
+      properties:
+        files_matched: { type: string, examples: ['7 of 7'] }
+        duplicates: { type: integer }
+        screener_encrypted: { type: boolean }
+    as_of: { $ref: './common.yaml#/Timestamp' }
+UploadStatus: { type: string, enum: [validating, validated, committing, committed, failed, cancelled, expired], description: "validated = validation finished (report.ok may still be false); failed = unexpected job error (see error)" }
+Phase: { type: string, enum: [storing, parsing, validating, importing, computing, finalizing] }
+Progress:
+  type: object
+  required: [phase, pct]
+  properties:
+    phase: { $ref: '#/Phase' }
+    pct: { type: integer, minimum: 0, maximum: 100 }
+    rows_done: { type: integer }
+    rows_total: { type: integer }
+SnapshotUpload:
+  type: object
+  required: [id, status, progress, report, snapshot, error]
+  properties:
+    id: { type: string, format: uuid }
+    status: { $ref: '#/UploadStatus' }
+    progress: { oneOf: [{ $ref: '#/Progress' }, { type: 'null' }] }
+    report: { oneOf: [{ $ref: '#/Report' }, { type: 'null' }], description: present once status is validated or later }
+    snapshot: { oneOf: [{ $ref: '#/Snapshot' }, { type: 'null' }], description: present once status is committed }
+    error: { oneOf: [{ type: object, required: [code, message], properties: { code: { type: string }, message: { type: string } } }, { type: 'null' }] }
+Snapshot:
+  type: object
+  required: [id, as_of, loaded_at, row_counts]
+  properties:
+    id: { type: string, format: uuid }
+    as_of: { $ref: './common.yaml#/Timestamp' }
+    loaded_at: { $ref: './common.yaml#/Timestamp' }
+    row_counts:
+      type: object
+      additionalProperties: { type: integer }
+    warnings: { type: array, items: { $ref: '#/ReportWarning' } }
+SnapshotCurrent:
+  type: object
+  required: [snapshot, pending, files]
+  properties:
+    snapshot: { oneOf: [{ $ref: '#/Snapshot' }, { type: 'null' }] }
+    pending:
+      description: an upload of this agency that is validating or committing right now (drives the "Loading your data" banner)
+      oneOf:
+        - type: object
+          required: [upload_id, status, progress]
+          properties: { upload_id: { type: string, format: uuid }, status: { $ref: '#/UploadStatus' }, progress: { oneOf: [{ $ref: '#/Progress' }, { type: 'null' }] } }
+        - type: 'null'
+    files:
+      type: array
+      items: { type: object, required: [name, rows], properties: { name: { type: string }, rows: { type: integer } } }

@@ -1,0 +1,39 @@
+{
+  "name": "Dana Ortiz",
+  "leads": 4,
+  "share_pct": 40.0,
+  "first_reply_minutes": 22.5,
+  "qualified": 0,
+  "qualified_rate": 0.0,
+  "overdue": 2,
+  "status": "on_track",
+  "kpis": {
+    "leads": 4,
+    "qualified": 0,
+    "qualified_rate": 0.0,
+    "first_reply_minutes": 22.5
+  },
+  "needs_action": [
+    {
+      "lead_id": "aaaaaaaa-0000-4000-8000-000000000004",
+      "name": "L4 Alpha",
+      "queue": "nudge_applications",
+      "age_minutes": 11630,
+      "reason": "Application 40% · quiet 8d · last section pregnancy history"
+    },
+    {
+      "lead_id": "aaaaaaaa-0000-4000-8000-000000000003",
+      "name": "L3 Alpha",
+      "queue": "rebook_consults",
+      "age_minutes": 4080,
+      "reason": "No-show Sep 28 · not rebooked"
+    },
+    {
+      "lead_id": "aaaaaaaa-0000-4000-8000-000000000010",
+      "name": "L10 Alpha",
+      "queue": "paused_due_back",
+      "age_minutes": 16560,
+      "reason": "Paused until Sep 20 · due back"
+    }
+  ]
+}

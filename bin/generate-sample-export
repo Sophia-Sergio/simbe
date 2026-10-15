@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""Synthetic, Harbor-shaped export (seven CSVs) for CI, demos and performance tests when the real exports are unavailable.
+
+  bin/generate-sample-export --out tmp/sample --leads 3500 --seed 7 [--agency-tag acme]
+
+Same headers and the same *kinds* of mess as the real files: inconsistent `source` spellings (fb/Facebook/facebook/ig/...), blank
+campaigns, duplicate emails across leads, outcome reasons as labels, scheduled appointments, unsubmitted applications, paused leads.
+Deterministic for a given seed. NEVER use it for correctness numbers (use Alpha for exact specs and golden.json for the real data).
+Contains only fictional values; safe to generate anywhere.
+"""
+import argparse, csv, os, random, uuid
+from datetime import datetime, timedelta, timezone
+
+HEAD = {
+ "leads": "lead_id,created_at,first_name,last_name,email,phone,state,source,campaign,ad,coordinator,current_stage,outcome,outcome_reason,outcome_updated_at,paused_until",
+ "stage_history": "lead_id,stage,entered_at", "contact_log": "lead_id,contacted_at,direction,channel,contacted_by",
+ "screener_answers": "lead_id,submitted_at,question,answer,meets_requirement", "web_sessions": "lead_id,started_at,landing_url,pages_viewed,referrer,device",
+ "appointments": "lead_id,booked_at,scheduled_for,status", "applications": "lead_id,started_at,submitted_at,percent_complete,last_section_completed"}
+STAGES = ["inquiry", "pre_screen", "application", "consult", "records", "accepted"]
+QUESTIONS = ["How old are you?", "Are you a U.S. citizen or permanent resident?", "Have you given birth to at least one child?", "Is your BMI between 19 and 32?",
+  "Do you smoke or use nicotine?", "Do you live in a state where we work?", "Do you have a support partner?", "Is your household income above the minimum?",
+  "Do you have a criminal record?", "Have you been a surrogate before?"]
+SOURCES = ["facebook"] * 28 + ["fb"] * 8 + ["Facebook"] * 5 + ["google"] * 16 + ["Google"] * 1 + ["instagram"] * 3 + ["ig"] * 4 + ["tiktok"] * 2 + ["referral"] * 5 + [""] * 28
+CAMPAIGNS = ["earn-up-to-80k", "how-much-do-surrogates-make", "harbor-brand", "real-surrogate-stories"]
+STATES = ["CA", "ID", "WA", "UT", "CO", "AZ", "OR", "NV"] * 11 + ["MN", "CT", "IL", "VA", "MO", "WI", "TX", "NY", "FL", "OH", "GA", "NC"]
+COORDS = ["Dana Ortiz"] * 64 + ["Jess Kim"] * 13 + ["Marcus Lee"] * 12 + ["Priya Shah"] * 11
+SECTIONS = ["personal_info", "pregnancy_history", "health_history", "household", "review_and_sign"]
+REASONS_CLOSED = ["BMI", "Age", "Out of area", "No prior birth", "No response", "Application not finished", "Did not start application", ""]
+FIRST = "Maria Ana Laura Sofia Elena Julia Carla Dina Rosa Nora Tess Lily".split(); LAST = "Thomas Garcia Lopez Brown Smith Young Reed Cole Diaz Ward Hall Ross".split()
+iso = lambda d: d.strftime("%Y-%m-%dT%H:%M:%S.") + f"{d.microsecond // 1000:03d}Z"
+
+def generate(out, n, seed, tag):
+    rnd = random.Random(seed); os.makedirs(out, exist_ok=True)
+    end = datetime(2026, 10, 1, 5, 0, tzinfo=timezone.utc); start = end - timedelta(days=365)
+    W = {k: csv.writer(open(os.path.join(out, k + ".csv"), "w", newline=""), lineterminator="\n") for k in HEAD}
+    for k, h in HEAD.items(): W[k].writerow(h.split(","))
+    for i in range(n):
+        lid = str(uuid.UUID(int=rnd.getrandbits(128), version=4)); created = start + timedelta(seconds=rnd.randrange(int((end - start).total_seconds()) - 86400))
+        fn, ln = rnd.choice(FIRST), rnd.choice(LAST)
+        email = f"{fn}.{ln}.{tag}{rnd.randrange(max(2, n // 40) * 40)}@example.com".lower()          # collisions create duplicate emails
+        src = rnd.choice(SOURCES); coord = rnd.choice(COORDS)
+        reached = 1; r = rnd.random()                                                                   # funnel depth: pre_screen 74%, application 26%, consult 16%, records 11%, accepted 8.5%
+        for thr in (0.74, 0.26, 0.164, 0.113, 0.085):
+            if r < thr: reached += 1
+        stage_i = min(reached, 5); t = created; hist = [(STAGES[0], t)]
+        for k in range(1, stage_i + 1):
+            t = t + timedelta(hours=rnd.randint(1, 120)) if k > 1 else created + timedelta(seconds=72)
+            if t < end: hist.append((STAGES[k], t))
+        stage_i = len(hist) - 1
+        outcome, reason, upd, paused = "open", "", "", ""
+        if STAGES[stage_i] == "accepted": outcome, upd = "accepted", iso(hist[-1][1])
+        else:
+            q = rnd.random()
+            if q < 0.55: outcome, reason = "not_eligible", rnd.choice(["BMI", "Age", "Out of area", "No prior birth"])
+            elif q < 0.82: outcome, reason = "unresponsive", rnd.choice(["No response", "Application not finished", "Did not start application"])
+            elif q < 0.88: outcome, reason = "withdrew", rnd.choice(["Application not finished", ""])
+            elif q < 0.90: outcome, paused = "paused", (end + timedelta(days=rnd.randint(-15, 120))).strftime("%Y-%m-%d")
+            if outcome != "open": upd = iso(min(end, hist[-1][1] + timedelta(hours=rnd.randint(1, 900))))
+        W["leads"].writerow([lid, iso(created), fn, ln, email, f"555-{rnd.randrange(1000):04d}-{i % 10000:04d}", rnd.choice(STATES), src, rnd.choice(CAMPAIGNS) if src else "", "",
+                             coord, STAGES[stage_i] if STAGES[stage_i] != "inquiry" else "pre_screen", outcome, reason, upd, paused])
+        for s_, ts_ in hist: W["stage_history"].writerow([lid, s_, iso(ts_)])
+        for k in range(rnd.choice([1, 1, 2, 3, 3, 4])):
+            W["contact_log"].writerow([lid, iso(min(end, created + timedelta(minutes=rnd.randint(5, 600) + k * 1440))), rnd.choice(["outbound", "outbound", "inbound"]), rnd.choice(["text", "call", "email"]), coord])
+        for qn in QUESTIONS:
+            ans = str(rnd.randint(21, 42)) if qn.startswith("How old") else rnd.choice(["Yes", "No"])
+            W["screener_answers"].writerow([lid, iso(created), qn, ans, rnd.choices(["yes", "review", "no"], [85, 5, 10])[0]])
+        for _ in range(rnd.choice([1, 1, 2])): W["web_sessions"].writerow([lid, iso(created - timedelta(days=rnd.randint(0, 20))), "https://harbor.example/how-it-works", "/how-it-works|/faq", "https://www.google.com/", rnd.choice(["mobile", "desktop"])])
+        if stage_i >= 2:
+            st = dict(hist)[STAGES[2]]; done = stage_i >= 3 or rnd.random() < 0.3
+            W["applications"].writerow([lid, iso(st), iso(st + timedelta(days=rnd.randint(1, 6))) if done else "", 100 if done else rnd.choice([20, 40, 60, 80]), "review_and_sign" if done else rnd.choice(SECTIONS[:4])])
+        if stage_i >= 3:
+            bk = dict(hist)[STAGES[3]]; sf = bk + timedelta(days=rnd.randint(1, 8))
+            W["appointments"].writerow([lid, iso(bk), iso(sf), "attended" if sf < end and rnd.random() < 0.86 else ("scheduled" if sf >= end else rnd.choice(["no_show", "cancelled"]))])
+
+if __name__ == "__main__":
+    a = argparse.ArgumentParser(); a.add_argument("--out", required=True); a.add_argument("--leads", type=int, default=3500); a.add_argument("--seed", type=int, default=7); a.add_argument("--agency-tag", default="syn")
+    x = a.parse_args(); generate(x.out, x.leads, x.seed, x.agency_tag); print(f"wrote {x.leads} synthetic leads to {x.out}")

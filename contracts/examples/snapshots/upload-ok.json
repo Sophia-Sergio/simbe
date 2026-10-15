@@ -1,0 +1,67 @@
+{
+  "id": "66666666-6666-4666-8666-666666666666",
+  "status": "validated",
+  "progress": null,
+  "report": {
+    "ok": true,
+    "errors": [],
+    "warnings": [
+      {
+        "code": "duplicate_email",
+        "count": 79,
+        "message": "79 extra leads share an email with another lead (kept separate)"
+      },
+      {
+        "code": "source_aliases_normalized",
+        "count": 611,
+        "message": "Normalized fb / ig / Facebook / Google spellings"
+      }
+    ],
+    "ignored": [],
+    "diff": {
+      "leads": {
+        "current": 3530,
+        "incoming": 3611,
+        "delta": 81
+      },
+      "stage_events": {
+        "current": 9257,
+        "incoming": 9262,
+        "delta": 5
+      },
+      "contacts": {
+        "current": 10446,
+        "incoming": 10451,
+        "delta": 5
+      },
+      "screener_answers": {
+        "current": 35300,
+        "incoming": 35305,
+        "delta": 5
+      },
+      "web_sessions": {
+        "current": 9901,
+        "incoming": 9906,
+        "delta": 5
+      },
+      "appointments": {
+        "current": 642,
+        "incoming": 647,
+        "delta": 5
+      },
+      "applications": {
+        "current": 918,
+        "incoming": 923,
+        "delta": 5
+      }
+    },
+    "checks": {
+      "files_matched": "7 of 7",
+      "duplicates": 0,
+      "screener_encrypted": true
+    },
+    "as_of": "2026-10-08T09:00:00.000Z"
+  },
+  "snapshot": null,
+  "error": null
+}

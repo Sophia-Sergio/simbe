@@ -1,0 +1,60 @@
+Route: { type: string, description: "Whitelisted in-app route", examples: [/channels] }
+AgentBody:
+  type: object
+  required: [text]
+  properties:
+    text: { type: string, maxLength: 1200 }
+    chart:
+      type: object
+      required: [title, bars]
+      properties:
+        title: { type: string }
+        bars:
+          type: array
+          maxItems: 8
+          items:
+            type: object
+            required: [label, value, display]
+            properties: { label: { type: string }, value: { type: number }, display: { type: string } }
+    action:
+      type: object
+      required: [label, route]
+      properties: { label: { type: string }, route: { $ref: '#/Route' } }
+    sources:
+      type: array
+      items: { type: object, required: [label, route], properties: { label: { type: string }, route: { $ref: '#/Route' } } }
+    suggestions: { type: array, maxItems: 3, items: { type: string } }
+AgentMessage:
+  type: object
+  required: [id, role, body]
+  properties:
+    id: { type: string, format: uuid }
+    role: { type: string, enum: [user, assistant] }
+    body: { $ref: '#/AgentBody' }
+    created_at: { $ref: './common.yaml#/Timestamp' }
+SendMessageRequest:
+  type: object
+  required: [text]
+  properties:
+    conversation_id: { type: string, format: uuid }
+    text: { type: string, minLength: 1, maxLength: 500 }
+SendMessageResponse:
+  type: object
+  required: [conversation_id, message]
+  properties: { conversation_id: { type: string, format: uuid }, message: { $ref: '#/AgentMessage' } }
+Conversation:
+  type: object
+  required: [id, messages]
+  properties: { id: { type: string, format: uuid }, messages: { type: array, items: { $ref: '#/AgentMessage' } } }
+Suggestions:
+  type: object
+  required: [suggestions]
+  properties: { suggestions: { type: array, items: { type: string } } }
+Usage:
+  type: object
+  required: [month, input_tokens, output_tokens, cost_cents]
+  properties:
+    month: { type: string, examples: ['2026-10'] }
+    input_tokens: { type: integer }
+    output_tokens: { type: integer }
+    cost_cents: { type: [integer, 'null'] }

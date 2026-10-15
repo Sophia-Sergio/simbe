@@ -1,0 +1,77 @@
+{
+  "as_of": "2026-10-01T12:00:00.000Z",
+  "progress": {
+    "done": 0,
+    "total": 4
+  },
+  "queues": [
+    {
+      "key": "text_back_now",
+      "title": "Text back now",
+      "hint": "New leads, no message sent yet",
+      "tone": "danger",
+      "count": 1,
+      "items": [
+        {
+          "lead_id": "aaaaaaaa-0000-4000-8000-000000000007",
+          "name": "L7 Alpha",
+          "age_minutes": 3000,
+          "age_label": "2d",
+          "reason": "New lead · no message sent yet",
+          "done": false
+        }
+      ]
+    },
+    {
+      "key": "nudge_applications",
+      "title": "Nudge applications",
+      "hint": "Quiet 24h+ mid-application",
+      "tone": "warning",
+      "count": 1,
+      "items": [
+        {
+          "lead_id": "aaaaaaaa-0000-4000-8000-000000000004",
+          "name": "L4 Alpha",
+          "age_minutes": 11630,
+          "age_label": "8d",
+          "reason": "Application 40% · quiet 8d · last section pregnancy history",
+          "done": false
+        }
+      ]
+    },
+    {
+      "key": "rebook_consults",
+      "title": "Rebook consults",
+      "hint": "No-show with no new booking",
+      "tone": "violet",
+      "count": 1,
+      "items": [
+        {
+          "lead_id": "aaaaaaaa-0000-4000-8000-000000000003",
+          "name": "L3 Alpha",
+          "age_minutes": 4080,
+          "age_label": "2d",
+          "reason": "No-show Sep 28 · not rebooked",
+          "done": false
+        }
+      ]
+    },
+    {
+      "key": "paused_due_back",
+      "title": "Paused, due back",
+      "hint": "Return date has passed",
+      "tone": "neutral",
+      "count": 1,
+      "items": [
+        {
+          "lead_id": "aaaaaaaa-0000-4000-8000-000000000010",
+          "name": "L10 Alpha",
+          "age_minutes": 16560,
+          "age_label": "11d",
+          "reason": "Paused until Sep 20 · due back",
+          "done": false
+        }
+      ]
+    }
+  ]
+}

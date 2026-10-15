@@ -12,3 +12,4 @@ harbor-takehome/exports/*/
 .worktrees/
 .claude/worktrees/
 .superpowers/
+.lane-prompt.md

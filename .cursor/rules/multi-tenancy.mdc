@@ -1,0 +1,7 @@
+---
+description: Simbe multi-tenancy conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/multi-tenancy.md` (read it in full).

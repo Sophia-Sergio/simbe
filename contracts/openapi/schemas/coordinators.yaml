@@ -1,0 +1,36 @@
+CoordinatorRow:
+  type: object
+  required: [name, leads, share_pct, first_reply_minutes, qualified, qualified_rate, overdue, status]
+  properties:
+    name: { type: string }
+    leads: { type: integer }
+    share_pct: { type: number }
+    first_reply_minutes: { type: [number, 'null'], description: median }
+    qualified: { type: integer }
+    qualified_rate: { type: number }
+    overdue: { type: integer, description: "leads in queues 1-3 older than 24h" }
+    status: { type: string, enum: [needs_support, on_track], description: "needs_support when overdue > 8" }
+NeedsActionItem:
+  type: object
+  required: [lead_id, name, queue, age_minutes, reason]
+  properties:
+    lead_id: { type: string, format: uuid }
+    name: { type: string }
+    queue: { $ref: './next-actions.yaml#/QueueKey' }
+    age_minutes: { type: integer }
+    reason: { type: string }
+CoordinatorDetail:
+  allOf:
+    - $ref: '#/CoordinatorRow'
+    - type: object
+      required: [kpis, needs_action]
+      properties:
+        kpis:
+          type: object
+          required: [leads, qualified, qualified_rate, first_reply_minutes]
+          properties:
+            leads: { type: integer }
+            qualified: { type: integer }
+            qualified_rate: { type: number }
+            first_reply_minutes: { type: [number, 'null'] }
+        needs_action: { type: array, items: { $ref: '#/NeedsActionItem' } }

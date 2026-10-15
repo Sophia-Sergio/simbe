@@ -1,0 +1,18 @@
+coordinators:
+  get:
+    operationId: listCoordinators
+    tags: [coordinators]
+    summary: Coordinator performance cards (owner)
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../schemas/coordinators.yaml#/CoordinatorRow' } }, example: { $ref: '../../examples/coordinators/list.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+coordinator_by_name:
+  get:
+    operationId: getCoordinator
+    tags: [coordinators]
+    summary: One coordinator with KPIs and leads needing action (owner)
+    parameters: [{ name: name, in: path, required: true, schema: { type: string }, description: URL-encoded }]
+    responses:
+      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/coordinators.yaml#/CoordinatorDetail' }, example: { $ref: '../../examples/coordinators/detail-dana.json' } } } }
+      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
+      '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }

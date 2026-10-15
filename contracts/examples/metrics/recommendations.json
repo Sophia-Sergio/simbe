@@ -1,0 +1,32 @@
+[
+  {
+    "id": "funnel_leak",
+    "area": "process",
+    "impact": "5 leads stalled",
+    "title": "Most leads stall before Application",
+    "why": "50.0% of leads never reach Application - the largest drop in your funnel.",
+    "cta": {
+      "label": "Open funnel",
+      "route": "/funnel"
+    },
+    "ask": {
+      "question": "Why do leads stall before the application and what should we change?"
+    },
+    "score": 5
+  },
+  {
+    "id": "no_shows",
+    "area": "process",
+    "impact": "1 consult to rebook",
+    "title": "1 consult was missed and not rebooked",
+    "why": "25% of consult appointments were no-shows.",
+    "cta": {
+      "label": "Open pipeline",
+      "route": "/pipeline"
+    },
+    "ask": {
+      "question": "Why are consults being no-shows and who should I rebook first?"
+    },
+    "score": 1
+  }
+]

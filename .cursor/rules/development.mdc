@@ -1,0 +1,7 @@
+---
+description: Simbe development conventions
+globs:
+alwaysApply: true
+---
+
+Follow `docs/conventions/development.md` (read it in full).

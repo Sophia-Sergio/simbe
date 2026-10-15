@@ -1,0 +1,54 @@
+{
+  "snapshot": {
+    "id": "55555555-5555-4555-8555-555555555555",
+    "as_of": "2026-10-01T16:14:00.000Z",
+    "loaded_at": "2026-10-01T16:14:30.000Z",
+    "row_counts": {
+      "leads": 3530,
+      "stage_events": 9257,
+      "contacts": 10446,
+      "screener_answers": 35300,
+      "web_sessions": 9901,
+      "appointments": 642,
+      "applications": 918
+    },
+    "warnings": [
+      {
+        "code": "source_aliases_normalized",
+        "count": 489,
+        "message": "Normalized fb/ig/Facebook/Google spellings"
+      }
+    ]
+  },
+  "files": [
+    {
+      "name": "leads.csv",
+      "rows": 3530
+    },
+    {
+      "name": "stage_history.csv",
+      "rows": 9257
+    },
+    {
+      "name": "contact_log.csv",
+      "rows": 10446
+    },
+    {
+      "name": "screener_answers.csv",
+      "rows": 35300
+    },
+    {
+      "name": "web_sessions.csv",
+      "rows": 9901
+    },
+    {
+      "name": "appointments.csv",
+      "rows": 642
+    },
+    {
+      "name": "applications.csv",
+      "rows": 918
+    }
+  ],
+  "pending": null
+}

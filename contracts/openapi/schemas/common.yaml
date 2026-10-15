@@ -1,0 +1,30 @@
+Error:
+  type: object
+  required: [error]
+  properties:
+    error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: snake_case machine code }
+        message: { type: string }
+Range: { type: string, enum: ['30d', '90d', '12m'], default: '30d' }
+Role: { type: string, enum: [owner, coordinator] }
+Milestone: { type: string, enum: [application_submitted, consult_attended, records, accepted] }
+Channel: { type: string, enum: [Facebook, Instagram, Google, TikTok, Referral, Unknown], description: "Normalized channel. Unmapped raw sources are title-cased and may appear as other strings." }
+Tone: { type: string, enum: [success, warning, danger, neutral, violet, brand] }
+Stage: { type: string, enum: [inquiry, pre_screen, application, consult, records, accepted] }
+Timestamp: { type: string, format: date-time }
+Cents: { type: integer, minimum: 0, description: US dollars in cents }
+Percent: { type: number, description: percent with one decimal }
+Status:
+  type: object
+  required: [key, label, tone]
+  properties:
+    key: { type: string, enum: [text_back_now, nudge, rebook, due_back, on_track, accepted, paused, not_eligible, withdrew, unresponsive] }
+    label: { type: string }
+    tone: { $ref: '#/Tone' }
+Done:
+  type: object
+  required: [done]
+  properties: { done: { type: boolean } }
