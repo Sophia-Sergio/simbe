@@ -15,7 +15,8 @@ const TONES: Record<AvatarTone, string> = {
   danger: "bg-danger-bg text-danger-text",
 }
 
-const ORDER: AvatarTone[] = ["brand", "success", "warning", "violet", "danger"]
+// Hashed tones deliberately exclude `danger`: a red avatar reads as an error state.
+const ORDER: AvatarTone[] = ["brand", "success", "warning", "violet"]
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean)

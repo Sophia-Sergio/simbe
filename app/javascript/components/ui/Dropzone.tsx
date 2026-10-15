@@ -1,5 +1,5 @@
 import { useRef, useState } from "react"
-import type { KeyboardEvent } from "react"
+import type { DragEvent, KeyboardEvent } from "react"
 
 function matchesAccept(file: File, accept: string): boolean {
   const parts = accept
@@ -42,7 +42,9 @@ export function Dropzone({
     const accepted = files.filter((file) => matchesAccept(file, accept))
     const rejected = files.filter((file) => !matchesAccept(file, accept))
     if (rejected.length > 0) onRejected?.(rejected)
-    if (accepted.length > 0) onFiles(accepted)
+    // A single-file dropzone honours only the first accepted file.
+    const delivered = multiple ? accepted : accepted.slice(0, 1)
+    if (delivered.length > 0) onFiles(delivered)
   }
 
   const openPicker = () => {
@@ -55,6 +57,20 @@ export function Dropzone({
     openPicker()
   }
 
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (disabled) return
+    event.preventDefault()
+    setOver(true)
+  }
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    // Always cancel the drop: even when disabled, the browser must not open the CSV.
+    event.preventDefault()
+    if (disabled) return
+    setOver(false)
+    deliver(event.dataTransfer.files)
+  }
+
   return (
     <div
       role="button"
@@ -63,20 +79,11 @@ export function Dropzone({
       aria-disabled={disabled || undefined}
       onClick={openPicker}
       onKeyDown={onKeyDown}
-      onDragOver={(event) => {
-        if (disabled) return
-        event.preventDefault()
-        setOver(true)
-      }}
+      onDragOver={onDragOver}
       onDragLeave={() => {
         if (!disabled) setOver(false)
       }}
-      onDrop={(event) => {
-        if (disabled) return
-        event.preventDefault()
-        setOver(false)
-        deliver(event.dataTransfer.files)
-      }}
+      onDrop={onDrop}
       className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card border-2 border-dashed px-6 py-8 text-center transition-colors ${
         over ? "border-brand bg-brand-tint" : "border-line-strong bg-surface"
       } ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className}`}
@@ -88,7 +95,10 @@ export function Dropzone({
         multiple={multiple}
         disabled={disabled}
         aria-label={ariaLabel}
+        tabIndex={-1}
         className="sr-only"
+        // The container opens the picker; the input's own click must not bubble back into it.
+        onClick={(event) => event.stopPropagation()}
         onChange={(event) => {
           deliver(event.target.files)
           event.target.value = ""

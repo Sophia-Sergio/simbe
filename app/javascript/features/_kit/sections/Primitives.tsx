@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 import { Sparkles } from "lucide-react"
 import { Avatar } from "@/components/ui/Avatar"
@@ -51,8 +51,15 @@ export default function Primitives() {
   const [selectValue, setSelectValue] = useState("all")
   const [confirmPending, setConfirmPending] = useState(false)
 
+  // The inline-confirm demo must not stay pending forever (Cancel is disabled while pending).
+  useEffect(() => {
+    if (!confirmPending) return
+    const id = window.setTimeout(() => setConfirmPending(false), 1200)
+    return () => window.clearTimeout(id)
+  }, [confirmPending])
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2">
       <Card heading="Button">
         <div className="flex flex-wrap items-center gap-2">
           <Button>Primary</Button>

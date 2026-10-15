@@ -22,7 +22,7 @@ export function ConfirmInline({
   return (
     <div
       role="group"
-      className={`flex flex-col gap-3 rounded-card border border-warning-border bg-warning-bg p-3 sm:flex-row sm:items-center sm:justify-between ${className}`}
+      className={`flex flex-col gap-3 rounded-card border border-warning-border bg-warning-bg p-3 md:flex-row md:items-center md:justify-between ${className}`}
     >
       <p className="text-[13px] font-medium text-ink">{message}</p>
       <div className="flex shrink-0 gap-2">

@@ -18,13 +18,26 @@ it("exposes tab semantics and selects on click", async () => {
   expect(onChange).toHaveBeenCalledWith("activity")
 })
 
-it("moves the selection with arrow keys", () => {
+it("moves the selection and the focus with arrow keys", () => {
   const onChange = vi.fn()
-  render(<Tabs aria-label="Lead detail" value="screener" onChange={onChange} tabs={tabs} />)
+  const { rerender } = render(<Tabs aria-label="Lead detail" value="screener" onChange={onChange} tabs={tabs} />)
 
-  fireEvent.keyDown(screen.getByRole("tab", { name: "Screener" }), { key: "ArrowRight" })
+  const screener = screen.getByRole("tab", { name: "Screener" })
+  screener.focus()
+  fireEvent.keyDown(screener, { key: "ArrowRight" })
   expect(onChange).toHaveBeenLastCalledWith("activity")
+  expect(screen.getByRole("tab", { name: "Activity" })).toHaveFocus()
 
-  fireEvent.keyDown(screen.getByRole("tab", { name: "Screener" }), { key: "ArrowLeft" })
-  expect(onChange).toHaveBeenLastCalledWith("summary")
+  // Controlled: the parent owns `value`, so re-render with the new selection.
+  rerender(<Tabs aria-label="Lead detail" value="activity" onChange={onChange} tabs={tabs} />)
+  fireEvent.keyDown(screen.getByRole("tab", { name: "Activity" }), { key: "ArrowLeft" })
+  expect(onChange).toHaveBeenLastCalledWith("screener")
+  expect(screen.getByRole("tab", { name: "Screener" })).toHaveFocus()
+})
+
+it("falls back to the first tab when value matches no tab", () => {
+  render(<Tabs aria-label="Lead detail" value="nope" onChange={() => {}} tabs={tabs} />)
+  // With every tab at tabIndex -1 the tablist would be unreachable by keyboard.
+  expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute("tabindex", "0")
+  expect(screen.getByRole("tab", { name: "Screener" })).toHaveAttribute("tabindex", "-1")
 })

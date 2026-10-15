@@ -6,14 +6,12 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
-  fullWidth = false,
   className = "",
   "aria-label": ariaLabel,
 }: {
   value: T
   options: SegmentedOption<T>[]
   onChange: (value: T) => void
-  fullWidth?: boolean
   className?: string
   "aria-label"?: string
 }) {
@@ -21,7 +19,7 @@ export function Segmented<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className={`inline-flex flex-nowrap items-center gap-0.5 rounded-full bg-subtle p-0.5 ${fullWidth ? "w-full" : ""} ${className}`}
+      className={`inline-flex flex-nowrap items-center gap-0.5 rounded-full bg-subtle p-0.5 ${className}`}
     >
       {options.map((option) => {
         const selected = option.value === value
@@ -32,8 +30,8 @@ export function Segmented<T extends string>({
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
             className={`whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-medium transition-colors ${
-              fullWidth ? "min-w-0 flex-1 text-center" : ""
-            } ${selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink-secondary"}`}
+              selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink-secondary"
+            }`}
           >
             {option.label}
           </button>

@@ -19,9 +19,14 @@ export function Tabs<T extends string>({
 }) {
   const refs = useRef<Array<HTMLButtonElement | null>>([])
 
+  // Fall back to the first tab: with `value` matching nothing every tab would be
+  // tabIndex -1 and the tablist would be unreachable by keyboard.
+  const match = tabs.findIndex((tab) => tab.value === value)
+  const activeIndex = match >= 0 ? match : 0
+
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const index = tabs.findIndex((tab) => tab.value === value)
-    if (index < 0) return
+    if (tabs.length === 0) return
+    const index = activeIndex
     let next: number
     if (event.key === "ArrowRight") next = (index + 1) % tabs.length
     else if (event.key === "ArrowLeft") next = (index - 1 + tabs.length) % tabs.length
@@ -39,7 +44,7 @@ export function Tabs<T extends string>({
       className={`inline-flex w-full flex-nowrap items-center gap-0.5 rounded-full bg-subtle p-0.5 ${className}`}
     >
       {tabs.map((tab, index) => {
-        const selected = tab.value === value
+        const selected = index === activeIndex
         return (
           <button
             key={tab.value}

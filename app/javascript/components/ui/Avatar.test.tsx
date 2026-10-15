@@ -21,6 +21,12 @@ it("gives the same name the same tone", () => {
   expect(first).toHaveClass("rounded-full")
 })
 
+it("never maps a name to the danger (error) tint", () => {
+  for (let i = 0; i < 1000; i += 1) {
+    expect(avatarTone(`Person ${i}`)).not.toBe("danger")
+  }
+})
+
 it("accepts an explicit tone and size", () => {
   render(<Avatar name="Dana Ortiz" tone="violet" size={44} />)
   const avatar = screen.getByTitle("Dana Ortiz")

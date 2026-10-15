@@ -29,12 +29,54 @@ it("accepts dropped files and reports the rejected ones", () => {
   expect(onRejected).toHaveBeenCalledWith([bad])
 })
 
+it("delivers only the first dropped file when multiple is false", () => {
+  const onFiles = vi.fn()
+  render(<Dropzone label="Drop your CSV exports" ariaLabel="CSV files" accept=".csv" onFiles={onFiles} />)
+
+  fireEvent.drop(screen.getByTestId("dropzone"), {
+    dataTransfer: { files: [csv("leads.csv"), csv("appointments.csv")] },
+  })
+
+  expect(onFiles).toHaveBeenCalledTimes(1)
+  expect(onFiles.mock.calls[0][0]).toHaveLength(1)
+  expect(onFiles.mock.calls[0][0][0].name).toBe("leads.csv")
+})
+
+it("keeps the hidden input out of the tab order and swallows its click", () => {
+  render(<Dropzone label="Drop your CSV exports" ariaLabel="CSV files" onFiles={vi.fn()} />)
+  const input = screen.getByLabelText("CSV files")
+  expect(input).toHaveAttribute("tabindex", "-1")
+
+  const clickSpy = vi.spyOn(input, "click")
+  fireEvent.click(input)
+  // The container's click handler must not re-open the picker from the input's own click.
+  expect(clickSpy).not.toHaveBeenCalled()
+})
+
+it("opens the picker on Enter and Space", () => {
+  render(<Dropzone label="Drop your CSV exports" ariaLabel="CSV files" onFiles={vi.fn()} />)
+  const input = screen.getByLabelText("CSV files")
+  const clickSpy = vi.spyOn(input, "click")
+
+  fireEvent.keyDown(screen.getByTestId("dropzone"), { key: "Enter" })
+  expect(clickSpy).toHaveBeenCalledTimes(1)
+
+  fireEvent.keyDown(screen.getByTestId("dropzone"), { key: " " })
+  expect(clickSpy).toHaveBeenCalledTimes(2)
+})
+
 it("blocks both paths while disabled", async () => {
   const onFiles = vi.fn()
   render(<Dropzone label="Drop your CSV exports" ariaLabel="CSV files" disabled onFiles={onFiles} />)
 
-  expect(screen.getByLabelText("CSV files")).toBeDisabled()
-  fireEvent.drop(screen.getByTestId("dropzone"), { dataTransfer: { files: [csv("leads.csv")] } })
+  const input = screen.getByLabelText("CSV files")
+  expect(input).toBeDisabled()
+
+  const clickSpy = vi.spyOn(input, "click")
   await userEvent.click(screen.getByTestId("dropzone"), { pointerEventsCheck: 0 })
+  expect(clickSpy).not.toHaveBeenCalled()
+
+  // A disabled dropzone must still cancel the drop so the browser does not open the CSV.
+  expect(fireEvent.drop(screen.getByTestId("dropzone"), { dataTransfer: { files: [csv("leads.csv")] } })).toBe(false)
   expect(onFiles).not.toHaveBeenCalled()
 })
