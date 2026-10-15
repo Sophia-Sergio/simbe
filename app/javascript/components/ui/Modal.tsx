@@ -4,7 +4,8 @@ import { createPortal } from "react-dom"
 import { useDismiss } from "@/hooks/useDismiss"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+export const FOCUSABLE_SELECTOR =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
 /** Keeps Tab inside the dialog while it is open. Shared with `Sheet`. */
 export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean): void {
@@ -14,7 +15,7 @@ export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean
       if (event.key !== "Tab") return
       const el = ref.current
       if (!el) return
-      const nodes = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((node) => node.tabIndex !== -1)
+      const nodes = Array.from(el.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((node) => node.tabIndex !== -1)
       if (nodes.length === 0) {
         event.preventDefault()
         el.focus()
@@ -53,14 +54,14 @@ export function useLockBody(active: boolean): void {
   }, [active])
 }
 
-/** Moves focus into the dialog on open and returns it to the opener on close. */
-function useReturnFocus(ref: RefObject<HTMLElement | null>, active: boolean): void {
+/** Moves focus into the dialog on open and returns it to the opener on close. Shared with `Sheet`. */
+export function useReturnFocus(ref: RefObject<HTMLElement | null>, active: boolean): void {
   const opener = useRef<HTMLElement | null>(null)
   useEffect(() => {
     if (!active) return
     opener.current = (document.activeElement as HTMLElement | null) ?? null
     const el = ref.current
-    const first = el?.querySelector<HTMLElement>(FOCUSABLE)
+    const first = el?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)
     ;(first ?? el)?.focus()
     return () => {
       opener.current?.focus?.()
@@ -76,9 +77,23 @@ export type ModalProps = {
   footer?: ReactNode
   size?: "sm" | "md"
   className?: string
+  /** Extra classes for the footer row, e.g. full-width stacked buttons on mobile. */
+  footerClassName?: string
+  /** Accessible name for a dialog without a visible title (e.g. the search palette). */
+  ariaLabel?: string
 }
 
-export function Modal({ open, onClose, title, children, footer, size = "md", className = "" }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  size = "md",
+  className = "",
+  footerClassName = "",
+  ariaLabel,
+}: ModalProps) {
   const isDesktop = useIsDesktop()
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
@@ -91,8 +106,8 @@ export function Modal({ open, onClose, title, children, footer, size = "md", cla
   if (!open || typeof document === "undefined") return null
 
   const panel = isDesktop
-    ? `relative w-full ${size === "sm" ? "max-w-[400px]" : "max-w-[480px]"} rounded-modal bg-surface shadow-modal`
-    : "relative w-full rounded-t-[24px] bg-surface shadow-modal"
+    ? `relative flex w-full ${size === "sm" ? "max-w-[400px]" : "max-w-[480px]"} max-h-[calc(100dvh-2rem)] flex-col rounded-modal bg-surface shadow-modal`
+    : "relative flex max-h-[90dvh] w-full flex-col rounded-sheet bg-surface pb-[env(safe-area-inset-bottom)] shadow-modal"
 
   return createPortal(
     <div className="fixed inset-0 z-50">
@@ -103,18 +118,21 @@ export function Modal({ open, onClose, title, children, footer, size = "md", cla
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
+          aria-label={!title ? ariaLabel : undefined}
           tabIndex={-1}
           data-variant={isDesktop ? "modal" : "sheet"}
           className={`${panel} ${className}`}
         >
-          {!isDesktop && <div aria-hidden className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line-strong" />}
+          {!isDesktop && <div aria-hidden className="mx-auto mt-2 h-1.5 w-10 shrink-0 rounded-full bg-line-strong" />}
           {title && (
-            <h2 id={titleId} className="px-5 pt-4 font-display text-[16px] font-semibold text-ink">
+            <h2 id={titleId} className="shrink-0 px-5 pt-4 font-display text-[16px] font-semibold text-ink">
               {title}
             </h2>
           )}
-          <div className="px-5 py-4 text-[14px] text-ink-secondary">{children}</div>
-          {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-3">{footer}</div>}
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-[14px] text-ink-secondary">{children}</div>
+          {footer && (
+            <div className={`flex shrink-0 justify-end gap-2 border-t border-line px-5 py-3 ${footerClassName}`}>{footer}</div>
+          )}
         </div>
       </div>
     </div>,
