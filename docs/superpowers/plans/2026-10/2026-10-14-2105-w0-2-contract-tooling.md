@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. **Commit after every task** (`feat(api-layer): task N – <title>`). Tasks 4–8 touch disjoint files and may be split across agents.
 
 **Lane:** W0-2 · **Wave:** 0 (parallel with W0-3, W0-4A after W0-1)
-**Owns:** `app/javascript/api/**`, `app/javascript/mocks/**`, `app/javascript/test/mockApi.ts`, `app/javascript/test/setup.ts`, `e2e/mock-smoke.spec.ts`, `contracts/README.md`, `contracts/.redocly.yaml`
+**Owns:** `app/javascript/api/**`, `app/javascript/mocks/**`, `app/javascript/test/mockApi.ts`, `app/javascript/test/mockApi.test.ts`, `app/javascript/test/setup.ts`, `app/javascript/mock-host/public/mockServiceWorker.js`, `e2e/mock-smoke.spec.ts`, `contracts/README.md`, `contracts/.redocly.yaml`, `contracts/.gitignore`, `package.json`, `package-lock.json`, `lib/tasks/boundaries.rake`, `spec/packs/boundaries_spec.rb`
 **Depends on (merged):** W0-1
 **Unblocks:** every frontend lane (hooks + mocks), W0-5
 **Goal:** Executable contract: `make contract`, generated types, `client.ts`, typed hooks for all 39 operations, a stateful MSW mock of the whole API, conformance tests, and the `mockApi` test helper.
@@ -28,7 +28,7 @@
 
 | Action | Path |
 |--------|------|
-| Create | `app/javascript/api/{client.ts,types.ts,range.ts,format.ts}`, `app/javascript/api/generated/schema.d.ts` |
+| Create | `app/javascript/api/{client.ts,types.ts}`, `app/javascript/api/generated/schema.d.ts` |
 | Create | `app/javascript/api/hooks/{auth,account,snapshots,metrics,leads,nextActions,coordinators,agent,mcp}.ts` (+ `.test.tsx` each) |
 | Create | `app/javascript/mocks/{db.ts,browser.ts,server.ts,scenarios.ts,conformance.test.ts}`, `app/javascript/mocks/handlers/<domain>.ts` |
 | Create | `app/javascript/test/{setup.ts,mockApi.ts,mockApi.test.ts}`, `e2e/mock-smoke.spec.ts` |
