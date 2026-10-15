@@ -36,10 +36,11 @@ class LaneSandbox
   end
 
   # The first stub whose extended regexp matches the gh arguments wins; stubs added in a test beat the defaults (900+).
-  def stub_gh(pattern, out: "", exit_code: 0, priority: nil)
+  def stub_gh(pattern, out: "", exit_code: 0, err: "", priority: nil)
     name = format("%03d", priority || (@stubs += 1))
     File.write(File.join(@gh_dir, "#{name}.match"), pattern)
     File.write(File.join(@gh_dir, "#{name}.out"), out)
+    File.write(File.join(@gh_dir, "#{name}.err"), err)
     File.write(File.join(@gh_dir, "#{name}.exit"), exit_code.to_s)
   end
 
@@ -69,6 +70,17 @@ class LaneSandbox
 
   def commit_in(lane_id, file:, content: "work\n", message: "feat: task 1")
     commit(worktree(lane_id), file, content, message)
+  end
+
+  # Someone else pushes a commit to `branch` on origin (from a separate clone).
+  def foreign_push(branch, file: "other.txt", content: "someone else\n")
+    clone = File.join(@dir, "foreign-#{@stubs += 1}")
+    git("clone", "-q", @remote, clone, chdir: @dir)
+    git("checkout", "-q", branch, chdir: clone)
+    File.write(File.join(clone, file), content)
+    git("add", file, chdir: clone)
+    git("commit", "-qm", "foreign commit", chdir: clone)
+    git("push", "-q", "origin", branch, chdir: clone)
   end
 
   # Advances origin/main from the sandbox main checkout.
@@ -104,6 +116,7 @@ class LaneSandbox
     FileUtils.mkdir_p([ File.join(@root, "bin"), File.join(@root, "docs/superpowers/plans"), @fake_bin, @gh_dir ])
     FileUtils.cp(File.join(REPO, "bin/lane"), File.join(@root, "bin/lane"))
     FileUtils.cp(File.join(REPO, "bin/worktree-env"), File.join(@root, "bin/worktree-env"))
+    FileUtils.cp(File.join(REPO, "bin/guard-no-health-data"), File.join(@root, "bin/guard-no-health-data"))
     FileUtils.cp_r(File.join(REPO, "docs/superpowers/plans/2026-10"), File.join(@root, "docs/superpowers/plans"))
     File.write(File.join(@root, "opencode.json"), JSON.generate(agent: { lane: { permission: { edit: "allow" } } }))
     File.write(File.join(@root, ".gitignore"), ".env\n.worktrees/\n.superpowers/\n.lane-prompt.md\n")
@@ -129,6 +142,7 @@ class LaneSandbox
         if printf '%s' "$args" | grep -Eq -- "$(cat "$m")"; then
           base="${m%.match}"
           cat "$base.out"
+          cat "$base.err" >&2
           exit "$(cat "$base.exit")"
         fi
       done
@@ -140,6 +154,7 @@ class LaneSandbox
       echo "not json noise"
       [ -n "${FAKE_OPENCODE_ARGS:-}" ] && printf '%s\n' "$@" > "$FAKE_OPENCODE_ARGS"
       [ -n "${FAKE_OPENCODE_STDIN:-}" ] && readlink /proc/self/fd/0 > "$FAKE_OPENCODE_STDIN"
+      [ -n "${FAKE_OPENCODE_CORRUPT:-}" ] && echo '{not json' > "$FAKE_OPENCODE_CORRUPT"
       [ -n "${FAKE_OPENCODE_TOUCH:-}" ] && touch "$FAKE_OPENCODE_TOUCH"
       sleep "${FAKE_OPENCODE_SLEEP:-0}"
       exit "${FAKE_OPENCODE_EXIT:-0}"

@@ -39,6 +39,29 @@ RSpec.describe "bin/lane ci and rebase" do
         expect(sandbox.lane("ci", "F-WEEK")).to be_success
       end
 
+      it "reads the failing runs of the PR head only, not of earlier heads" do
+        head = sandbox.git("rev-parse", "HEAD", chdir: wt)
+        open_pr
+        sandbox.stub_gh("^pr checks", out: "Backend tests\tfail\n", exit_code: 1)
+        sandbox.stub_gh("^run list .*--commit #{head}", out: JSON.generate([ { "databaseId" => 50, "name" => "Backend tests", "conclusion" => "failure" } ]), priority: 0)
+        sandbox.stub_gh("^run list", out: JSON.generate([ { "databaseId" => 41, "name" => "Stale job from an older head", "conclusion" => "failure" } ]))
+        sandbox.stub_gh("^run view 50 --log-failed", out: "current failure\n")
+        sandbox.stub_gh("^run view 41 --log-failed", out: "stale failure\n")
+        res = sandbox.lane("ci", "F-WEEK")
+        expect(res.exitstatus).to eq(1)
+        expect(res.out).to include("current failure")
+        expect(res.out).not_to include("stale")
+      end
+
+      it "reports a gh error (rate limit, auth) as exit 4 with gh's message, not as red CI" do
+        open_pr
+        sandbox.stub_gh("^pr checks", out: "", err: "HTTP 403: API rate limit exceeded", exit_code: 1)
+        res = sandbox.lane("ci", "F-WEEK")
+        expect(res.exitstatus).to eq(4)
+        expect(res.out + res.err).to include("rate limit")
+        expect(res.out).not_to include("claude-review")
+      end
+
       it "exits 1 and prints only the failing jobs' logs when a check is red" do
         open_pr
         sandbox.stub_gh("^pr checks", out: "Backend tests\tfail\n", exit_code: 1)

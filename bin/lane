@@ -19,7 +19,7 @@
 
 Guide: docs/superpowers/parallel/playbook.md
 """
-import argparse, os, re, subprocess, sys, glob, json, time, datetime
+import argparse, contextlib, fcntl, os, re, subprocess, sys, glob, json, tempfile, time, datetime
 
 def sh(*cmd, cwd=None, check=True, capture=True):
     r = subprocess.run(cmd, cwd=cwd, text=True, capture_output=capture)
@@ -144,18 +144,31 @@ def cmd_check(a):
 
 def cmd_pr(a):
     l = get_lane(a.lane or current_lane())
-    if not a.skip_gate: require_approval(l)
+    state = load_state()  # a corrupt state file must stop us BEFORE anything is published
+    wt = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower()); top = os.path.realpath(sh("git", "rev-parse", "--show-toplevel"))
+    if os.path.isdir(wt) and top != os.path.realpath(wt): sys.exit(f"gate: run this from the lane's worktree ({wt}); you are in {top}")
+    rec = state["lanes"].get(l["id"], {})
+    if rec.get("phase") in ("running", "fixing"): sys.exit(f"gate: {l['id']} is in phase {rec['phase']!r}; wait for the run to finish, then verify, review and approve again before publishing")
+    branch = sh("git", "branch", "--show-current")
+    if not branch: sys.exit("gate: detached HEAD; check out the lane branch first")
+    sha = sh("git", "rev-parse", "HEAD")  # pinned: the approval check, the push and the claude-review status below all act on this commit
+    if not a.skip_gate: require_approval(l, sha)
     cmd_check(argparse.Namespace(lane=l["id"], base=a.base, ccr=False))
     if a.dry_run:
         print("dry run: would push, open or update the PR, post the `claude-review` status on the reviewed commit" + (" and enable auto-merge (squash)" if a.auto_merge else "")); return
-    branch = sh("git", "branch", "--show-current")
     existing = open_pr_for(branch)
     if existing:
-        # A fix round or a rebase after approval: update the same PR; the lease refuses to clobber commits we have not seen.
-        sh("git", "push", "--force-with-lease", "origin", f"HEAD:refs/heads/{branch}", capture=False)
+        # A fix round or a rebase after approval: update the same PR. The lease names the head this tool last published, so a commit pushed by
+        # someone else is never overwritten (a plain --force-with-lease is defeated by any `git fetch`, which rebase and start both run).
+        leased = rec.get("head")
+        if not leased: sys.exit(f"gate: no recorded published head for {l['id']}; set it first: bin/lane state set {l['id']} head=<sha of the PR's current head>")
+        sh("git", "push", f"--force-with-lease=refs/heads/{branch}:{leased}", "origin", f"{sha}:refs/heads/{branch}", capture=False)
         url = existing["url"]; print(f"updated {url}")
     else:
-        sh("git", "push", "-u", "origin", "HEAD", capture=False)
+        merged = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "merged", "--json", "url") or "[]")
+        if merged: sys.exit(f"gate: {l['id']} already merged ({merged[0]['url']}); nothing to publish")
+        sh("git", "push", "origin", f"{sha}:refs/heads/{branch}", capture=False)
+        sh("git", "branch", "--set-upstream-to", f"origin/{branch}", check=False)
         body = f"""## Lane {l['id']} (wave {l['wave']})
 
 Plan: `{l['rel']}`
@@ -175,15 +188,18 @@ Plan: `{l['rel']}`
         if a.draft: cmd.append("--draft")
         url = sh(*cmd); print(url)
     # The reviewer's approval is bound to the exact commit: publish it as the `claude-review` commit status that branch protection requires.
-    head, repo = sh("git", "rev-parse", "HEAD"), sh("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
+    repo = sh("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
     ap = json.load(open(os.path.join(gate_dir(l), "approved.json"))) if os.path.exists(os.path.join(gate_dir(l), "approved.json")) else {}
-    sh("gh", "api", "-X", "POST", f"repos/{repo}/statuses/{head}", "-f", "state=success", "-f", "context=claude-review",
+    sh("gh", "api", "-X", "POST", f"repos/{repo}/statuses/{sha}", "-f", "state=success", "-f", "context=claude-review",
        "-f", f"description=reviewed by {ap.get('by', 'reviewer')} (independent verification + code review)"[:140])
-    print(f"posted claude-review=success on {head[:9]}")
+    print(f"posted claude-review=success on {sha[:9]}")
+    auto = False
     if a.auto_merge and not a.draft:
         r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash", "--delete-branch"], text=True, capture_output=True)
-        print("auto-merge enabled (merges when the required checks are green)" if r.returncode == 0 else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
-    update_lane(l["id"], phase="ci", pr=url, head=head)
+        auto = r.returncode == 0
+        print("auto-merge enabled (merges when the required checks are green)" if auto else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
+    # `ci` means the PR is open with auto-merge on; otherwise it is approved and waiting for a human to merge.
+    safe_update(l["id"], phase="ci" if auto else "approved", pr=url, head=sha)
 
 def lane_states(ls):
     """lane -> (state, link) from GitHub: merged / PR open / draft PR / in progress / not started."""
@@ -300,7 +316,7 @@ def cmd_graph(a):
 # ---------------------------------------------------------------- review gate (see docs/superpowers/parallel/review-gate.md)
 GATE_ROOT = os.path.join(MAIN_ROOT, ".superpowers", "gate")
 RED_FLAGS = [
-    ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|\bpending\b|\bskip\b\s*[\"'(:])"),
+    ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|(?:^|[\s;])pending\s*(?:\(|[\"'])|\bskip\b\s*[\"'(:])"),
     ("TODO/FIXME/HACK", r"\b(TODO|FIXME|HACK|XXX)\b"),
     ("debug leftovers", r"(console\.log\(|binding\.pry|byebug|\bdebugger\b|\bputs\s+[\"'#])"),
     ("secret-looking value", r"(sk-ant-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"),
@@ -339,6 +355,7 @@ def cmd_run(a):
     """Hand a lane to OpenCode 2.x headlessly under the `lane` agent from opencode.json: deny by default, commits stay local, nothing can be published.
     Records the run in the conductor state: running -> verifying (with the session id), or blocked on the tripwire."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
+    if a.prompt_file and not a.session: sys.exit("gate: --prompt-file is for a fix round and needs --session <id> (findings alone would start a new session that has never seen the plan)")
     model = a.model or os.environ.get("LANE_MODEL") or load_state()["models"].get(tier_of(l["id"]))
     if not model: sys.exit(f"gate: pass --model provider/model (or set LANE_MODEL, or `bin/lane state set-models {tier_of(l['id'])}=provider/model`). List them: opencode models")
     require_lane_agent(wt)
@@ -361,15 +378,17 @@ def cmd_run(a):
         try: code = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdin=subprocess.DEVNULL, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None).returncode
         except subprocess.TimeoutExpired: timed_out = True
     after, sid = main_state(), session_id(log) or a.session or ""
+    # Report the outcome first, then record it: a failing state write must never hide the tripwire or change the exit code.
     if before != after:
-        update_lane(l["id"], phase="blocked", session=sid, blocked_reason=f"tripwire: the main checkout changed during the run {before} -> {after}")
         print(f"TRIPWIRE: the main checkout changed during the run (HEAD/branch/status {before} -> {after}). The agent worked outside its worktree. STOP and inspect before anything else.")
+        safe_update(l["id"], phase="blocked", session=sid, blocked_reason=f"tripwire: the main checkout changed during the run {before} -> {after}")
         sys.exit(3)
-    update_lane(l["id"], phase="verifying", session=sid)
+    safe_update(l["id"], phase="verifying", session=sid)
     if timed_out:
         print(f"opencode timed out after {a.timeout} min; partial commits stay in the worktree; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
         sys.exit(4)
     print(f"opencode exited {code}; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
+    if code: sys.exit(5)  # OpenCode itself failed (bad model, auth, crash): the lane stays reviewable but the caller must not treat the run as a success
 
 def sh_in(wt, *cmd, check=False):
     r = subprocess.run(cmd, cwd=wt, text=True, capture_output=True)
@@ -430,13 +449,13 @@ def cmd_approve(a):
     """Record the reviewer's approval (after independent verification + code review) for the exact HEAD; `bin/lane pr` refuses to publish without it."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
     head = sh_in(wt, "git", "rev-parse", "HEAD")
-    open(os.path.join(gd, "approved.json"), "w").write(json.dumps({"lane": l["id"], "head": head, "by": a.by, "note": a.note or "", "at": __import__("datetime").datetime.now().isoformat(timespec="seconds")}, indent=2))
+    open(os.path.join(gd, "approved.json"), "w").write(json.dumps({"lane": l["id"], "head": head, "by": a.by, "note": a.note or "", "at": datetime.datetime.now().isoformat(timespec="seconds")}, indent=2))
     print(f"approved {l['id']} @ {head[:9]} by {a.by}")
 
-def require_approval(l):
+def require_approval(l, head):
     f = os.path.join(gate_dir(l), "approved.json")
     if not os.path.exists(f): sys.exit(f"gate: no reviewer approval for {l['id']}. Verify and review it (bin/lane review {l['id']}), then: bin/lane approve {l['id']}")
-    ap = json.load(open(f)); head = sh("git", "rev-parse", "HEAD")
+    ap = json.load(open(f))
     if ap["head"] != head: sys.exit(f"gate: approval is for {ap['head'][:9]} but HEAD is {head[:9]} - review the new commits and approve again")
 
 def tool_events(log):
@@ -513,16 +532,33 @@ def load_state():
     try:
         with open(STATE_PATH) as f: s = json.load(f)
     except FileNotFoundError: s = {}
-    except ValueError as e: sys.exit(f"corrupt state file {STATE_PATH}: {e}. Fix or delete it (GitHub still holds PR/merge state).")
+    except ValueError as e: sys.exit(f"corrupt state file {STATE_PATH}: {e}. Fix it by hand or restore it; do not delete it while lanes are running (their phases and the caps would reset).")
+    if (not isinstance(s, dict) or not all(isinstance(s.get(k, {}), dict) for k in ("models", "lanes", "caps"))
+            or not all(isinstance(v, dict) for v in s.get("lanes", {}).values())
+            or not all(isinstance(v, int) and not isinstance(v, bool) for v in s.get("caps", {}).values())):
+        sys.exit(f"corrupt state file {STATE_PATH}: unexpected structure (want an object with dict `lanes`/`models` and integer `caps`). Fix it by hand or restore it.")
     s.setdefault("models", {}); s.setdefault("lanes", {})
     s["caps"] = {**DEFAULT_CAPS, **s.get("caps", {})}
     return s
 
-def save_state(s):
+@contextlib.contextmanager
+def state_lock():
+    """Serialise read-modify-write of the state file across the parallel `bin/lane` processes the conductor runs."""
     os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
-    tmp = STATE_PATH + ".tmp"
-    with open(tmp, "w") as f: json.dump(s, f, indent=2, sort_keys=True)
-    os.replace(tmp, STATE_PATH)
+    with open(STATE_PATH + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try: yield
+        finally: fcntl.flock(lock, fcntl.LOCK_UN)
+
+def save_state(s):
+    d = os.path.dirname(STATE_PATH); os.makedirs(d, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".state-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f: json.dump(s, f, indent=2, sort_keys=True)
+        os.replace(tmp, STATE_PATH)
+    except BaseException:
+        with contextlib.suppress(OSError): os.unlink(tmp)
+        raise
 
 def parse_pairs(pairs):
     out = {}
@@ -538,9 +574,16 @@ def update_lane(lane_id, **fields):
     for k in INT_KEYS & set(fields):
         try: fields[k] = int(fields[k])
         except ValueError: sys.exit(f"{k} must be an integer")
-    s = load_state(); rec = s["lanes"].setdefault(lane_id, {})
-    rec.update(fields); rec["updated_at"] = datetime.datetime.now().isoformat(timespec="seconds")
-    save_state(s); return rec
+    with state_lock():
+        s = load_state(); rec = s["lanes"].setdefault(lane_id, {})
+        rec.update(fields); rec["updated_at"] = datetime.datetime.now().isoformat(timespec="seconds")
+        save_state(s)
+    return rec
+
+def safe_update(lane_id, **fields):
+    """Record state AFTER an outcome has been reported: a state failure must not hide or change that outcome."""
+    try: return update_lane(lane_id, **fields)
+    except SystemExit as e: print(f"WARNING: could not record state for {lane_id}: {e}", file=sys.stderr)
 
 def cmd_state(a):
     if a.action == "show":
@@ -549,15 +592,18 @@ def cmd_state(a):
     if a.action == "set":
         if not a.args: sys.exit("usage: bin/lane state set LANE key=value ...")
         print(json.dumps(update_lane(get_lane(a.args[0])["id"], **parse_pairs(a.args[1:])), indent=2, sort_keys=True)); return
-    s, pairs = load_state(), parse_pairs(a.args)
+    pairs = parse_pairs(a.args)
     allowed = set(DEFAULT_CAPS) if a.action == "set-caps" else set(TIERS) | {"mid"}
     bad = set(pairs) - allowed
     if bad: sys.exit(f"unknown {a.action[4:]} key(s): {', '.join(sorted(bad))} (allowed: {', '.join(sorted(allowed))})")
-    if a.action == "set-caps":
-        try: s["caps"].update({k: int(v) for k, v in pairs.items()})
-        except ValueError: sys.exit("caps must be integers")
-    else: s["models"].update(pairs)
-    save_state(s); print(json.dumps({k: s[k] for k in ("caps", "models")}, indent=2, sort_keys=True))
+    with state_lock():
+        s = load_state()
+        if a.action == "set-caps":
+            try: s["caps"].update({k: int(v) for k, v in pairs.items()})
+            except ValueError: sys.exit("caps must be integers")
+        else: s["models"].update(pairs)
+        save_state(s)
+    print(json.dumps({k: s[k] for k in ("caps", "models")}, indent=2, sort_keys=True))
 
 def has_worktree(lane_id): return os.path.isdir(os.path.join(MAIN_ROOT, ".worktrees", lane_id.lower()))
 
@@ -630,7 +676,7 @@ def open_pr_for(branch):
     return prs[0] if prs else None
 
 def cmd_ci(a):
-    """Wait for the lane PR's checks. 0 green (or already merged), 1 red (failing job logs printed), 2 no PR, 3 timed out."""
+    """Wait for the lane PR's checks. 0 green (or already merged), 1 red (failing job logs of the PR head printed), 2 no PR, 3 timed out, 4 gh error."""
     l = get_lane(a.lane); wt = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
     branch = sh_in(wt, "git", "branch", "--show-current") if os.path.isdir(wt) else f"lane/{l['id']}-<slug>"
     watch = ["gh", "pr", "checks", branch, "--watch", "--interval", "30"]
@@ -644,9 +690,15 @@ def cmd_ci(a):
     except subprocess.TimeoutExpired: print(f"timed out after {a.timeout} min waiting for the checks"); sys.exit(3)
     print((r.stdout or "").strip())
     if r.returncode == 0: print("checks green"); return
-    runs = json.loads(sh("gh", "run", "list", "--branch", branch, "--limit", "20", "--json", "databaseId,name,conclusion") or "[]")
+    rows = [ln.split("\t") for ln in (r.stdout or "").splitlines() if "\t" in ln]
+    if not (r.returncode == 1 and any(len(c) > 1 and c[1] == "fail" for c in rows)):
+        # No failing check row: gh itself failed (rate limit, auth, network). Say so instead of calling it red CI.
+        print(f"gh could not report the checks (exit {r.returncode}): {(r.stderr or r.stdout or '').strip()[:400]}"); sys.exit(4)
+    # Only the runs of the PR's current head: earlier heads' failures are already fixed and would send the agent after ghosts.
+    head = sh_in(wt, "git", "rev-parse", "HEAD")
+    runs = json.loads(sh("gh", "run", "list", "--branch", branch, "--commit", head, "--limit", "20", "--json", "databaseId,name,conclusion") or "[]")
     failed = [x for x in runs if x.get("conclusion") in ("failure", "timed_out")]
-    if not failed: print("no failed workflow run found: the red check is a commit status (e.g. claude-review missing on this head)")
+    if not failed: print("no failed workflow run found for this head: the red check is a commit status (e.g. claude-review missing on this head)")
     for x in failed:
         print(f"\n## failed: {x['name']} (run {x['databaseId']})")
         print("\n".join(sh("gh", "run", "view", str(x["databaseId"]), "--log-failed", check=False).splitlines()[-a.tail:]))

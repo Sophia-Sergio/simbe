@@ -57,6 +57,35 @@ RSpec.describe "bin/lane run" do
     expect(File.read(seen).strip).to eq("/dev/null")
   end
 
+  it "still reports the tripwire (exit 3) when the state file was corrupted during the run" do
+    env = { "FAKE_OPENCODE_TOUCH" => File.join(sandbox.root, "escaped.txt"), "FAKE_OPENCODE_CORRUPT" => sandbox.state_path }
+    res = sandbox.lane("run", "F-WEEK", "--model", "p/m", env: env)
+    expect(res.exitstatus).to eq(3)
+    expect(res.out).to include("TRIPWIRE")
+  end
+
+  it "still exits 4 on a timeout when the state file was corrupted during the run" do
+    env = { "FAKE_OPENCODE_SLEEP" => "5", "FAKE_OPENCODE_CORRUPT" => sandbox.state_path }
+    res = sandbox.lane("run", "F-WEEK", "--model", "p/m", "--timeout", "0.02", env: env)
+    expect(res.exitstatus).to eq(4)
+    expect(res.out).to include("timed out")
+  end
+
+  it "exits 5 when OpenCode itself fails, and keeps the lane reviewable" do
+    res = sandbox.lane("run", "F-WEEK", "--model", "p/m", env: { "FAKE_OPENCODE_EXIT" => "7" })
+    expect(res.exitstatus).to eq(5)
+    expect(res.out).to include("exited 7")
+    expect(record["phase"]).to eq("verifying")
+  end
+
+  it "refuses --prompt-file without --session (the findings alone would start a context-free session)" do
+    findings = File.join(sandbox.root, "..", "f2.md")
+    File.write(findings, "x")
+    res = sandbox.lane("run", "F-WEEK", "--model", "p/m", "--prompt-file", findings)
+    expect(res).not_to be_success
+    expect(res.err).to include("--session")
+  end
+
   it "writes no state on --dry-run" do
     sandbox.lane("run", "F-WEEK", "--model", "p/m", "--dry-run")
     expect(File.exist?(sandbox.state_path)).to be(false)

@@ -43,6 +43,24 @@ RSpec.describe "bin/lane state" do
     expect(sandbox.lane("state", "set-models", "huge=p/x")).not_to be_success
   end
 
+  it "keeps every update when many processes write the state at once" do
+    ids = %w[W0-1 W0-2 W0-3 W0-4A W0-4B W0-5 W0-6A W0-6B W0-7 B-INGEST B-METRICS B-LEADS]
+    results = ids.map { |id| Thread.new { sandbox.lane("state", "set", id, "phase=queued") } }.map(&:value)
+    expect(results.map(&:exitstatus)).to all(eq(0))
+    expect(sandbox.state["lanes"].keys).to match_array(ids)
+  end
+
+  it "names the state file and writes nothing for a state file of the wrong shape" do
+    [ "[]", '{"lanes": []}', '{"caps": null}', '{"caps": {"max_running": "four"}}' ].each do |body|
+      File.write(sandbox.state_path, body)
+      res = sandbox.lane("state", "set", "F-WEEK", "phase=queued")
+      expect(res).not_to be_success
+      expect(res.err).to include("state file"), "#{body}: #{res.err}"
+      expect(res.err).not_to include("Traceback")
+      expect(File.read(sandbox.state_path)).to eq(body)
+    end
+  end
+
   it "refuses to touch a corrupt state file" do
     File.write(sandbox.state_path, "{not json")
     res = sandbox.lane("state", "set", "F-WEEK", "phase=queued")

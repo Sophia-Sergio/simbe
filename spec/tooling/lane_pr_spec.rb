@@ -54,6 +54,66 @@ RSpec.describe "bin/lane pr" do
     expect(remote_head).to eq(head)
   end
 
+  it "refuses while the lane is still running or fixing" do
+    %w[running fixing].each do |phase|
+      sandbox.lane("state", "set", "F-WEEK", "phase=#{phase}")
+      res = pr
+      expect(res).not_to be_success
+      expect(res.err).to include("phase")
+    end
+    expect(sandbox.gh_calls.grep(/^pr create/)).to be_empty
+  end
+
+  it "refuses to run from outside the lane's worktree" do
+    res = sandbox.lane("pr", "--lane", "F-WEEK", chdir: sandbox.root)
+    expect(res).not_to be_success
+    expect(res.err).to include("worktree")
+    expect(sandbox.gh_calls.grep(/^pr create/)).to be_empty
+  end
+
+  it "stops on a corrupt or malformed state file before it publishes anything" do
+    [ "{not json", "[]" ].each do |body|
+      File.write(sandbox.state_path, body)
+      res = pr
+      expect(res).not_to be_success
+      expect(res.err).to include("state file")
+    end
+    expect(sandbox.gh_calls.grep(/^pr create|^api/)).to be_empty
+    expect(sandbox.git("ls-remote", "origin", "refs/heads/#{branch}")).to eq("")
+  end
+
+  it "does not open a second PR for a lane whose PR already merged" do
+    sandbox.stub_gh("^pr list --head \\S+ --state merged", out: '[{"url": "https://gh/pull/9"}]')
+    res = pr
+    expect(res).not_to be_success
+    expect(res.err).to include("already merged")
+    expect(sandbox.gh_calls.grep(/^pr create/)).to be_empty
+  end
+
+  it "refuses to force-push over commits it has not seen, even after a fetch" do
+    pr
+    existing_pr
+    sandbox.foreign_push(branch)
+    sandbox.git("fetch", "-q", "origin", chdir: wt) # `bin/lane rebase` and `start` always fetch
+    foreign = remote_head
+    sandbox.git("commit", "--amend", "-qm", "feat: task 1 (reworded)", chdir: wt)
+    sandbox.lane("approve", "F-WEEK", "--by", "tester")
+    res = pr
+    expect(res).not_to be_success
+    expect(remote_head).to eq(foreign)
+  end
+
+  it "refuses to refresh a published branch when no published head is recorded" do
+    pr
+    existing_pr
+    sandbox.write_state({})
+    sandbox.git("commit", "--amend", "-qm", "feat: task 1 (reworded)", chdir: wt)
+    sandbox.lane("approve", "F-WEEK", "--by", "tester")
+    res = pr
+    expect(res).not_to be_success
+    expect(res.err).to include("published head")
+  end
+
   it "refuses to publish a commit that was not approved" do
     pr
     existing_pr
