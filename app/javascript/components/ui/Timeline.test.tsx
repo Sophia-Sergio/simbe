@@ -55,3 +55,10 @@ it("renders duplicate entries without a React key warning", () => {
   expect(spy.mock.calls.flat().join(" ")).not.toMatch(/same key/)
   spy.mockRestore()
 })
+
+// jsdom has no layout, so this pins the class that lets long titles truncate instead of widening the page
+// (found by e2e/kit.spec.ts at 390px: a flex child without min-w-0 never shrinks below its text).
+it("lets the row shrink so long titles truncate", () => {
+  render(<Timeline items={[items[0]]} formatAt={() => "9:14 am"} />)
+  expect(screen.getByTestId("timeline-item").lastElementChild).toHaveClass("min-w-0")
+})

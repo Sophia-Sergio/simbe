@@ -59,7 +59,7 @@ export default function Primitives() {
   }, [confirmPending])
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Card heading="Button">
         <div className="flex flex-wrap items-center gap-2">
           <Button>Primary</Button>

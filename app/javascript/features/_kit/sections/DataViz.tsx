@@ -70,7 +70,7 @@ export default function DataViz() {
   const [timezone, setTimezone] = useState("America/Los_Angeles")
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
       <Card heading="KpiCard">
         <div className="grid grid-cols-2 gap-3">
           <KpiCard label="Leads" value="3,530" delta={{ text: "+6%", tone: "up" }} note="12 months" bar={{ kind: "fill", pct: 60 }} />
