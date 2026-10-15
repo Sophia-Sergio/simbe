@@ -1,21 +1,9 @@
 import { act, renderHook } from "@testing-library/react"
+import { restoreMatchMedia, setViewport } from "@/components/ui/test-utils"
 import { useIsDesktop } from "./useIsDesktop"
 import { useMediaQuery } from "./useMediaQuery"
 
-function setViewport(width: number): void {
-  window.matchMedia = ((query: string) => ({
-    matches: /min-width:\s*860px/.test(query) ? width >= 860 : false,
-    media: query,
-    onchange: null,
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => true,
-  })) as unknown as typeof window.matchMedia
-  Object.defineProperty(window, "innerWidth", { writable: true, configurable: true, value: width })
-  window.dispatchEvent(new Event("resize"))
-}
+afterEach(() => restoreMatchMedia())
 
 it("useIsDesktop tracks matchMedia", () => {
   setViewport(500)
