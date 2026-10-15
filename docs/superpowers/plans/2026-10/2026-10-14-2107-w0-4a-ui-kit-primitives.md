@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/` and **`docs/design/brand.md`** (every color/radius/shadow comes from Tailwind tokens defined in W0-1; no raw hex). Stop if blocked — do not replan silently. **Commit after every task** (`feat(kit): task N – <component>`). Tasks 2–9 touch disjoint files and may be split across agents.
 
 **Lane:** W0-4A · **Wave:** 0 (after W0-1; parallel with W0-2, W0-3)
-**Owns:** `app/javascript/components/ui/{Button,Pill,Field,Input,Select,Segmented,Tabs,Chip,Avatar,Skeleton,EmptyState,ErrorState,Toast,Modal,Sheet,ConfirmInline,Spinner,Dropzone,BrandMark}.tsx`, `app/javascript/components/ui/*.test.tsx`, `app/javascript/hooks/{useAsyncAction,useDismiss,useIsDesktop,useMediaQuery}.ts`, `app/javascript/hooks/{useAsyncAction,useDismiss,useIsDesktop,useMediaQuery}.test.{ts,tsx}`, `app/javascript/features/_kit/**`, `e2e/kit.spec.ts`
+**Owns:** `app/javascript/components/ui/{Button,Pill,Field,Input,Select,Segmented,Tabs,Chip,Avatar,Skeleton,EmptyState,ErrorState,Toast,Modal,Sheet,ConfirmInline,Spinner,Dropzone,BrandMark}.tsx`, `app/javascript/components/ui/*.test.tsx`, `app/javascript/components/ui/test-utils.ts`, `app/javascript/hooks/{useAsyncAction,useDismiss,useIsDesktop,useMediaQuery}.ts`, `app/javascript/hooks/{useAsyncAction,useDismiss,useIsDesktop,useMediaQuery}.test.{ts,tsx}`, `app/javascript/features/_kit/**`, `e2e/{kit,smoke}.spec.ts`
 **Depends on (merged):** W0-1 (tokens, registry types)
 **Unblocks:** W0-4B, W0-5, W0-6A/B, every frontend lane
 **Goal:** The generic, brand-correct interactive building blocks (desktop + mobile behavior built in) and the `/__kit` gallery.
@@ -156,8 +156,9 @@ it("does not render when closed and unmounts listeners", () => { /* ... */ });
 
 ## Task 9: `/__kit` gallery and e2e
 
-**Files:** `app/javascript/features/_kit/{feature.ts,KitGallery.tsx,sections/Primitives.tsx}`, `e2e/kit.spec.ts`.
+**Files:** `app/javascript/features/_kit/{feature.ts,KitGallery.tsx,sections/Primitives.tsx}`, `e2e/smoke.spec.ts`.
 **Interfaces — Produces:** route `/__kit` (public, dev/e2e only: `import.meta.env.DEV || import.meta.env.MODE === "e2e"`), sections auto-collected with `import.meta.glob("./sections/*.tsx", { eager: true })` so W0-4B adds `sections/DataViz.tsx` without touching this plan's files.
 - [x] **Step 1:** Gallery renders every primitive in all variants/states (pending, disabled, error, long labels) and has buttons that open a `Modal`, a `Sheet`, fire a `Toast`.
 - [ ] **Step 2: e2e** — `kit.spec.ts` visits `/__kit`, asserts each section heading, opens modal/sheet/toast, and saves `e2e/screenshots/kit-desktop.png` and `kit-mobile.png` (Playwright projects `desktop`/`mobile`); fail on any horizontal scroll (`document.documentElement.scrollWidth <= window.innerWidth`).
+  > Deferred to W0-5: the `/__kit` e2e needs the router that W0-5 mounts.
 - [ ] **Step 3:** `make web-test ARGS=app/javascript/components/ui app/javascript/hooks`, `make e2e ARGS=kit`, typecheck, lint, and `grep -rnE '#[0-9a-fA-F]{6}' app/javascript/components/ui | wc -l` → `0`. `make verify` → exit 0. Commit; open PR.
