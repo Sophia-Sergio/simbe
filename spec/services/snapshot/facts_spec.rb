@@ -44,12 +44,12 @@ RSpec.describe Snapshot::Facts do
 
   def fact(lead) = LeadFact.find_by!(lead_id: lead.id)
 
-  it "derives the accepted milestones and the furthest stage" do
+  it "derives the accepted milestones and the furthest stage with exact timestamps" do
     f = fact(accepted)
-    expect(f.application_submitted_at).to be_present
-    expect(f.consult_attended_at).to be_present
-    expect(f.records_at).to be_present
-    expect(f.accepted_at).to be_present
+    expect(f.application_submitted_at).to eq(created + 2.days)
+    expect(f.consult_attended_at).to eq(created + 3.days)
+    expect(f.records_at).to eq(created + 4.days)
+    expect(f.accepted_at).to eq(created + 6.days)
     expect(f.furthest_stage).to eq("accepted")
   end
 
@@ -68,6 +68,21 @@ RSpec.describe Snapshot::Facts do
   it "counts screener answers by requirement" do
     f = fact(accepted)
     expect([ f.screener_met, f.screener_review, f.screener_not_met, f.screener_total ]).to eq([ 2, 1, 1, 4 ])
+  end
+
+  it "uses the FIRST submission when a lead has several applications" do
+    lead = make_lead
+    Application.create!(lead: lead, started_at: created, submitted_at: created + 1.day, percent_complete: 100)
+    Application.create!(lead: lead, started_at: created + 2.days, submitted_at: created + 3.days, percent_complete: 100)
+    described_class.call(agency.id)
+    expect(fact(lead).application_submitted_at).to eq(created + 1.day)
+  end
+
+  it "counts an attended appointment with no scheduled_for (the oracle counts it as attended)" do
+    lead = make_lead
+    Appointment.create!(lead: lead, booked_at: created + 1.day, status: "attended")
+    described_class.call(agency.id)
+    expect(fact(lead).consult_attended_at).to eq(created + 1.day)
   end
 
   it "replaces the agency's facts instead of duplicating them on a second run" do

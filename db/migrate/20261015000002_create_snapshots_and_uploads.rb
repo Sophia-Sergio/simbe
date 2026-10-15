@@ -3,7 +3,7 @@
 class CreateSnapshotsAndUploads < ActiveRecord::Migration[8.1]
   def change
     create_table :snapshots, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
       t.timestamptz :as_of, null: false
       t.timestamptz :loaded_at
       t.jsonb :row_counts
@@ -14,9 +14,11 @@ class CreateSnapshotsAndUploads < ActiveRecord::Migration[8.1]
       t.timestamptz :updated_at, null: false
       t.index %i[agency_id as_of]
     end
+    # loaded_by is nullable by design, so a single-column FK (not composite).
+    add_foreign_key :snapshots, :users, column: :loaded_by, on_delete: :nullify
 
     create_table :snapshot_uploads, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
       t.uuid :user_id, null: false
       t.string :status, null: false, default: "validating"
       t.jsonb :progress
@@ -36,5 +38,6 @@ class CreateSnapshotsAndUploads < ActiveRecord::Migration[8.1]
     add_check_constraint :snapshot_uploads,
       "status IN ('validating','validated','committing','committed','failed','cancelled','expired')",
       name: "snapshot_uploads_status_check"
+    add_foreign_key :snapshot_uploads, :users, column: %i[agency_id user_id], primary_key: %i[agency_id id]
   end
 end

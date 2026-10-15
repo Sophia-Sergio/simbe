@@ -27,10 +27,15 @@ OpenapiFirst::Test.setup do |test|
   test.register(CONTRACT)
   test.observe(Rails.application)
 
-  # Undocumented paths must not fail specs: spa_spec deliberately requests an unknown
-  # /api/v1 path expecting a JSON 404, and /up is a Rails health route outside the
-  # contract. Documented operations are still strictly validated.
-  test.ignore_unknown_requests = true
+  # An undocumented /api/v1 path must FAIL: a lane may not ship an endpoint the contract does
+  # not describe (plan Task 6 Step 2). Requests outside the API (the SPA shell, /up, /missing.js,
+  # SPA client routes that share an operation's shape) are exempt, and the one deliberate probe
+  # of an unknown API path in spa_spec opts out explicitly with a header.
+  test.ignore_unknown_requests = false
+  test.ignore_request_error do |validated_request|
+    next true unless validated_request.path.start_with?("/api/v1")
+    validated_request.env["HTTP_X_SIMBE_CONTRACT_PROBE"] == "1"
+  end
 
   # Coverage is reported by `rake contract:coverage` (lib/tasks/contract.rake); the
   # normal suite must never exit(2) because other lanes' operations are uncovered.

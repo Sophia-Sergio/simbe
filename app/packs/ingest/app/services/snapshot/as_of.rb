@@ -16,15 +16,13 @@ class Snapshot
       applications: %i[started_at submitted_at]
     }.freeze
 
-    # -> Time (UTC) | nil. Truncated to the second because spec 2002 decision 5 and
-    # docs/conventions/real-data.md quote as_of at whole seconds (Harbor 2026-10-01T05:26:42Z);
-    # the exports carry sub-second noise. Never later than now, so a future-dated import
-    # cannot move as_of.
+    # -> Time (UTC) | nil. Full precision and never clamped to the clock (as_of must not depend
+    # on when the import ran); the oracle truncates only when printing
+    # (docs/conventions/real-data.md rule 3), so callers compare `as_of.change(usec: 0)`.
     def self.call(rows)
-      latest = EVENT_COLUMNS.flat_map do |table, columns|
+      EVENT_COLUMNS.flat_map do |table, columns|
         rows[table].flat_map { |row| columns.filter_map { |column| row[column] } }
       end.max
-      latest && [ latest.change(usec: 0), Time.current ].min
     end
   end
 end

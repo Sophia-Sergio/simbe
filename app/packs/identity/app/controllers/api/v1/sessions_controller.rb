@@ -4,8 +4,10 @@ module Api
       skip_before_action :authenticate!, only: :create
 
       def create
-        user = User.find_by(email: params[:email].to_s.strip.downcase)
-        unless user&.authenticate(params[:password].to_s)
+        # authenticate_by hashes the password even when the email is unknown, so sign-in time
+        # does not reveal whether an account exists (bcrypt is always exercised).
+        user = User.authenticate_by(email: params[:email].to_s.strip.downcase, password: params[:password].to_s)
+        unless user
           return render_error("invalid_credentials", "Email or password is incorrect", :unauthorized)
         end
 

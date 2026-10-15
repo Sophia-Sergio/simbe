@@ -16,7 +16,7 @@ module Leads
     # mutually exclusive in the order written, so each lead lands in at most one queue.
     SQL_CTE = <<~SQL.freeze
       WITH base AS (
-        SELECT l.id, l.external_id, l.first_name || ' ' || l.last_name AS name, l.lead_created_at, l.current_stage, l.outcome,
+        SELECT l.id, l.external_id, concat_ws(' ', l.first_name, l.last_name) AS name, l.lead_created_at, l.current_stage, l.outcome,
                l.paused_until, l.coordinator_name, f.first_outbound_at, f.last_contact_at,
                ap.started_at AS app_started_at, ap.submitted_at AS app_submitted_at, ap.percent_complete, ap.last_section_completed,
                pa.status AS appt_status, pa.scheduled_for AS appt_at
@@ -61,13 +61,15 @@ module Leads
       query(agency, as_of, coordinator).map { |row| shape(agency, row) }
     end
 
+    # The agency's CURRENT snapshot: the most recently LOADED one, not the greatest as_of
+    # (re-loading an older export still replaces the current data).
     def self.latest_as_of(agency)
-      Snapshot.for_agency(agency).latest_first.first&.as_of
+      Snapshot.for_agency(agency).order(created_at: :desc).first&.as_of
     end
 
     def self.query(agency, as_of, coordinator)
       sql = ActiveRecord::Base.sanitize_sql_array(
-        [ SQL, { agency_id: agency.id, as_of: as_of, as_of_date: as_of.to_date, coordinator: coordinator } ]
+        [ SQL, { agency_id: agency.id, as_of: as_of, as_of_date: as_of.in_time_zone(agency.timezone).to_date, coordinator: coordinator } ]
       )
       ActiveRecord::Base.connection.select_all(sql, "Leads::Queues").to_a
     end

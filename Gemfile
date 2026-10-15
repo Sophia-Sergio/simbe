@@ -24,8 +24,6 @@ gem "anthropic"
 gem "lograge"
 # CSV parsing; no longer a default gem as of Ruby 3.4 [https://github.com/ruby/csv]
 gem "csv"
-# OpenAPI request/response validation in request specs [https://github.com/ahx/openapi_first]
-gem "openapi_first"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
@@ -58,6 +56,8 @@ group :development, :test do
 end
 
 group :test do
+  # OpenAPI request/response validation in request specs [https://github.com/ahx/openapi_first]
+  gem "openapi_first"
   # Stub HTTP requests (Anthropic) in specs [https://github.com/bblimke/webmock]
   gem "webmock"
   # Query-count assertions [https://github.com/civiccc/db-query-matchers]

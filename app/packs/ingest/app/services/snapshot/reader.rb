@@ -145,14 +145,14 @@ class Snapshot
         csv.each do |row|
           parsed = {}
           spec[:columns].each do |header, (key, type)|
-            parsed[key] = parse_value(row[header], type, filename, csv.lineno, errors)
+            parsed[key] = parse_value(row[header], type, filename, header, csv.lineno, errors)
           end
           tables.fetch(spec[:table]) << parsed
         end
       end
     end
 
-    def self.parse_value(raw, type, filename, lineno, errors)
+    def self.parse_value(raw, type, filename, header, lineno, errors)
       value = raw.is_a?(String) ? raw.strip : raw
       return nil if value.nil? || value.empty?
 
@@ -162,8 +162,10 @@ class Snapshot
       when :integer then Integer(value, 10)
       else value
       end
-    rescue ArgumentError, TypeError => e
-      errors << { file: filename, row: lineno, code: "bad_value", message: "#{e.message} (#{raw.inspect})" }
+    rescue ArgumentError, TypeError
+      # Parse problems are reported by column and line only — never the cell contents
+      # (docs/conventions/sensitive-data.md).
+      errors << { file: filename, row: lineno, code: "bad_value", column: header, message: "invalid #{type} in #{header}" }
       nil
     end
   end

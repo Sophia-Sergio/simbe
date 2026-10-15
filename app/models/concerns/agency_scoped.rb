@@ -11,6 +11,12 @@ module AgencyScoped
       where(agency_id: Current.agency.id)
     end
 
-    before_validation { self.agency_id ||= Current.agency&.id }
+    # Stamp the signed-in agency, and refuse an explicit agency_id that is not the signed-in
+    # one: the default_scope hides reads, but a write must never be able to target another
+    # tenant (docs/conventions/multi-tenancy.md).
+    before_validation do
+      self.agency_id ||= Current.agency&.id
+      errors.add(:agency_id, :invalid) if Current.agency && agency_id != Current.agency.id
+    end
   end
 end

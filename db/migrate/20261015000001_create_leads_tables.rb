@@ -1,9 +1,11 @@
 # Lead domain: the hub (`leads`) plus its event/history children and the derived `lead_facts`.
-# Children cascade from `leads` at the database level (docs/conventions/database.md).
+# Children cascade from `leads` at the database level, and every child's lead FK is COMPOSITE
+# with `agency_id` (docs/conventions/database.md, multi-tenancy.md): a row can never point at
+# another agency's lead, even via a buggy insert.
 class CreateLeadsTables < ActiveRecord::Migration[8.1]
   def change
     create_table :leads, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
       t.uuid :external_id, null: false
       t.timestamptz :lead_created_at, null: false
       t.string :first_name
@@ -27,6 +29,8 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
       t.index %i[agency_id channel]
       t.index %i[agency_id coordinator_name]
       t.index %i[agency_id outcome]
+      # Target of the children's composite (agency_id, lead_id) foreign keys.
+      t.index %i[agency_id id], unique: true, name: "index_leads_on_agency_id_and_id"
     end
     add_check_constraint :leads,
       "current_stage IN ('inquiry','pre_screen','application','consult','records','accepted')",
@@ -36,8 +40,8 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
       name: "leads_outcome_check"
 
     create_table :stage_events, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false
       t.string :stage, null: false
       t.timestamptz :entered_at
       t.timestamptz :created_at, null: false
@@ -47,10 +51,11 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
     add_check_constraint :stage_events,
       "stage IN ('inquiry','pre_screen','application','consult','records','accepted')",
       name: "stage_events_stage_check"
+    add_foreign_key :stage_events, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
 
     create_table :contacts, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false
       t.timestamptz :contacted_at
       t.string :direction
       t.string :channel
@@ -60,10 +65,11 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
       t.index %i[lead_id contacted_at direction channel], unique: true
     end
     add_check_constraint :contacts, "direction IN ('inbound','outbound')", name: "contacts_direction_check"
+    add_foreign_key :contacts, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
 
     create_table :screener_answers, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false
       t.timestamptz :submitted_at
       t.string :question, null: false
       t.text :answer
@@ -75,10 +81,11 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
     add_check_constraint :screener_answers,
       "meets_requirement IN ('yes','review','no')",
       name: "screener_answers_meets_requirement_check"
+    add_foreign_key :screener_answers, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
 
     create_table :web_sessions, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false
       t.timestamptz :started_at
       t.string :landing_url
       t.string :pages_viewed
@@ -88,10 +95,11 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
       t.timestamptz :updated_at, null: false
       t.index %i[lead_id started_at], unique: true
     end
+    add_foreign_key :web_sessions, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
 
     create_table :appointments, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false
       t.timestamptz :booked_at
       t.timestamptz :scheduled_for
       t.string :status
@@ -102,10 +110,11 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
     add_check_constraint :appointments,
       "status IN ('scheduled','attended','no_show','cancelled')",
       name: "appointments_status_check"
+    add_foreign_key :appointments, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
 
     create_table :applications, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false
       t.timestamptz :started_at
       t.timestamptz :submitted_at
       t.integer :percent_complete
@@ -114,10 +123,11 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
       t.timestamptz :updated_at, null: false
       t.index %i[lead_id started_at], unique: true
     end
+    add_foreign_key :applications, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
 
     create_table :lead_facts, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
-      t.references :lead, type: :uuid, null: false, foreign_key: { on_delete: :cascade }, index: { unique: true }
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
+      t.references :lead, type: :uuid, null: false, index: { unique: true }
       t.timestamptz :application_submitted_at
       t.timestamptz :consult_attended_at
       t.timestamptz :records_at
@@ -134,5 +144,6 @@ class CreateLeadsTables < ActiveRecord::Migration[8.1]
       t.timestamptz :created_at, null: false
       t.timestamptz :updated_at, null: false
     end
+    add_foreign_key :lead_facts, :leads, column: %i[agency_id lead_id], primary_key: %i[agency_id id], on_delete: :cascade
   end
 end

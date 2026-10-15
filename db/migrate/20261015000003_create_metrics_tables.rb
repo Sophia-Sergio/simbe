@@ -3,7 +3,7 @@
 class CreateMetricsTables < ActiveRecord::Migration[8.1]
   def change
     create_table :ad_spend_daily, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
       t.date :date, null: false
       t.string :platform, null: false
       t.string :channel
@@ -19,7 +19,7 @@ class CreateMetricsTables < ActiveRecord::Migration[8.1]
     add_check_constraint :ad_spend_daily, "source IN ('sample','import','connected')", name: "ad_spend_daily_source_check"
 
     create_table :action_completions, id: :uuid do |t|
-      t.references :agency, type: :uuid, null: false, foreign_key: true
+      t.references :agency, type: :uuid, null: false, foreign_key: { on_delete: :cascade }
       t.uuid :user_id, null: false
       t.uuid :lead_external_id, null: false
       t.string :queue, null: false
@@ -30,5 +30,6 @@ class CreateMetricsTables < ActiveRecord::Migration[8.1]
       t.index %i[agency_id user_id lead_external_id queue snapshot_as_of], unique: true,
         name: "index_action_completions_unique"
     end
+    add_foreign_key :action_completions, :users, column: %i[agency_id user_id], primary_key: %i[agency_id id]
   end
 end

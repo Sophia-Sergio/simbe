@@ -7,7 +7,8 @@ class CreateAgencies < ActiveRecord::Migration[8.1]
       t.string :slug, null: false, index: { unique: true }
       t.string :timezone, null: false, default: "America/Los_Angeles"
       t.string :qualified_milestone, null: false, default: "consult_attended"
-      t.timestamps
+      t.timestamptz :created_at, null: false
+      t.timestamptz :updated_at, null: false
     end
     add_check_constraint :agencies, "qualified_milestone IN ('application_submitted','consult_attended','records','accepted')", name: "agencies_milestone_check"
   end

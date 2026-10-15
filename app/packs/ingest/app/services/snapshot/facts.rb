@@ -29,8 +29,8 @@ class Snapshot
       FROM (
         SELECT
           l.agency_id, l.id AS lead_id, l.lead_created_at,
-          (SELECT max(a.submitted_at) FROM applications a WHERE a.lead_id = l.id) AS application_submitted_at,
-          (SELECT min(ap.scheduled_for) FROM appointments ap
+          (SELECT min(a.submitted_at) FROM applications a WHERE a.lead_id = l.id) AS application_submitted_at,
+          (SELECT min(coalesce(ap.scheduled_for, ap.booked_at)) FROM appointments ap
              WHERE ap.lead_id = l.id AND ap.status = 'attended') AS consult_attended_at,
           (SELECT max(se.entered_at) FROM stage_events se
              WHERE se.lead_id = l.id AND se.stage = 'records') AS records_at,

@@ -16,10 +16,13 @@ RSpec.describe Snapshot::Reader do
     expect(rows[:leads].first[:first_name]).to eq("L1, Jr"); expect(rows[:leads].find { _1[:first_name] == "L7" }[:campaign]).to be_nil
   end
 
-  it "reports unparseable values with file and row" do
+  it "reports unparseable values with file, row and column but never the cell contents" do
     dir = AlphaScenario.copy_dir; path = File.join(dir, "leads.csv")
     File.write(path, File.read(path).sub(/2026-09-2\dT[\d:.]+Z/, "yesterday"))
     err = described_class.call(dir).errors.find { _1[:code] == "bad_value" }
     expect(err).to include(file: "leads.csv"); expect(err[:row]).to be_a(Integer)
+    expect(err[:column]).to eq("created_at")
+    # No row contents in reports (docs/conventions/sensitive-data.md).
+    expect(err[:message]).not_to include("yesterday")
   end
 end

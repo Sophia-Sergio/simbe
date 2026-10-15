@@ -2,7 +2,9 @@ require "rails_helper"
 
 RSpec.describe "pack route loading" do
   def status_of(path)
-    Rails.application.call(Rack::MockRequest.env_for(path)).first
+    # X-Simbe-Contract-Probe opts this deliberate undocumented-route probe out of the global
+    # OpenAPI request validation (spec/support/contract.rb).
+    Rails.application.call(Rack::MockRequest.env_for(path, "HTTP_X_SIMBE_CONTRACT_PROBE" => "1")).first
   end
 
   def with_probe(path, body)

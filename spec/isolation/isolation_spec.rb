@@ -27,4 +27,9 @@ RSpec.describe "Agency isolation", type: :request do
     missing = routed.reject { |pair| listed.include?(pair) }
     expect(missing).to be_empty, "Register isolation entries for: #{missing.map { |verb, path| "#{verb.upcase} #{path}" }.join(', ')}"
   end
+
+  # W0-3 owns only `session` (POST :public, DELETE :self) and `me` (GET :self). Neither takes
+  # another agency's resource id, so they are exempt from the "agency isolated" shared example
+  # (spec/support/shared_examples/agency_isolated.rb); `/me` proves it returns only the
+  # signed-in agency above. Downstream lanes use the shared example for id-taking tenant routes.
 end

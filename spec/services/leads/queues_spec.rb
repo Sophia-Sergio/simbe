@@ -40,4 +40,18 @@ RSpec.describe Leads::Queues do
     LeadFact.find_by!(lead: Lead.find_by!(first_name: "L4")).update!(last_contact_at: Time.utc(2026, 10, 1, 9))
     expect(described_class.call(agency: agency).map { _1[:name] }).not_to include("L4 Alpha")
   end
+
+  it "compares paused_until against the agency-local date, not the UTC date" do
+    # 2026-10-01T05:00Z is still 2026-09-30 in Pacific, so a lead paused until Oct 1 is not due yet
+    # (docs/conventions/database.md: convert to the agency time zone at aggregation time).
+    Lead.find_by!(first_name: "L10").update!(paused_until: Date.new(2026, 10, 1))
+    rows = described_class.call(agency: agency, as_of: Time.utc(2026, 10, 1, 5, 0, 0))
+    expect(rows.map { _1[:name] }).not_to include("L10 Alpha")
+  end
+
+  it "uses the most recently loaded snapshot as_of, not the greatest" do
+    older = Time.utc(2026, 9, 25, 12)
+    Snapshot.for_agency(agency).create!(as_of: older, loaded_at: Time.current, row_counts: {}, warnings: [])
+    expect(described_class.latest_as_of(agency)).to eq(older)
+  end
 end

@@ -60,8 +60,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "slug", null: false
     t.string "timezone", default: "America/Los_Angeles", null: false
     t.string "qualified_milestone", default: "consult_attended", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.timestamptz "created_at", null: false
+    t.timestamptz "updated_at", null: false
     t.index ["slug"], name: "index_agencies_on_slug", unique: true
     t.check_constraint "qualified_milestone::text = ANY (ARRAY['application_submitted'::character varying, 'consult_attended'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "agencies_milestone_check"
   end
@@ -133,9 +133,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
   create_table "auth_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "user_id", null: false
     t.string "token_digest", null: false
-    t.datetime "expires_at", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.timestamptz "expires_at", null: false
+    t.timestamptz "created_at", null: false
+    t.timestamptz "updated_at", null: false
     t.index ["token_digest"], name: "index_auth_sessions_on_token_digest", unique: true
     t.index ["user_id"], name: "index_auth_sessions_on_user_id"
   end
@@ -217,6 +217,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.index ["agency_id", "channel"], name: "index_leads_on_agency_id_and_channel"
     t.index ["agency_id", "coordinator_name"], name: "index_leads_on_agency_id_and_coordinator_name"
     t.index ["agency_id", "external_id"], name: "index_leads_on_agency_id_and_external_id", unique: true
+    t.index ["agency_id", "id"], name: "index_leads_on_agency_id_and_id", unique: true
     t.index ["agency_id", "outcome"], name: "index_leads_on_agency_id_and_outcome"
     t.index ["agency_id"], name: "index_leads_on_agency_id"
     t.check_constraint "current_stage::text = ANY (ARRAY['inquiry'::character varying, 'pre_screen'::character varying, 'application'::character varying, 'consult'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "leads_current_stage_check"
@@ -454,8 +455,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "password_digest", null: false
     t.string "role", default: "owner", null: false
     t.string "coordinator_name"
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
+    t.timestamptz "created_at", null: false
+    t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "id"], name: "index_users_on_agency_id_and_id", unique: true
     t.index ["agency_id"], name: "index_users_on_agency_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.check_constraint "role::text = ANY (ARRAY['owner'::character varying, 'coordinator'::character varying]::text[])", name: "users_role_check"
@@ -476,29 +478,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.index ["lead_id"], name: "index_web_sessions_on_lead_id"
   end
 
-  add_foreign_key "action_completions", "agencies"
-  add_foreign_key "ad_connections", "agencies"
-  add_foreign_key "ad_spend_daily", "agencies"
-  add_foreign_key "agent_conversations", "agencies"
+  add_foreign_key "action_completions", "agencies", on_delete: :cascade
+  add_foreign_key "action_completions", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
+  add_foreign_key "ad_connections", "agencies", on_delete: :cascade
+  add_foreign_key "ad_spend_daily", "agencies", on_delete: :cascade
+  add_foreign_key "agent_conversations", "agencies", on_delete: :cascade
+  add_foreign_key "agent_conversations", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "agent_messages", "agent_conversations", column: "conversation_id", on_delete: :cascade
-  add_foreign_key "ai_usage_events", "agencies"
-  add_foreign_key "applications", "agencies"
-  add_foreign_key "applications", "leads", on_delete: :cascade
-  add_foreign_key "appointments", "agencies"
-  add_foreign_key "appointments", "leads", on_delete: :cascade
-  add_foreign_key "auth_sessions", "users"
-  add_foreign_key "contacts", "agencies"
-  add_foreign_key "contacts", "leads", on_delete: :cascade
-  add_foreign_key "invitations", "agencies"
-  add_foreign_key "lead_facts", "agencies"
-  add_foreign_key "lead_facts", "leads", on_delete: :cascade
-  add_foreign_key "leads", "agencies"
-  add_foreign_key "mcp_keys", "agencies"
-  add_foreign_key "screener_answers", "agencies"
-  add_foreign_key "screener_answers", "leads", on_delete: :cascade
-  add_foreign_key "snapshot_uploads", "agencies"
+  add_foreign_key "ai_usage_events", "agencies", on_delete: :cascade
+  add_foreign_key "ai_usage_events", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
+  add_foreign_key "applications", "agencies", on_delete: :cascade
+  add_foreign_key "applications", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
+  add_foreign_key "appointments", "agencies", on_delete: :cascade
+  add_foreign_key "appointments", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
+  add_foreign_key "auth_sessions", "users", on_delete: :cascade
+  add_foreign_key "contacts", "agencies", on_delete: :cascade
+  add_foreign_key "contacts", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
+  add_foreign_key "invitations", "agencies", on_delete: :cascade
+  add_foreign_key "invitations", "users", column: "invited_by", on_delete: :nullify
+  add_foreign_key "lead_facts", "agencies", on_delete: :cascade
+  add_foreign_key "lead_facts", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
+  add_foreign_key "leads", "agencies", on_delete: :cascade
+  add_foreign_key "mcp_keys", "agencies", on_delete: :cascade
+  add_foreign_key "mcp_keys", "users", column: "created_by", on_delete: :nullify
+  add_foreign_key "screener_answers", "agencies", on_delete: :cascade
+  add_foreign_key "screener_answers", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
+  add_foreign_key "snapshot_uploads", "agencies", on_delete: :cascade
   add_foreign_key "snapshot_uploads", "snapshots", on_delete: :nullify
-  add_foreign_key "snapshots", "agencies"
+  add_foreign_key "snapshot_uploads", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
+  add_foreign_key "snapshots", "agencies", on_delete: :cascade
+  add_foreign_key "snapshots", "users", column: "loaded_by", on_delete: :nullify
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
@@ -507,9 +516,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
-  add_foreign_key "stage_events", "agencies"
-  add_foreign_key "stage_events", "leads", on_delete: :cascade
-  add_foreign_key "users", "agencies"
-  add_foreign_key "web_sessions", "agencies"
-  add_foreign_key "web_sessions", "leads", on_delete: :cascade
+  add_foreign_key "stage_events", "agencies", on_delete: :cascade
+  add_foreign_key "stage_events", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
+  add_foreign_key "users", "agencies", on_delete: :cascade
+  add_foreign_key "web_sessions", "agencies", on_delete: :cascade
+  add_foreign_key "web_sessions", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
 end
