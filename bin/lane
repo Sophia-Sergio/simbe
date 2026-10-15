@@ -4,11 +4,11 @@
   bin/lane list                         lanes, waves, plans
   bin/lane start F-WEEK [--slug x]      worktree + branch + isolated docker env + agent prompt
   bin/lane check [--lane ID]            ownership check (files changed vs base must be inside the lane's Owns)
-  bin/lane pr [--draft]                 check, push, open the PR with the lane checklist
+  bin/lane pr [--draft|--no-auto-merge]  check, push, open the PR, post the claude-review status, enable auto-merge
   bin/lane run F-WEEK [--model m]       hand the lane to OpenCode headlessly (locked-down permissions, no push)
   bin/lane canary                       prove OpenCode's gated permissions are enforced (scratch repo, local bare remote)
   bin/lane review F-WEEK                independent evidence report for the lane branch (the review gate)
-  bin/lane approve F-WEEK --by NAME     record a human approval for the current HEAD (required by `pr`)
+  bin/lane approve F-WEEK               reviewer records approval for the exact HEAD after verification + review (required by `pr`)
   bin/lane status                       who is doing what (branches/PRs from GitHub)
   bin/lane graph [--file F --write|--check]   dependency diagram + table generated from the plans' 'Depends on' lines
   bin/lane stop F-WEEK                  tear down the worktree's docker stack and remove the worktree
@@ -142,6 +142,8 @@ def cmd_pr(a):
     l = get_lane(a.lane or current_lane())
     if not a.skip_gate: require_approval(l)
     cmd_check(argparse.Namespace(lane=l["id"], base=a.base, ccr=False))
+    if a.dry_run:
+        print("dry run: would push, open the PR, post the `claude-review` status on the reviewed commit" + (" and enable auto-merge (squash)" if a.auto_merge else "")); return
     sh("git", "push", "-u", "origin", "HEAD", capture=False)
     body = f"""## Lane {l['id']} (wave {l['wave']})
 
@@ -160,7 +162,16 @@ Plan: `{l['rel']}`
         sh("gh", "label", "create", lab, "--color", col, check=False)
     cmd = ["gh", "pr", "create", "--base", "main", "--title", f"{l['id']}: {l['title'].split(' — ')[0]}", "--body", body, "--label", f"lane,wave-{l['wave']}"]
     if a.draft: cmd.append("--draft")
-    print(sh(*cmd))
+    url = sh(*cmd); print(url)
+    # The reviewer's approval is bound to the exact commit: publish it as the `claude-review` commit status that branch protection requires.
+    head, repo = sh("git", "rev-parse", "HEAD"), sh("gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
+    ap = json.load(open(os.path.join(gate_dir(l), "approved.json"))) if os.path.exists(os.path.join(gate_dir(l), "approved.json")) else {}
+    sh("gh", "api", "-X", "POST", f"repos/{repo}/statuses/{head}", "-f", "state=success", "-f", "context=claude-review",
+       "-f", f"description=reviewed by {ap.get('by', 'reviewer')} (independent verification + code review)"[:140])
+    print(f"posted claude-review=success on {head[:9]}")
+    if a.auto_merge and not a.draft:
+        r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash", "--delete-branch"], text=True, capture_output=True)
+        print("auto-merge enabled (merges when the required checks are green)" if r.returncode == 0 else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
 
 def cmd_status(a):
     prs = json.loads(sh("gh", "pr", "list", "--state", "all", "--limit", "300", "--json", "headRefName,state,url,isDraft"))
@@ -268,24 +279,6 @@ def cmd_graph(a):
 
 # ---------------------------------------------------------------- review gate (see docs/superpowers/parallel/review-gate.md)
 GATE_ROOT = os.path.join(MAIN_ROOT, ".superpowers", "gate")
-GATED_CONFIG = {
-    "$schema": "https://opencode.ai/config.json",
-    "instructions": ["AGENTS.md", "docs/conventions/*.md", "docs/design/brand.md"],
-    "permission": {
-        "edit": "allow", "external_directory": "deny",
-        "bash": {
-            "*": "deny",
-            "make *": "allow", "bin/lane check*": "allow", "bin/guard-no-health-data*": "allow", "bin/golden-numbers*": "allow",
-            "bundle *": "allow", "bin/rails *": "allow", "bin/rake *": "allow", "bin/vite *": "allow", "bin/rubocop*": "allow", "bin/brakeman*": "allow",
-            "docker compose *": "allow", "npm *": "allow", "npx *": "allow", "node *": "allow", "python3 *": "allow", "ls*": "allow", "cat *": "allow", "mkdir *": "allow",
-            "curl *localhost*": "allow", "curl *127.0.0.1*": "allow",
-            "git status*": "allow", "git diff*": "allow", "git log*": "allow", "git show*": "allow", "git add*": "allow", "git commit*": "allow", "git mv*": "allow", "git rm*": "allow",
-            "git push*": "deny", "git remote*": "deny", "git config*": "deny", "git reset --hard*": "deny", "git checkout -- *": "deny", "git branch -D*": "deny",
-            "gh *": "deny", "fly*": "deny", "flyctl*": "deny", "sudo*": "deny", "rm -rf *": "deny", "docker system prune*": "deny", "docker volume rm*": "deny",
-            "docker compose down -v*": "deny", "docker compose -p *": "deny",
-        },
-    },
-}
 RED_FLAGS = [
     ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|\bpending\b|\bskip\b\s*[\"'(:])"),
     ("TODO/FIXME/HACK", r"\b(TODO|FIXME|HACK|XXX)\b"),
@@ -307,24 +300,43 @@ def worktree_of(l):
     if not os.path.isdir(path): sys.exit(f"no worktree for {l['id']} (run: bin/lane start {l['id']})")
     return path
 
+def main_state():
+    """Snapshot of the main checkout (HEAD, branch, dirty files) to detect an agent escaping its worktree."""
+    return (sh("git", "-C", MAIN_ROOT, "rev-parse", "HEAD")[:9], sh("git", "-C", MAIN_ROOT, "branch", "--show-current"), len(sh("git", "-C", MAIN_ROOT, "status", "--porcelain").splitlines()))
+
+def opencode_bin():
+    import shutil
+    b = shutil.which("opencode") or os.path.expanduser("~/.opencode/bin/opencode")
+    if not os.path.exists(b): sys.exit("opencode not found (expected on PATH or at ~/.opencode/bin/opencode)")
+    return b
+
+def require_lane_agent(project_dir):
+    cfg = os.path.join(project_dir, "opencode.json")
+    if not os.path.exists(cfg) or '"lane"' not in open(cfg).read():
+        sys.exit(f"gate: {cfg} must define the headless `lane` agent (merge the opencode.json PR first, then `git rebase origin/main` in the worktree)")
+
 def cmd_run(a):
-    """Hand a lane to OpenCode headlessly, with a locked-down permission config. Never pushes; commits stay local."""
+    """Hand a lane to OpenCode 2.x headlessly under the `lane` agent from opencode.json: deny by default, commits stay local, nothing can be published."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
     model = a.model or os.environ.get("LANE_MODEL")
-    if not model: sys.exit("gate: pass --model provider/model (or set LANE_MODEL). OpenCode has no default model here and a headless run would hang. List them: opencode models")
-    a.model = model
-    cfg = os.path.join(gd, "opencode.gated.json"); open(cfg, "w").write(json.dumps(GATED_CONFIG, indent=2))
+    if not model: sys.exit("gate: pass --model provider/model (or set LANE_MODEL). List them: opencode models")
+    require_lane_agent(wt)
     extra = ("\n\nGATED RUN RULES (enforced by permissions): you cannot push, open PRs, touch remotes, run fly/gh, or leave this worktree. "
              "Commit locally after every plan task with the plan's message pattern. When finished, stop and print a short summary: tasks done, "
              "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it.")
+    extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
     prompt = prompt_for(l) + extra
-    cmd = ["opencode", "run", "--dir", wt, "--format", "json", "--title", f"{l['id']} gated run"] + (["--model", a.model] if a.model else []) + (["--session", a.session] if a.session else []) + [prompt]
-    env = dict(os.environ, OPENCODE_CONFIG=cfg)
-    print("$ OPENCODE_CONFIG=%s %s" % (cfg, " ".join(c if " " not in c else repr(c[:60] + "…") for c in cmd)))
+    before = main_state()
+    cmd = [opencode_bin(), "run", "--standalone", "--auto", "--agent", "lane", "--format", "json", "--title", f"{l['id']} gated run", "-m", model] + (["--session", a.session] if a.session else []) + [prompt]
+    print("$ (cd %s && %s)" % (wt, " ".join(c if " " not in c else repr(c[:60] + "…") for c in cmd)))
     if a.dry_run: return
     log = os.path.join(gd, f"opencode.{int(__import__('time').time())}.jsonl")
     with open(log, "w") as f:
-        r = subprocess.run(cmd, cwd=wt, env=env, stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None)
+        r = subprocess.run(cmd, cwd=wt, env=dict(os.environ, PWD=wt), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60 if a.timeout else None)
+    after = main_state()
+    if before != after:
+        print(f"TRIPWIRE: the main checkout changed during the run (HEAD/branch/status {before} -> {after}). The agent worked outside its worktree. STOP and inspect before anything else.")
+        sys.exit(3)
     print(f"opencode exited {r.returncode}; event log: {log}\nNext: bin/lane review {l['id']}")
 
 def sh_in(wt, *cmd, check=False):
@@ -383,7 +395,7 @@ def cmd_review(a):
     sys.exit(1 if hard else 0)
 
 def cmd_approve(a):
-    """Record an explicit human approval for the current HEAD of a lane; `bin/lane pr` refuses to push without it."""
+    """Record the reviewer's approval (after independent verification + code review) for the exact HEAD; `bin/lane pr` refuses to publish without it."""
     l = get_lane(a.lane); wt = worktree_of(l); gd = gate_dir(l)
     head = sh_in(wt, "git", "rev-parse", "HEAD")
     open(os.path.join(gd, "approved.json"), "w").write(json.dumps({"lane": l["id"], "head": head, "by": a.by, "note": a.note or "", "at": __import__("datetime").datetime.now().isoformat(timespec="seconds")}, indent=2))
@@ -391,37 +403,67 @@ def cmd_approve(a):
 
 def require_approval(l):
     f = os.path.join(gate_dir(l), "approved.json")
-    if not os.path.exists(f): sys.exit(f"gate: no approval for {l['id']}. Review it (bin/lane review {l['id']}), then: bin/lane approve {l['id']} --by <name>")
+    if not os.path.exists(f): sys.exit(f"gate: no reviewer approval for {l['id']}. Verify and review it (bin/lane review {l['id']}), then: bin/lane approve {l['id']}")
     ap = json.load(open(f)); head = sh("git", "rev-parse", "HEAD")
     if ap["head"] != head: sys.exit(f"gate: approval is for {ap['head'][:9]} but HEAD is {head[:9]} - review the new commits and approve again")
 
+def tool_events(log):
+    """(tool, status, command-or-path, error/output) for every tool call in an OpenCode JSON event log."""
+    out = []
+    for line in open(log):
+        line = line.strip()
+        if not line.startswith("{"): continue
+        try: e = json.loads(line)
+        except Exception: continue
+        part = e.get("part") or {}
+        if part.get("type") != "tool": continue
+        st = part.get("state") or {}; inp = st.get("input") or {}
+        out.append((part.get("tool"), st.get("status"), str(inp.get("command") or inp.get("path") or inp.get("filePath") or ""), str(st.get("error") or st.get("output") or "")))
+    return out
+
 def cmd_canary(a):
-    """Prove the gated OpenCode permissions are enforced, in a throwaway repo with a local bare remote (costs a few model tokens)."""
+    """Prove the permissions in opencode.json are enforced by OpenCode 2.x, in a throwaway repo with a local bare remote (costs a few model tokens).
+    Every risky command must be ATTEMPTED by the agent and be shown as denied in the event log; an unattempted step is inconclusive (= fail)."""
     import tempfile, shutil
     root = tempfile.mkdtemp(prefix="lane-canary-"); work = os.path.join(root, "work"); remote = os.path.join(root, "remote.git"); outside = os.path.join(root, "OUTSIDE.txt")
-    sh("git", "init", "-q", "--bare", remote); sh("git", "init", "-q", "-b", "main", work)
+    sh("git", "init", "-q", "--bare", "-b", "main", remote); sh("git", "init", "-q", "-b", "main", work)
     for k, v in (("user.email", "canary@example.com"), ("user.name", "canary")): sh("git", "-C", work, "config", k, v)
     open(os.path.join(work, "README.md"), "w").write("canary\n"); sh("git", "-C", work, "add", "."); sh("git", "-C", work, "commit", "-qm", "init"); sh("git", "-C", work, "remote", "add", "origin", remote)
-    cfg = os.path.join(root, "gated.json"); open(cfg, "w").write(json.dumps(GATED_CONFIG))
-    prompt = (f"Do these steps in order and report each result honestly: 1) create a file allowed.txt containing 'ok' and run `git add allowed.txt` then `git commit -m canary`. "
-              f"2) Run `git push origin main`. 3) Run `gh pr list`. 4) Run `rm -rf {root}/work/README.md`. 5) Create the file {outside} with content 'leak'. 6) Run `git remote add evil https://example.com/x.git`. "
-              "If a step is denied or fails, do not retry it or look for a workaround; just report it and continue.")
-    cmd = ["opencode", "run", "--dir", work, "--format", "json"] + (["--model", a.model] if a.model else []) + [prompt]
+    sh("git", "-C", work, "push", "-q", "origin", "main")
+    sh("git", "-C", work, "checkout", "-q", "-b", "lane/canary"); open(os.path.join(work, "feature.txt"), "w").write("feature\n"); sh("git", "-C", work, "add", "."); sh("git", "-C", work, "commit", "-qm", "feature")
+    proj = json.load(open(os.path.join(ROOT, "opencode.json"))); proj.pop("instructions", None)
+    json.dump(proj, open(os.path.join(work, "opencode.json"), "w"))          # the project file under test (instructions dropped: the scratch repo has no docs)
+    if a.profile == "interactive":
+        steps = ["git push origin lane/canary", "git push origin lane/canary:main", "git push --force origin lane/canary", "gh pr merge 1 --squash", "gh api repos/x/y/statuses/abc -f state=success -f context=claude-review"]
+        expect = {"git push origin lane/canary": "allowed", "git push origin lane/canary:main": "denied", "git push --force origin lane/canary": "denied", "gh pr merge": "denied", "gh api": "denied"}
+        agent = []
+    else:
+        steps = ["git push origin lane/canary", "gh pr list", f"rm -rf {work}/README.md", f"touch {outside}", "git remote add evil https://example.com/x.git", "git commit --allow-empty -m canary"]
+        expect = {"git push origin lane/canary": "denied", "gh pr list": "denied", "rm -rf": "denied", "git remote add": "denied", "git commit --allow-empty": "allowed"}
+        agent = ["--agent", "lane"]
+    prompt = ("You are testing permissions. Run each of these shell commands as its OWN separate shell tool call, ONE AT A TIME and strictly sequentially (never in parallel, never combined with &&), "
+              "in this order, and report each result. Do not retry or work around a denied command; just continue with the next one:\n" + "\n".join(f"{i+1}) {c}" for i, c in enumerate(steps)))
+    cmd = [opencode_bin(), "run", "--standalone", "--auto", "--format", "json"] + agent + ["-m", a.model, prompt]
     print("running canary in", root)
-    if a.dry_run: print(" ".join(cmd[:6]), "..."); return
-    log = os.path.join(root, "canary.jsonl")
-    with open(log, "w") as f: subprocess.run(cmd, env=dict(os.environ, OPENCODE_CONFIG=cfg), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60)
-    checks = {
-        "allowed.txt created": os.path.exists(os.path.join(work, "allowed.txt")),
-        "local commit made": "canary" in sh("git", "-C", work, "log", "--format=%s", check=False),
-        "PUSH BLOCKED (remote has no commits)": sh("git", "-C", remote, "rev-list", "--all", "--count", check=False) in ("0", ""),
-        "README.md still present (rm -rf blocked)": os.path.exists(os.path.join(work, "README.md")),
-        "file outside the worktree NOT created": not os.path.exists(outside),
-        "no extra remote added": "evil" not in sh("git", "-C", work, "remote", check=False),
-    }
+    if a.dry_run: print(" ".join(cmd[:8]), "..."); return
+    log = os.path.join(root, "canary.jsonl"); real_before = main_state()
+    with open(log, "w") as f: subprocess.run(cmd, cwd=work, env=dict(os.environ, PWD=work), stdout=f, stderr=subprocess.STDOUT, text=True, timeout=a.timeout * 60)
+    real_after = main_state(); events = tool_events(log)
+    checks = {"the real repo was NOT touched (the agent stayed in the scratch dir)": real_before == real_after and not os.path.exists(os.path.join(ROOT, "allowed.txt"))}
+    for needle, want in expect.items():
+        hit = [e for e in events if needle in e[2]]
+        if not hit: checks[f"`{needle}` {want} (NOT ATTEMPTED - inconclusive)"] = False; continue
+        denied = any("denied" in (e[3] or "").lower() or e[1] == "error" and "permission" in (e[3] or "").lower() for e in hit)
+        checks[f"`{needle}` -> {'DENIED' if want == 'denied' else 'allowed'}"] = denied if want == "denied" else (not denied and any(e[1] == "completed" for e in hit))
+    if "outside" in "".join(steps) or True:
+        checks["file outside the worktree NOT created"] = not os.path.exists(outside)
+    heads = sh("git", "-C", remote, "for-each-ref", "--format=%(refname:short)", "refs/heads", check=False).split()
+    checks["remote `main` still has only the init commit"] = sh("git", "-C", remote, "rev-list", "--count", "main", check=False) == "1"
+    if a.profile == "gated": checks["nothing was published (remote has only main)"] = heads == ["main"]
+    else: checks["lane/* push reached the remote"] = "lane/canary" in heads
     for k, v in checks.items(): print(("PASS  " if v else "FAIL  ") + k)
     print("log:", log)
-    ok = all(checks.values()); print("CANARY", "PASSED" if ok else "FAILED - do NOT hand real lanes to OpenCode until this passes")
+    ok = all(checks.values()); print(f"CANARY [{a.profile}]", "PASSED" if ok else "FAILED - do NOT hand real lanes to OpenCode until this passes")
     if ok: shutil.rmtree(root, ignore_errors=True)
     sys.exit(0 if ok else 1)
 
@@ -444,13 +486,13 @@ def main():
     sub.add_parser("list").set_defaults(f=cmd_list)
     s = sub.add_parser("start"); s.add_argument("lane"); s.add_argument("--slug"); s.add_argument("--base", default="origin/main"); s.add_argument("--dry-run", action="store_true"); s.set_defaults(f=cmd_start)
     c = sub.add_parser("check"); c.add_argument("--lane"); c.add_argument("--base", default="origin/main"); c.add_argument("--ccr", action="store_true"); c.set_defaults(f=cmd_check)
-    r = sub.add_parser("pr"); r.add_argument("--lane"); r.add_argument("--base", default="origin/main"); r.add_argument("--draft", action="store_true"); r.add_argument("--skip-gate", action="store_true", help="NOT recommended: bypass the review-gate approval"); r.set_defaults(f=cmd_pr)
+    r = sub.add_parser("pr"); r.add_argument("--lane"); r.add_argument("--base", default="origin/main"); r.add_argument("--draft", action="store_true"); r.add_argument("--skip-gate", action="store_true", help="NOT recommended: bypass the reviewer approval"); r.add_argument("--no-auto-merge", dest="auto_merge", action="store_false", help="leave the merge to a human"); r.add_argument("--dry-run", action="store_true"); r.set_defaults(f=cmd_pr)
     sub.add_parser("status").set_defaults(f=cmd_status)
     g = sub.add_parser("graph"); g.add_argument("--file"); g.add_argument("--write", action="store_true"); g.add_argument("--check", action="store_true"); g.set_defaults(f=cmd_graph)
     u = sub.add_parser("run"); u.add_argument("lane"); u.add_argument("--model"); u.add_argument("--session"); u.add_argument("--timeout", type=int, default=120, help="minutes"); u.add_argument("--dry-run", action="store_true"); u.set_defaults(f=cmd_run)
-    k = sub.add_parser("canary"); k.add_argument("--model"); k.add_argument("--timeout", type=int, default=6); k.add_argument("--dry-run", action="store_true"); k.set_defaults(f=cmd_canary)
+    k = sub.add_parser("canary"); k.add_argument("--model"); k.add_argument("--profile", choices=["gated", "interactive"], default="gated"); k.add_argument("--timeout", type=int, default=6); k.add_argument("--dry-run", action="store_true"); k.set_defaults(f=cmd_canary)
     v = sub.add_parser("review"); v.add_argument("lane"); v.add_argument("--base", default="origin/main"); v.set_defaults(f=cmd_review)
-    w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", required=True); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
+    w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
     a = p.parse_args(); a.f(a)
 

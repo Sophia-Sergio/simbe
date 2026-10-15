@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # One-time GitHub repo setup for the lane workflow: labels, merge settings, branch protection on main.
-# DRY RUN by default (prints what it would send). Pass --apply to change the repository.
-# Required checks must match the job names in .github/workflows/ci.yml.
+# DRY RUN by default (prints what it would send). Flags: --apply (change the repository), --stage 1|2 (default 1).
+#   stage 1 (before CI exists): main needs a PR + the `claude-review` status; no force-push, no deletion, ADMINS INCLUDED.
+#   stage 2 (after the CI workflow has run once): adds the CI job names as required checks.
+# Who can push where: anyone (you, OpenCode, Claude Code) may push lane branches and open PRs; nobody can put a commit on main
+# without the required checks, because `enforce_admins` is on (your own credentials do not bypass it).
 set -euo pipefail
-apply=0; [ "${1:-}" = "--apply" ] && apply=1
+apply=0; stage=1
+while [ $# -gt 0 ]; do case "$1" in --apply) apply=1;; --stage) stage="$2"; shift;; *) echo "unknown arg $1" >&2; exit 2;; esac; shift; done
 repo="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 
 labels=(
@@ -13,11 +17,12 @@ labels=(
   "e2e|5319E7|Run the real-API e2e job on this PR"
   "blocked|B60205|Blocked; see the linked issue"
 )
-checks='["Contract","Brakeman","Bundler audit","npm audit","Unused frontend code","Lint backend","Lint frontend","Backend tests","Frontend tests","E2E (mock API, desktop + mobile)","Guards (no health data or secrets committed)","Production image builds"]'
+ci_checks='["Contract","Brakeman","Bundler audit","npm audit","Unused frontend code","Lint backend","Lint frontend","Backend tests","Frontend tests","E2E (mock API, desktop + mobile)","Guards (no health data or secrets committed)","Production image builds"]'
+if [ "$stage" = "2" ]; then checks=$(python3 -c "import json,sys; print(json.dumps(['claude-review']+json.loads(sys.argv[1])))" "$ci_checks"); else checks='["claude-review"]'; fi
 protection=$(cat <<JSON
 {
-  "required_status_checks": { "strict": true, "contexts": $checks },
-  "enforce_admins": false,
+  "required_status_checks": { "strict": false, "contexts": $checks },
+  "enforce_admins": true,
   "required_pull_request_reviews": { "required_approving_review_count": 0 },
   "restrictions": null,
   "allow_force_pushes": false,
@@ -28,7 +33,7 @@ JSON
 )
 settings='{"allow_squash_merge":true,"allow_merge_commit":false,"allow_rebase_merge":false,"delete_branch_on_merge":true,"allow_auto_merge":true}'
 
-echo "Repository: $repo"
+echo "Repository: $repo   (stage $stage)"
 echo "Labels:"; printf '  %s\n' "${labels[@]}"
 echo "Merge settings: $settings"
 echo "Branch protection for main: $protection"
