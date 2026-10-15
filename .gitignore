@@ -25,3 +25,8 @@ node_modules
 .byebug_history
 config/master.key
 
+
+# Playwright
+/e2e/screenshots
+/e2e/test-results
+/playwright-report
