@@ -1,8 +1,11 @@
 // Conformance: every operation in the bundled contract must have a mock handler, and each default 2xx
 // response must validate against the operation's JSON schema. This is what stops a fixture drifting
-// from the contract. `make contract` (via `npm run pretest`) produces contracts/dist/openapi.bundled.yaml.
+// from the contract. The bundle is produced HERE, at test time (`npm run contract`): contracts/dist/ is
+// git-ignored, so CI and `make web-test` must not depend on a pre-existing (or freshly stale) bundle.
+import { execSync } from "node:child_process"
 import { readFileSync } from "node:fs"
-import { resolve } from "node:path"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import Ajv2020 from "ajv/dist/2020"
 import addFormats from "ajv-formats"
 import { parse } from "yaml"
@@ -24,8 +27,13 @@ type Operation = {
 type PathItem = Record<string, Operation | undefined>
 
 const SPEC_ID = "https://simbe.test/openapi.bundled.yaml"
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
+const BUNDLE_PATH = resolve(REPO_ROOT, "contracts/dist/openapi.bundled.yaml")
 
-const spec = parse(readFileSync(resolve(process.cwd(), "contracts/dist/openapi.bundled.yaml"), "utf8")) as {
+// Bundle (and lint) the contract now; a broken contract fails the whole suite loudly.
+execSync("npm run contract", { cwd: REPO_ROOT, stdio: "pipe" })
+
+const spec = parse(readFileSync(BUNDLE_PATH, "utf8")) as {
   paths: Record<string, PathItem>
   components: { schemas: Record<string, unknown> }
 }
