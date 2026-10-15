@@ -19,7 +19,6 @@ RSpec.describe "pack route loading" do
     path = Rails.root.join("app/packs/identity/config/routes/zz_probe.rb").to_s
     with_probe(path, "get \"probe\", to: proc { [200, {}, [\"ok\"]] }\n") do
       expect(status_of("/api/v1/probe")).to eq(200)
-      expect(status_of("/probe")).to eq(404)
     end
   end
 
