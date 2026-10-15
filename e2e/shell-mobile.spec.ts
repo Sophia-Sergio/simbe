@@ -32,7 +32,7 @@ test("owner: top bar, search, account sheet and sign out", async ({ page }) => {
   await page.getByRole("button", { name: "Account" }).click()
   const sheet = page.getByRole("dialog", { name: "Account" })
   await expect(sheet).toContainText("erin@harbor.test")
-  await page.screenshot({ path: "e2e/screenshots/shell-mobile-more.png" })
+  await page.screenshot({ path: "e2e/screenshots/shell-mobile-account.png" })
   await sheet.getByRole("button", { name: "Sign out" }).click()
   await expect(page).toHaveURL(/\/signin$/)
 })

@@ -19,20 +19,27 @@ export function TopBar({ title, user, onSignOut }: { title: string; user: User; 
     <header className="sticky top-0 z-20 flex h-[52px] shrink-0 items-center gap-2 border-b border-line bg-surface px-3.5">
       <BrandMark size={26} />
       <div className="min-w-0 flex-1">
-        <h1 title={title} className="truncate font-display text-[17px] font-semibold leading-tight text-ink">
-          {title}
-        </h1>
+        {title && (
+          <h1 title={title} className="truncate font-display text-[17px] font-semibold leading-tight text-ink">
+            {title}
+          </h1>
+        )}
         {pending && <p className="-mt-0.5 truncate text-[11px] text-brand-text">Loading data…</p>}
       </div>
       <button
         type="button"
         aria-label="Search candidates"
         onClick={open}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ink-secondary hover:bg-subtle"
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-secondary hover:bg-subtle"
       >
         <Search aria-hidden className="h-5 w-5" />
       </button>
-      <button type="button" aria-label="Account" onClick={() => setUserOpen(true)} className="rounded-full">
+      <button
+        type="button"
+        aria-label="Account"
+        onClick={() => setUserOpen(true)}
+        className="inline-flex h-11 w-11 items-center justify-center rounded-full"
+      >
         <Avatar name={user.name} size={30} />
       </button>
       {pending && (

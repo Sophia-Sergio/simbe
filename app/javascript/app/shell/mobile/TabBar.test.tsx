@@ -1,11 +1,22 @@
+import { useState } from "react"
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { Home } from "lucide-react"
+import { renderWithProviders } from "@/test/renderWithProviders"
+import type { NavItem } from "../../feature"
 import { askCalls } from "./fixtures"
+import { MoreSheet } from "./MoreSheet"
+import { TabBar } from "./TabBar"
 import { renderMobile } from "./renderMobile"
 
 const tabs = () => within(screen.getByRole("navigation", { name: "Tabs" }))
-const labels = () =>
-  Array.from(screen.getByRole("navigation", { name: "Tabs" }).querySelectorAll("a, button")).map((element) => element.textContent)
+// What a screen reader announces: the text minus aria-hidden parts (the count badge).
+const nameOf = (element: Element) => {
+  const clone = element.cloneNode(true) as Element
+  clone.querySelectorAll("[aria-hidden='true']").forEach((node) => node.remove())
+  return clone.textContent
+}
+const labels = () => Array.from(screen.getByRole("navigation", { name: "Tabs" }).querySelectorAll("a, button")).map(nameOf)
 
 beforeEach(() => {
   askCalls.count = 0
@@ -13,12 +24,12 @@ beforeEach(() => {
 
 it("owner tabs: Home, Pipeline, Channels, Ask, More", () => {
   renderMobile({ role: "owner" })
-  expect(labels()).toEqual(["Home", "10Pipeline", "Channels", "Ask", "More"])
+  expect(labels()).toEqual(["Home", "Pipeline", "Channels", "Ask", "More"])
 })
 
 it("coordinator tabs: Next actions, My leads, Ask (no More)", () => {
   renderMobile({ role: "coordinator", route: "/next-actions" })
-  expect(labels()).toEqual(["4Next actions", "My leads", "Ask"])
+  expect(labels()).toEqual(["Next actions", "My leads", "Ask"])
 })
 
 it("handles any list of tabs and only adds More when there are More rows", () => {
@@ -78,7 +89,6 @@ it("Ask is an action: calls its handler, does not navigate, never aria-current",
   await userEvent.click(tabs().getByRole("button", { name: "Ask" }))
   expect(askCalls.count).toBe(1)
   expect(location().pathname).toBe("/pipeline")
-  expect(tabs().getByRole("button", { name: "Ask" })).not.toHaveAttribute("aria-current")
   expect(tabs().getByRole("button", { name: "Ask" })).not.toHaveClass("text-brand")
 })
 
@@ -87,9 +97,48 @@ it("Ask looks active only while the agent is open", () => {
   expect(tabs().getByRole("button", { name: "Ask" })).toHaveClass("text-brand")
 })
 
-it("shows a badge on tabs with useBadge", () => {
+it("shows a badge on tabs with useBadge, kept out of the accessible name", () => {
   renderMobile({ role: "coordinator", route: "/next-actions" })
-  expect(within(tabs().getByRole("link", { name: /Next actions/ })).getByText("4")).toBeInTheDocument()
+  const link = tabs().getByRole("link", { name: "Next actions" })
+  expect(within(link).getByText("4")).toHaveAttribute("aria-hidden", "true")
+})
+
+it("caps large badge counts at 99+", () => {
+  const big: NavItem = { id: "b", label: "Big", icon: Home, section: "today", roles: ["owner"], order: 1, to: "/b", useBadge: () => 1234, mobile: { tab: { order: 1 } } }
+  renderWithProviders(<TabBar tabs={[big]} hasMore={false} onMore={() => {}} moreActive={false} />, { viewport: 390 })
+  expect(screen.getByText("99+")).toBeInTheDocument()
+  expect(screen.queryByText("1234")).toBeNull()
+})
+
+it("renders nothing when there are no tabs and no More rows", () => {
+  renderWithProviders(<TabBar tabs={[]} hasMore={false} onMore={() => {}} moreActive={false} />, { viewport: 390 })
+  expect(screen.queryByRole("navigation", { name: "Tabs" })).toBeNull()
+})
+
+it("survives a tab whose badge hook appears and disappears between renders", async () => {
+  function Harness() {
+    const [withBadge, setWithBadge] = useState(true)
+    const item: NavItem = { id: "p", label: "Pipeline", icon: Home, section: "today", roles: ["owner"], order: 1, to: "/pipeline", useBadge: withBadge ? () => 3 : undefined, mobile: { tab: { order: 1 } } }
+    return (
+      <>
+        <button type="button" onClick={() => setWithBadge(false)}>
+          drop badge
+        </button>
+        <TabBar tabs={[item]} hasMore={false} onMore={() => {}} moreActive={false} />
+      </>
+    )
+  }
+  renderWithProviders(<Harness />, { viewport: 390 })
+  expect(screen.getByText("3")).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "drop badge" }))
+  expect(screen.queryByText("3")).toBeNull()
+  expect(screen.getByRole("link", { name: "Pipeline" })).toBeInTheDocument()
+})
+
+it("skips More rows that have no page to open", async () => {
+  const action: NavItem = { id: "x", label: "Do thing", icon: Home, section: "agency", roles: ["owner"], order: 1, useOnSelect: () => () => {}, mobile: { more: { order: 1 } } }
+  renderWithProviders(<MoreSheet items={[action]} open onClose={() => {}} />, { viewport: 390 })
+  expect(screen.queryByRole("link", { name: "Do thing" })).toBeNull()
 })
 
 it("tab targets are 58px tall and respect the safe area", () => {

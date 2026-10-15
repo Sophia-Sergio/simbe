@@ -49,3 +49,10 @@ it("Esc closes the account sheet", async () => {
   await userEvent.keyboard("{Escape}")
   expect(screen.queryByRole("dialog")).toBeNull()
 })
+
+it("renders no heading when the route has no title, and tap targets are 44px", () => {
+  renderMobile({ title: "" })
+  expect(screen.queryByRole("heading", { level: 1 })).toBeNull()
+  expect(screen.getByRole("button", { name: "Account" })).toHaveClass("h-11", "w-11")
+  expect(screen.getByRole("button", { name: "Search candidates" })).toHaveClass("h-11", "w-11")
+})

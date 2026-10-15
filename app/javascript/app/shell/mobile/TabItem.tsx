@@ -2,26 +2,39 @@ import { Link, useLocation } from "react-router-dom"
 import { useAgent } from "@/app/agent"
 import type { NavItem } from "../../feature"
 
-/** `/` matches only itself; every other target also matches its nested routes (`/channels/Facebook`). */
+/** `/` matches only itself; every other target also matches its nested routes (`/channels/Facebook`). Case-insensitive, like the router. */
 export function isActivePath(pathname: string, to: string): boolean {
-  if (to === "/") return pathname === "/"
-  return pathname === to || pathname.startsWith(`${to}/`)
+  const path = pathname.toLowerCase()
+  const target = to.toLowerCase()
+  if (target === "/") return path === "/"
+  return path === target || path.startsWith(`${target}/`)
 }
 
-const TAB = "relative flex h-[58px] flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium"
+const TAB = "relative flex h-[58px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium"
 
-function Face({ Icon, label, active, badge }: { Icon: NavItem["icon"]; label: string; active: boolean; badge?: number }) {
+/** Runs the item's `useBadge` hook in its own component, so an item whose hook comes and goes remounts (and cleans up) instead of breaking hook order. */
+function Count({ use }: { use: () => number | undefined }) {
+  const count = use()
+  if (!count) return null
+  return (
+    <span
+      aria-hidden
+      className="absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full bg-brand px-1 text-center text-[10px] font-semibold leading-4 text-white"
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  )
+}
+
+function Face({ item, label, active }: { item: NavItem; label: string; active: boolean }) {
+  const Icon = item.icon
   return (
     <>
       <span className="relative">
         <Icon aria-hidden className="h-[22px] w-[22px]" strokeWidth={active ? 2.2 : 1.8} />
-        {badge ? (
-          <span className="absolute -right-2.5 -top-1.5 min-w-[16px] rounded-full bg-brand px-1 text-center text-[10px] font-semibold leading-4 text-white">
-            {badge}
-          </span>
-        ) : null}
+        {item.useBadge && <Count key="badge" use={item.useBadge} />}
       </span>
-      <span>{label}</span>
+      <span className="max-w-full truncate whitespace-nowrap px-0.5">{label}</span>
     </>
   )
 }
@@ -30,11 +43,10 @@ const tone = (active: boolean) => (active ? "text-brand" : "text-ink-muted")
 
 function LinkTab({ item, label }: { item: NavItem; label: string }) {
   const { pathname } = useLocation()
-  const badge = item.useBadge?.() // stable per item: a registry item either always or never has the hook
   const active = isActivePath(pathname, item.to ?? "")
   return (
     <Link to={item.to ?? "/"} aria-current={active ? "page" : undefined} className={`${TAB} ${tone(active)}`}>
-      <Face Icon={item.icon} label={label} active={active} badge={badge} />
+      <Face item={item} label={label} active={active} />
     </Link>
   )
 }
@@ -46,7 +58,7 @@ function ActionTab({ item, label }: { item: NavItem; label: string }) {
   const active = item.id === "ask" && agent.isOpen
   return (
     <button type="button" onClick={onSelect} className={`${TAB} ${tone(active)}`}>
-      <Face Icon={item.icon} label={label} active={active} />
+      <Face item={item} label={label} active={active} />
     </button>
   )
 }
