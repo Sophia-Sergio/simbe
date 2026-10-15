@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test"
 
 // Runs against the standalone mock host (`npm run dev:mock`) — no Rails, no Docker. The MSW worker is
-// started by `startMocks()` from the app entrypoint (W0-5's app-core lane); until that is wired up the
-// worker is not registered, so this journey skips itself instead of failing on an unbuilt shell.
+// started by `startMocks()` from the app entrypoint (W0-5's app-core lane); until that is wired up this
+// journey cannot pass. It is explicitly fixme'd rather than skipped at runtime: a runtime skip based on
+// `/me` would also hide a dead worker AFTER W0-5 merges.
 test("the mock API signs in an owner and serves the summary", async ({ page }) => {
-  await page.goto("/")
+  test.fixme(true, "Remove this line when W0-5 mounts the app: entrypoints/application.tsx must call startMocks()")
 
-  const meStatus = await page.evaluate(() => fetch("/api/v1/me").then((response) => response.status))
-  test.skip(meStatus !== 401, "MSW is not started yet — W0-5's entrypoint calls startMocks(); this journey activates once app-core is merged")
+  await page.goto("/")
+  expect(await page.evaluate(() => fetch("/api/v1/me").then((response) => response.status))).toBe(401)
 
   const signInStatus = await page.evaluate(async () => {
     const response = await fetch("/api/v1/session", {
