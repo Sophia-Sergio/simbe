@@ -316,7 +316,7 @@ def cmd_graph(a):
 # ---------------------------------------------------------------- review gate (see docs/superpowers/parallel/review-gate.md)
 GATE_ROOT = os.path.join(MAIN_ROOT, ".superpowers", "gate")
 RED_FLAGS = [
-    ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|(?:^|[\s;])pending\s*(?:\(|[\"'])|\bskip\b\s*[\"'(:])"),
+    ("skipped/focused test", r"(\bit\.skip|\bxit\(|\bxdescribe|describe\.skip|test\.skip|\.only\(|(?:^|;)\s*pending\s*(?:\(|[\"'])|\bskip\b\s*[\"'(:])"),
     ("TODO/FIXME/HACK", r"\b(TODO|FIXME|HACK|XXX)\b"),
     ("debug leftovers", r"(console\.log\(|binding\.pry|byebug|\bdebugger\b|\bputs\s+[\"'#])"),
     ("secret-looking value", r"(sk-ant-[A-Za-z0-9_-]{10,}|AKIA[0-9A-Z]{12,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"),

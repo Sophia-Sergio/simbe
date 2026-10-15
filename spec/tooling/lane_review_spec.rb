@@ -18,6 +18,11 @@ RSpec.describe "bin/lane review" do
     expect(review.out).not_to include("skipped/focused test")
   end
 
+  it "does not flag a test title that merely ends with the word pending" do
+    sandbox.commit_in("F-WEEK", file: file, content: "it(\"disables both buttons while pending\", () => {})\nit('is pending', () => {})\n")
+    expect(review.out).not_to include("skipped/focused test")
+  end
+
   it "still flags real skipped, focused and pending tests" do
     [ "it.skip('x', () => {})", "xit('x', () => {})", "describe.only('x', () => {})", "test.skip('x', () => {})", "  pending 'not yet'", "  pending('not yet')", "  skip 'later'" ].each do |line|
       sandbox.commit_in("F-WEEK", file: file, content: "#{line}\n", message: "feat: #{line}")
