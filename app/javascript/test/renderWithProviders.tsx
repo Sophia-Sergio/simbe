@@ -6,6 +6,7 @@ import type { ReactElement, ReactNode } from "react"
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom"
 import type { Location, NavigateFunction } from "react-router-dom"
 import { AgentContext } from "@/app/agent"
+import { resetLeadPanelIds } from "@/app/leadPanel"
 import type { FeatureModule } from "@/app/feature"
 import { Providers } from "@/app/Providers"
 import { buildRegistry } from "@/app/registry"
@@ -38,6 +39,7 @@ export function renderWithProviders(
   { route = "/", path, role = "owner", viewport = 1280, agentOpen = false, features = [] }: RenderWithProvidersOptions = {},
 ): RenderWithProvidersResult {
   db.reset()
+  resetLeadPanelIds()
   asRole(role)
   setViewport(viewport)
 

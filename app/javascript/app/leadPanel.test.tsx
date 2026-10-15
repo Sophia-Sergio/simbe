@@ -59,3 +59,20 @@ it("ids registered on one list are not used on another path", () => {
   act(() => other.result.current.panel.next())
   expect(search(other.result)).toBe("?lead=b")
 })
+
+it("both directions stay available at the ends because prev/next wrap", () => {
+  const { result } = setup("/pipeline?lead=a")
+  act(() => result.current.panel.setIds(["a", "b"]))
+  expect(result.current.panel.hasPrev).toBe(true)
+  expect(result.current.panel.hasNext).toBe(true)
+  const single = setup("/solo?lead=a")
+  act(() => single.result.current.panel.setIds(["a"]))
+  expect(single.result.current.panel.hasPrev).toBe(false)
+})
+
+it("close with nothing open does not push a history entry", () => {
+  const { result } = setup("/pipeline?range=90d")
+  const before = result.current.location.key
+  act(() => result.current.panel.close())
+  expect(result.current.location.key).toBe(before)
+})

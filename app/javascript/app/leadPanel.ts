@@ -16,6 +16,12 @@ const subscribe = (listener: () => void) => {
 }
 const getSnapshot = () => store
 
+/** Test seam: drops the registered ids so one test cannot see another's list. */
+export function resetLeadPanelIds(): void {
+  store = { path: "", ids: [] }
+  listeners.forEach((listener) => listener())
+}
+
 export type LeadPanel = {
   leadId: string | null
   tab: LeadTab
@@ -39,8 +45,9 @@ export function useLeadPanel(): LeadPanel {
   const tab: LeadTab = isTab(rawTab) ? rawTab : "summary"
   const ids = useMemo(() => (current.path === pathname ? current.ids : []), [current, pathname])
   const index = leadId ? ids.indexOf(leadId) : -1
-  const hasPrev = index > 0
-  const hasNext = index >= 0 && index < ids.length - 1
+  // prev/next wrap around, so with two or more ids both are always available.
+  const hasPrev = index >= 0 && ids.length > 1
+  const hasNext = hasPrev
 
   const open = useCallback(
     (id: string, nextTab?: LeadTab) => {
@@ -58,14 +65,16 @@ export function useLeadPanel(): LeadPanel {
     [setParams],
   )
 
+  const isOpen = params.has("lead") || params.has("tab")
   const close = useCallback(() => {
+    if (!isOpen) return // nothing to close: do not push a duplicate history entry
     setParams((prev) => {
       const next = new URLSearchParams(prev)
       next.delete("lead")
       next.delete("tab")
       return next
     })
-  }, [setParams])
+  }, [isOpen, setParams])
 
   const setIds = useCallback(
     (list: string[]) => {

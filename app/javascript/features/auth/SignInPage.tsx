@@ -13,8 +13,8 @@ import { useAsyncAction } from "@/hooks/useAsyncAction"
 
 const homeFor = (role: Role | null): string => (role === "coordinator" ? "/next-actions" : "/")
 
-// `next` comes from the URL, so only same-origin absolute paths are followed (no `//host`, no schemes).
-const safeNext = (next: string | null): string | null => (next && next.startsWith("/") && !next.startsWith("//") ? next : null)
+// `next` comes from the URL, so only same-origin absolute paths are followed (no `//host`, no `/\host`, no schemes).
+const safeNext = (next: string | null): string | null => (next && /^\/(?![/\\])/.test(next) ? next : null)
 
 const INCORRECT = "Email or password is incorrect"
 const GENERIC = "Something went wrong. Try again."

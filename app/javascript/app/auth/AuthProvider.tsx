@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const data = me.data ?? null
   let status: AuthStatus = "anonymous"
   if (data && !expired) status = "authenticated"
-  else if (!data && me.isPending && !expired) status = "loading"
+  else if (!data && me.isPending && !expired && !signedOut) status = "loading"
 
   const value = useMemo<Auth>(
     () => ({

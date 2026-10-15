@@ -20,7 +20,7 @@ export function SearchPaletteProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return
+      if (event.key?.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return
       event.preventDefault()
       if (isOpen) close()
       else open()

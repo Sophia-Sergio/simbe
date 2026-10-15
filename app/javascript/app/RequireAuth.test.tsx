@@ -77,3 +77,27 @@ it("renders children when authenticated", async () => {
   expect(await screen.findByText("secret")).toBeInTheDocument()
   expect(screen.queryByTestId("skeleton")).toBeNull()
 })
+
+it("keeps the query string and hash in ?next so a lead panel survives re-authentication", async () => {
+  asRole(null)
+  renderGate(
+    <>
+      <LocationProbe />
+      <Routes>
+        <Route
+          path="/pipeline"
+          element={
+            <RequireAuth>
+              <div>secret</div>
+            </RequireAuth>
+          }
+        />
+        <Route path="/signin" element={<div>signin screen</div>} />
+      </Routes>
+    </>,
+    { route: "/pipeline?range=90d&lead=abc&tab=screener" },
+  )
+  await screen.findByText("signin screen")
+  const next = new URLSearchParams(screen.getByTestId("location").textContent!.split("?").slice(1).join("?")).get("next")
+  expect(next).toBe("/pipeline?range=90d&lead=abc&tab=screener")
+})

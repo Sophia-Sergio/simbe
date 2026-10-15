@@ -103,3 +103,11 @@ it("redirects an already-authenticated visit home", async () => {
   mount()
   await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/next-actions"))
 })
+
+it("ignores a backslash ?next that browsers read as another origin", async () => {
+  asRole(null)
+  mount("/signin?next=%2F%5Cevil.test")
+  await fillAndSubmit("erin@harbor.test", "x")
+  await screen.findByText("landed")
+  expect(screen.getByTestId("location")).toHaveTextContent(/^\/$/)
+})

@@ -48,3 +48,9 @@ it("close hides the palette", () => {
 it("throws outside the provider", () => {
   expect(() => renderHook(() => useSearchPalette(), { wrapper: MemoryRouter })).toThrow(/SearchPaletteProvider/)
 })
+
+it("ignores keydown events that carry no key (browser autofill)", () => {
+  const { result } = setup()
+  expect(() => fireEvent.keyDown(window, {})).not.toThrow()
+  expect(result.current.palette.isOpen).toBe(false)
+})

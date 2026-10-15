@@ -1,7 +1,9 @@
 import { screen, waitFor } from "@testing-library/react"
+import { useEffect } from "react"
 import type { ReactNode } from "react"
 import { useParams } from "react-router-dom"
 import { useAgent } from "@/app/agent"
+import { useLeadPanel } from "@/app/leadPanel"
 import { useAuth } from "@/app/auth/useAuth"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { db } from "@/mocks/db"
@@ -20,6 +22,11 @@ function Probe() {
       <span data-testid="id">{params.id ?? "-"}</span>
     </div>
   )
+}
+
+function LeadProbe() {
+  const panel = useLeadPanel()
+  return <span>{`hasNext:${panel.hasNext}`}</span>
 }
 
 it("defaults to an owner session on desktop", async () => {
@@ -81,4 +88,18 @@ it("two renders do not share cache or mock db", async () => {
   const second = renderWithProviders(<Probe />)
   expect(second.queryClient.getQueryData(["marker"])).toBeUndefined()
   expect(db.completions.size).toBe(0)
+})
+
+it("two renders do not share the lead panel ids", () => {
+  function Seed() {
+    const { setIds } = useLeadPanel()
+    useEffect(() => {
+      setIds(["a", "b", "c"])
+    }, [setIds])
+    return null
+  }
+  const first = renderWithProviders(<Seed />, { route: "/pipeline?lead=b" })
+  first.unmount()
+  const second = renderWithProviders(<LeadProbe />, { route: "/pipeline?lead=b" })
+  expect(second.container).toHaveTextContent("hasNext:false")
 })

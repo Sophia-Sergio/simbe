@@ -15,7 +15,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   if (status === "anonymous") {
     // A deliberate sign-out lands on a bare /signin: there is no page to come back to.
     if (signedOut) return <Navigate to="/signin" replace />
-    return <Navigate to={`/signin?next=${encodeURIComponent(location.pathname)}`} replace />
+    return <Navigate to={`/signin?next=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`} replace />
   }
   return <>{children}</>
 }
