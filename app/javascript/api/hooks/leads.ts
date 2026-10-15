@@ -8,8 +8,8 @@ export type LeadListParams = { status?: string; coordinator?: string; q?: string
 export function useBoard(coordinator?: string) {
   return useQuery({
     queryKey: ["leads", "board", coordinator ?? null],
-    queryFn: () =>
-      jsonRequest<Board>("GET", coordinator ? `${API}/leads/board?coordinator=${encodeURIComponent(coordinator)}` : `${API}/leads/board`),
+    queryFn: ({ signal }) =>
+      jsonRequest<Board>("GET", coordinator ? `${API}/leads/board?coordinator=${encodeURIComponent(coordinator)}` : `${API}/leads/board`, undefined, signal),
   })
 }
 
@@ -27,7 +27,7 @@ function listPath(params: LeadListParams, cursor: string | null): string {
 export function useLeadList(params: LeadListParams = {}) {
   return useInfiniteQuery({
     queryKey: ["leads", "list", params],
-    queryFn: ({ pageParam }) => jsonRequest<LeadList>("GET", listPath(params, pageParam)),
+    queryFn: ({ pageParam, signal }) => jsonRequest<LeadList>("GET", listPath(params, pageParam), undefined, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_cursor,
   })
@@ -37,24 +37,21 @@ export function useLeadList(params: LeadListParams = {}) {
 export function useLead(id: string | null) {
   return useQuery({
     queryKey: ["leads", "detail", id],
-    queryFn: () => jsonRequest<LeadDetail>("GET", `${API}/leads/${id}`),
+    queryFn: ({ signal }) => jsonRequest<LeadDetail>("GET", `${API}/leads/${id}`, undefined, signal),
     enabled: id !== null,
   })
 }
 
-/** ⌘K search: enabled from two characters, debounced 200 ms. */
+/** ⌘K search: always debounced 200 ms, enabled from two characters (never an unfiltered request). */
 export function useLeadSearch(q: string) {
-  const enabled = q.length >= 2
-  const [debounced, setDebounced] = useState(q)
+  const [debounced, setDebounced] = useState("")
   useEffect(() => {
-    if (!enabled) return
     const timer = setTimeout(() => setDebounced(q), 200)
     return () => clearTimeout(timer)
-  }, [q, enabled])
-  const term = enabled ? debounced : q
+  }, [q])
   return useQuery({
-    queryKey: ["leads", "search", term],
-    queryFn: () => jsonRequest<LeadList>("GET", `${API}/leads?q=${encodeURIComponent(term)}`),
-    enabled,
+    queryKey: ["leads", "search", debounced],
+    queryFn: ({ signal }) => jsonRequest<LeadList>("GET", `${API}/leads?q=${encodeURIComponent(debounced)}`, undefined, signal),
+    enabled: debounced.length >= 2,
   })
 }

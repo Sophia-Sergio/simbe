@@ -6,8 +6,8 @@ import type { NextActions, QueueKey } from "../types"
 export function useNextActions(coordinator?: string) {
   return useQuery({
     queryKey: ["next_actions", coordinator ?? null],
-    queryFn: () =>
-      jsonRequest<NextActions>("GET", coordinator ? `${API}/next_actions?coordinator=${encodeURIComponent(coordinator)}` : `${API}/next_actions`),
+    queryFn: ({ signal }) =>
+      jsonRequest<NextActions>("GET", coordinator ? `${API}/next_actions?coordinator=${encodeURIComponent(coordinator)}` : `${API}/next_actions`, undefined, signal),
   })
 }
 
@@ -44,5 +44,5 @@ export function useToggleDone() {
       void queryClient.invalidateQueries({ queryKey: ["leads", "detail"] })
     },
   })
-  return { toggle: (leadId: string, queue: QueueKey, done: boolean) => mutation.mutate({ leadId, queue, done }) }
+  return { toggle: (leadId: string, queue: QueueKey, done: boolean) => mutation.mutateAsync({ leadId, queue, done }) }
 }

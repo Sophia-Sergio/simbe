@@ -6,7 +6,7 @@ type McpSettings = components["schemas"]["McpSettings"]
 type McpRotated = components["schemas"]["McpRotated"]
 
 export function useMcpSettings() {
-  return useQuery({ queryKey: ["mcp"], queryFn: () => jsonRequest<McpSettings>("GET", `${API}/mcp`) })
+  return useQuery({ queryKey: ["mcp"], queryFn: ({ signal }) => jsonRequest<McpSettings>("GET", `${API}/mcp`, undefined, signal) })
 }
 
 /** Rotates the key; the returned full key is shown once and never stored client-side. */

@@ -33,7 +33,7 @@ function asApiError(error: unknown): ApiError {
 export function useCurrentSnapshot() {
   return useQuery({
     queryKey: ["snapshot"],
-    queryFn: () => jsonRequest<SnapshotCurrent>("GET", `${API}/snapshots/current`),
+    queryFn: ({ signal }) => jsonRequest<SnapshotCurrent>("GET", `${API}/snapshots/current`, undefined, signal),
     refetchInterval: (query) => (query.state.data?.pending ? 2000 : false),
   })
 }

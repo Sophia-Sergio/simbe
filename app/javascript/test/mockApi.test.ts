@@ -1,4 +1,4 @@
-import { mockApi, setViewport } from "./mockApi"
+import { asRole, mockApi, setViewport } from "./mockApi"
 
 it("serves the default handler and overrides by method+path+query", async () => {
   const r1 = await fetch("/api/v1/metrics/summary?range=30d")
@@ -22,4 +22,9 @@ it("setViewport flips matchMedia and fires resize", () => {
 
 it("unhandled requests fail the test", async () => {
   await expect(fetch("/api/v1/nope")).rejects.toThrow()
+})
+
+it("asRole(null) signs out for the W0-5 signed-out state", async () => {
+  asRole(null)
+  expect((await fetch("/api/v1/me")).status).toBe(401)
 })

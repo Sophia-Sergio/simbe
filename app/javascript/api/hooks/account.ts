@@ -8,7 +8,7 @@ type CoordinatorNames = components["schemas"]["CoordinatorNames"]
 type AdConnections = components["schemas"]["AdConnections"]
 
 export function useAgency() {
-  return useQuery({ queryKey: ["agency"], queryFn: () => jsonRequest<Agency>("GET", `${API}/agency`) })
+  return useQuery({ queryKey: ["agency"], queryFn: ({ signal }) => jsonRequest<Agency>("GET", `${API}/agency`, undefined, signal) })
 }
 
 /** Optimistically updates the agency (and the copy nested in ["me"]); rolls back on failure. */
@@ -46,7 +46,7 @@ export function useSignup() {
 }
 
 export function useTeam() {
-  return useQuery({ queryKey: ["team"], queryFn: () => jsonRequest<Team>("GET", `${API}/team`) })
+  return useQuery({ queryKey: ["team"], queryFn: ({ signal }) => jsonRequest<Team>("GET", `${API}/team`, undefined, signal) })
 }
 
 export function useInviteCoordinator() {
@@ -69,7 +69,7 @@ export function useDeleteInvitation() {
 export function useInvitationPreview(token: string) {
   return useQuery({
     queryKey: ["invitation", token],
-    queryFn: () => jsonRequest<InvitationPreview>("GET", `${API}/invitations/${encodeURIComponent(token)}/preview`),
+    queryFn: ({ signal }) => jsonRequest<InvitationPreview>("GET", `${API}/invitations/${encodeURIComponent(token)}/preview`, undefined, signal),
   })
 }
 
@@ -83,11 +83,11 @@ export function useAcceptInvitation(token: string) {
 }
 
 export function useCoordinatorNames() {
-  return useQuery({ queryKey: ["coordinators", "names"], queryFn: () => jsonRequest<CoordinatorNames>("GET", `${API}/coordinator_names`) })
+  return useQuery({ queryKey: ["coordinators", "names"], queryFn: ({ signal }) => jsonRequest<CoordinatorNames>("GET", `${API}/coordinator_names`, undefined, signal) })
 }
 
 export function useAdConnections() {
-  return useQuery({ queryKey: ["adConnections"], queryFn: () => jsonRequest<AdConnections>("GET", `${API}/ad_connections`) })
+  return useQuery({ queryKey: ["adConnections"], queryFn: ({ signal }) => jsonRequest<AdConnections>("GET", `${API}/ad_connections`, undefined, signal) })
 }
 
 export function useConnectPlatform() {

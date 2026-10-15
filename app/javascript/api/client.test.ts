@@ -21,3 +21,26 @@ it("uploadFiles posts multipart without a manual content type", async () => {
   const init = f.mock.calls[0][1];
   expect(init.body).toBeInstanceOf(FormData); expect(init.headers["Content-Type"]).toBeUndefined(); expect(init.headers["X-Requested-With"]).toBe("simbe");
 });
+it("maps a failed fetch to ApiError network_error", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+  await expect(jsonRequest("GET", "/api/v1/x")).rejects.toMatchObject({ status: 0, code: "network_error" });
+});
+it("maps an aborted request to the AbortError so React Query can ignore it", async () => {
+  const abort = new DOMException("aborted", "AbortError");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(abort));
+  await expect(jsonRequest("GET", "/api/v1/x")).rejects.toMatchObject({ name: "AbortError" });
+});
+it("maps a 2xx non-JSON body to ApiError invalid_response", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>", { status: 200 })));
+  await expect(jsonRequest("GET", "/api/v1/x")).rejects.toMatchObject({ code: "invalid_response" });
+});
+it("passes an AbortSignal through to fetch", async () => {
+  const f = vi.fn().mockResolvedValue(new Response("{}", { status: 200 })); vi.stubGlobal("fetch", f);
+  const controller = new AbortController();
+  await jsonRequest("GET", "/api/v1/x", undefined, controller.signal);
+  expect(f.mock.calls[0][1].signal).toBe(controller.signal);
+});
+it("jsonRequest tolerates an empty 200 body", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 200 })));
+  await expect(jsonRequest("GET", "/api/v1/x")).resolves.toBeUndefined();
+});

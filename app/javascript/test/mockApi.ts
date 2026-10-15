@@ -59,7 +59,7 @@ export function setViewport(width: number): void {
   window.dispatchEvent(new Event("resize"))
 }
 
-/** Signs the mock in as the owner or the coordinator (Dana Ortiz). */
-export function asRole(role: "owner" | "coordinator"): void {
-  setSession({ email: role === "owner" ? OWNER_EMAIL : COORDINATOR_EMAIL, role })
+/** Signs the mock in as the owner, the coordinator, or out (`null`) for the signed-out screens. */
+export function asRole(role: "owner" | "coordinator" | null): void {
+  setSession(role === null ? null : { email: role === "owner" ? OWNER_EMAIL : COORDINATOR_EMAIL, role })
 }
