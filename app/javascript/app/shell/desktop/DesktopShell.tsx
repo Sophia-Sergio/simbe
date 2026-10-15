@@ -27,11 +27,10 @@ export function DesktopShell({ user, agency, nav, overlays, fab, topBarRight, on
   const main = useRef<HTMLElement>(null)
 
   const toggle = useCallback(() => {
-    setCollapsed((value) => {
-      writeCollapsed(!value)
-      return !value
-    })
-  }, [])
+    const next = !collapsed
+    setCollapsed(next)
+    writeCollapsed(next)
+  }, [collapsed])
 
   return (
     <div data-shell="desktop" className="flex min-h-screen bg-app">

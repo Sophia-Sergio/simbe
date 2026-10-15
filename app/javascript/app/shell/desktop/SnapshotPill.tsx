@@ -10,9 +10,10 @@ export function SnapshotPill() {
   if (!data) return null
   if (data.pending) {
     const pct = data.pending.progress?.pct
+    const shown = Number.isFinite(pct) ? ` ${Math.min(100, Math.max(0, Math.round(pct as number)))}%` : ""
     return (
       <Pill tone="brand">
-        <span role="status">{`Loading data…${typeof pct === "number" ? ` ${Math.round(pct)}%` : ""}`}</span>
+        <span role="status">{`Loading data…${shown}`}</span>
       </Pill>
     )
   }

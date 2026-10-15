@@ -1,6 +1,8 @@
+import { useState } from "react"
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Home, Sparkles } from "lucide-react"
+import type { NavItem } from "../../feature"
 import { Sidebar } from "./Sidebar"
 import { AGENCY, OWNER, renderShell } from "./renderShell"
 import { renderWithProviders } from "@/test/renderWithProviders"
@@ -117,4 +119,38 @@ it("shows the owner's name and capitalized role in the footer", () => {
   const sidebar = within(screen.getByTestId("sidebar"))
   expect(sidebar.getByText("Erin Harbor")).toBeInTheDocument()
   expect(sidebar.getByText("Owner")).toBeInTheDocument()
+})
+
+it("matches paths case-insensitively like the router", () => {
+  renderShell({ role: "owner", route: "/Channels/Facebook" })
+  expect(screen.getByRole("link", { name: /Channels/ })).toHaveAttribute("aria-current", "page")
+})
+
+it("survives a nav item whose badge hook appears and disappears between renders", async () => {
+  function Harness() {
+    const [withBadge, setWithBadge] = useState(true)
+    const item: NavItem = {
+      id: "p",
+      label: "Pipeline",
+      icon: Home,
+      section: "insights",
+      roles: ["owner"],
+      order: 1,
+      to: "/pipeline",
+      useBadge: withBadge ? () => 3 : undefined,
+    }
+    return (
+      <>
+        <button type="button" onClick={() => setWithBadge(false)}>
+          drop badge
+        </button>
+        <Sidebar nav={[item]} agency={AGENCY} user={OWNER} collapsed={false} onToggle={() => {}} onSignOut={() => {}} />
+      </>
+    )
+  }
+  renderWithProviders(<Harness />)
+  expect(screen.getByText("3")).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "drop badge" }))
+  expect(screen.queryByText("3")).toBeNull()
+  expect(screen.getByRole("link", { name: /Pipeline/ })).toBeInTheDocument()
 })

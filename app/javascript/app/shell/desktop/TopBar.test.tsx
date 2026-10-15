@@ -56,29 +56,48 @@ it("returns to the snapshot date when the pending load finishes", async () => {
 
 it("hides the pill when there is no snapshot", async () => {
   mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
-  renderShell()
-  await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toBeInTheDocument())
-  await new Promise((resolve) => setTimeout(resolve, 50))
+  const { queryClient } = renderShell()
+  await waitFor(() => expect(queryClient.getQueryState(["snapshot"])?.status).toBe("success"))
   expect(screen.queryByText(/Snapshot/)).toBeNull()
+  expect(screen.queryByText(/Loading data/)).toBeNull()
 })
 
-it("opens the user menu, closes it with Esc and on an outside click", async () => {
+it("never prints NaN% for a bad progress payload and clamps out-of-range values", async () => {
+  let pct: unknown = "oops"
+  mockApi({
+    "GET /api/v1/snapshots/current": () => Response.json({ snapshot: null, pending: { upload_id: "u1", status: "committing", progress: { pct } }, files: [] }),
+  })
+  const { queryClient } = renderShell()
+  expect(await screen.findByText("Loading data…")).toBeInTheDocument()
+  pct = 250
+  await act(async () => {
+    await queryClient.invalidateQueries({ queryKey: ["snapshot"] })
+  })
+  expect(await screen.findByText("Loading data… 100%")).toBeInTheDocument()
+})
+
+it("opens the account panel, closes it with Esc and on an outside click, returning focus to the button", async () => {
   renderShell()
   const trigger = screen.getByRole("button", { name: "Account menu" })
   await userEvent.click(trigger)
-  expect(screen.getByRole("menu")).toHaveTextContent("erin@harbor.test")
+  expect(trigger).toHaveAttribute("aria-expanded", "true")
+  expect(screen.getAllByText("erin@harbor.test").length).toBeGreaterThan(0)
+  await userEvent.tab() // into the panel: the Sign out button
   await userEvent.keyboard("{Escape}")
-  expect(screen.queryByRole("menu")).toBeNull()
+  expect(trigger).toHaveAttribute("aria-expanded", "false")
+  expect(trigger).toHaveFocus()
   await userEvent.click(trigger)
   await userEvent.click(document.body)
-  expect(screen.queryByRole("menu")).toBeNull()
+  expect(trigger).toHaveAttribute("aria-expanded", "false")
 })
 
-it("Sign out in the menu calls onSignOut", async () => {
+it("Sign out in the panel calls onSignOut and closes it", async () => {
   const onSignOut = vi.fn()
   renderShell({ onSignOut })
-  await userEvent.click(screen.getByRole("button", { name: "Account menu" }))
-  await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }))
+  const trigger = screen.getByRole("button", { name: "Account menu" })
+  await userEvent.click(trigger)
+  const panelSignOut = screen.getAllByRole("button", { name: "Sign out" }).find((button) => !button.hasAttribute("title"))!
+  await userEvent.click(panelSignOut)
   expect(onSignOut).toHaveBeenCalledTimes(1)
-  expect(screen.queryByRole("menu")).toBeNull()
+  expect(trigger).toHaveAttribute("aria-expanded", "false")
 })

@@ -1,8 +1,18 @@
 import { ChevronDown } from "lucide-react"
 import type { Agency } from "@/api/types"
 
+const labelCache = new Map<string, string>()
+
 /** "America/Los_Angeles" → "Pacific time"; unknown zones fall back to the raw id. */
 export function timeZoneLabel(timeZone: string): string {
+  const cached = labelCache.get(timeZone)
+  if (cached) return cached
+  const label = computeLabel(timeZone)
+  labelCache.set(timeZone, label)
+  return label
+}
+
+function computeLabel(timeZone: string): string {
   try {
     const part = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longGeneric" })
       .formatToParts(new Date())
