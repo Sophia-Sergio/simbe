@@ -128,6 +128,6 @@ Rule of thumb: **one reviewer-hour per ~4 concurrent lanes**. If PRs pile up, do
 | `bin/lane check` flags a file you must change | it's outside your lane: CCR or ownership issue, not a workaround |
 | Mock and backend disagree | the contract (`contracts/openapi`) is the arbiter; CCR if the contract is wrong |
 | Real-data spec skipped | exports missing locally (`ls handoff/takehome/exports`); they are never in CI |
-| Lakeside import slow/OOM | check `docker stats`; the job runs on the single `ingest` thread; Docker needs ≥ 4 GB for the api container |
+| Lakeside import slow/OOM | check `docker stats`; the job runs on the single `ingest` thread; Docker needs ≥ 4 GB for the web container |
 | Agent keeps re-planning | point it at the plan's "detail reference" task and the overrides; plans win over its own ideas |
 | Many PRs red after a `ccr` merge | everyone `git fetch && git rebase origin/main`; regenerate types (`make types`) if they conflict — never hand-merge `schema.d.ts` |
