@@ -25,6 +25,7 @@ export const authHandlers = [
   http.delete("/api/v1/session", ({ request }) => {
     const csrf = csrfForbidden(request)
     if (csrf) return csrf
+    if (!db.session) return jsonError(401, "unauthenticated", "Sign in required")
     db.session = null
     persistSession(null)
     return new HttpResponse(null, { status: 204 })

@@ -1,7 +1,7 @@
-// Conformance: every operation in the bundled contract must have a mock handler, and each default 2xx
-// response must validate against the operation's JSON schema. This is what stops a fixture drifting
-// from the contract. The bundle is produced HERE, at test time (`npm run contract`): contracts/dist/ is
-// git-ignored, so CI and `make web-test` must not depend on a pre-existing (or freshly stale) bundle.
+// Conformance: every operation in the bundled contract has a mock handler, returns a status the contract
+// lists, and validates against the operation's JSON schema. The bundle is produced HERE, at test time
+// (`npm run contract`): contracts/dist/ is git-ignored, so CI and `make web-test` must not depend on a
+// pre-existing (or freshly stale) bundle.
 import { execSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
@@ -10,47 +10,93 @@ import Ajv2020 from "ajv/dist/2020"
 import addFormats from "ajv-formats"
 import { parse } from "yaml"
 import uploadOk from "@contracts/examples/snapshots/upload-ok.json"
-import { db, OWNER_EMAIL } from "@/mocks/db"
+import { db, COORDINATOR_EMAIL, OWNER_EMAIL } from "@/mocks/db"
 import type { MockUpload } from "@/mocks/db"
 import type { AgentMessage, Report } from "@/api/types"
 
-const LEAD_ID = "aaaaaaaa-0000-4000-8000-000000000004"
-const UPLOAD_ID = "66666666-6666-4666-8666-666666666666"
-const CONVO_ID = "99999999-9999-4999-8999-999999999999"
-const NOW = "2026-10-01T12:00:00.000Z"
-const SEVEN = ["leads.csv", "stage_history.csv", "contact_log.csv", "screener_answers.csv", "web_sessions.csv", "appointments.csv", "applications.csv"]
-
-type Operation = {
-  operationId?: string
-  responses: Record<string, { content?: Record<string, { schema?: Record<string, unknown> }> }>
-}
-type PathItem = Record<string, Operation | undefined>
-
 const SPEC_ID = "https://simbe.test/openapi.bundled.yaml"
+const TIGHT_ID = "https://simbe.test/openapi.tight.yaml"
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..")
 const BUNDLE_PATH = resolve(REPO_ROOT, "contracts/dist/openapi.bundled.yaml")
 
 // Bundle (and lint) the contract now; a broken contract fails the whole suite loudly.
 execSync("npm run contract", { cwd: REPO_ROOT, stdio: "pipe" })
 
-const spec = parse(readFileSync(BUNDLE_PATH, "utf8")) as {
-  paths: Record<string, PathItem>
-  components: { schemas: Record<string, unknown> }
-}
+const LEAD_ID = "aaaaaaaa-0000-4000-8000-000000000004"
+const UPLOAD_ID = "66666666-6666-4666-8666-666666666666"
+const CONVO_ID = "99999999-9999-4999-8999-999999999999"
+const UNKNOWN_UUID = "00000000-0000-4000-8000-000000000000"
+const NOW = "2026-10-01T12:00:00.000Z"
+const SEVEN = ["leads.csv", "stage_history.csv", "contact_log.csv", "screener_answers.csv", "web_sessions.csv", "appointments.csv", "applications.csv"]
+const METHODS = ["get", "post", "patch", "delete"]
 
+type Operation = {
+  operationId?: string
+  security?: unknown[]
+  responses: Record<string, { content?: Record<string, { schema?: Record<string, unknown> }> }>
+}
+type PathItem = Record<string, Operation | undefined>
+type Spec = { paths: Record<string, PathItem>; security?: unknown[]; components: { schemas: Record<string, unknown> } }
+
+const spec = parse(readFileSync(BUNDLE_PATH, "utf8")) as Spec
 const ops = Object.entries(spec.paths).flatMap(([path, item]) =>
-  ["get", "post", "patch", "delete"]
-    .filter((method) => item[method])
-    .map((method) => ({ path, method, op: item[method] as Operation })),
+  METHODS.filter((method) => item[method]).map((method) => ({ path, method, op: item[method] as Operation })),
 )
 
-function first2xx(op: Operation): string | undefined {
-  return ["200", "201", "202", "203", "204"].find((status) => op.responses[status])
+/** Adds `additionalProperties: false` (or `unevaluatedProperties: false` for allOf) so extra fields fail. */
+function tighten(node: unknown, isAllOfMember = false): unknown {
+  if (Array.isArray(node)) return node.map((item) => tighten(item, false))
+  if (!node || typeof node !== "object") return node
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    out[key] = key === "allOf" && Array.isArray(value) ? value.map((member) => tighten(member, true)) : tighten(value, false)
+  }
+  if (!isAllOfMember && out.properties && out.additionalProperties === undefined) out.additionalProperties = false
+  if (!isAllOfMember && out.allOf && out.unevaluatedProperties === undefined && out.additionalProperties === undefined) out.unevaluatedProperties = false
+  return out
 }
 
-function jsonSchema(op: Operation): Record<string, unknown> | undefined {
-  const status = first2xx(op)
-  return status ? op.responses[status].content?.["application/json"]?.schema : undefined
+/** Component schemas referenced from inside an `allOf` must not get `additionalProperties: false`
+ * (their siblings in the composition contribute properties). */
+function allOfReferencedSchemas(spec: Spec): Set<string> {
+  const names = new Set<string>()
+  const walk = (node: unknown, inAllOf: boolean) => {
+    if (Array.isArray(node)) {
+      node.forEach((item) => walk(item, inAllOf))
+      return
+    }
+    if (!node || typeof node !== "object") return
+    const obj = node as Record<string, unknown>
+    if (inAllOf && typeof obj.$ref === "string") names.add(obj.$ref.split("/").pop() as string)
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === "allOf" && Array.isArray(value)) value.forEach((member) => walk(member, true))
+      else walk(value, false)
+    }
+  }
+  walk(spec, false)
+  return names
+}
+
+const ajv = new Ajv2020({ strict: false, allErrors: true, unevaluated: true })
+addFormats(ajv)
+ajv.addSchema({ $id: SPEC_ID, ...spec })
+const tightSpec = tighten(spec) as Spec
+for (const name of allOfReferencedSchemas(spec)) {
+  const referenced = tightSpec.components.schemas[name] as Record<string, unknown> | undefined
+  if (referenced) delete referenced.additionalProperties
+}
+ajv.addSchema({ ...tightSpec, $id: TIGHT_ID })
+const errorValidate = ajv.compile({ $ref: `${SPEC_ID}#/components/schemas/Error` })
+
+const STATUSES = ["200", "201", "202", "203", "204"]
+const listed = (op: Operation) => Object.keys(op.responses)
+const listed2xx = (op: Operation) => STATUSES.filter((status) => op.responses[status])
+const jsonStatus = (op: Operation) => listed2xx(op).find((status) => op.responses[status].content?.["application/json"]?.schema)
+const escapePointer = (segment: string) => segment.replace(/~/g, "~0").replace(/\//g, "~1")
+
+function compile(specId: string, path: string, method: string, status: string) {
+  const pointer = `#/paths/${escapePointer(path)}/${method}/responses/${status}/content/${escapePointer("application/json")}/schema`
+  return ajv.compile({ $ref: `${specId}${pointer}` })
 }
 
 function samplePath(path: string): string {
@@ -82,6 +128,30 @@ function samplePath(path: string): string {
   }
 }
 
+/** A path with unknown params, for the operations the contract says can 404; null when there is none. */
+function unknownPath(path: string): string | null {
+  switch (path) {
+    case "/leads/{id}":
+      return `/leads/${UNKNOWN_UUID}`
+    case "/snapshot_uploads/{id}":
+      return `/snapshot_uploads/${UNKNOWN_UUID}`
+    case "/snapshot_uploads/{id}/commit":
+      return `/snapshot_uploads/${UNKNOWN_UUID}/commit`
+    case "/agent/conversations/{id}":
+      return `/agent/conversations/${UNKNOWN_UUID}`
+    case "/invitations/{id}":
+      return `/invitations/${UNKNOWN_UUID}`
+    case "/coordinators/{name}":
+      return "/coordinators/Nobody"
+    case "/metrics/channels/{channel}":
+      return "/metrics/channels/Nope"
+    case "/next_actions/{lead_id}/{queue}/completion":
+      return `/next_actions/${UNKNOWN_UUID}/text_back_now/completion`
+    default:
+      return null
+  }
+}
+
 function multipart(names: string[]): { body: string; contentType: string } {
   const boundary = "----simbe-conformance-boundary"
   let body = ""
@@ -97,7 +167,7 @@ function sampleBody(path: string, method: string): { body?: BodyInit; contentTyp
   const asJson = (value: unknown) => ({ body: JSON.stringify(value), contentType: "application/json" })
   switch (path) {
     case "/session":
-      return asJson({ email: "erin@harbor.test", password: "x" })
+      return asJson({ email: OWNER_EMAIL, password: "x" })
     case "/signup":
       return asJson({
         user: { name: "New Owner", email: "new@harbor.test", password: "longpassword1" },
@@ -120,14 +190,28 @@ function sampleBody(path: string, method: string): { body?: BodyInit; contentTyp
   }
 }
 
-async function call(path: string, method: string): Promise<Response> {
+async function call(path: string, method: string, unknown = false): Promise<Response> {
+  const target = unknown ? unknownPath(path) : samplePath(path)
+  if (target === null) throw new Error(`no unknown-param path for ${path}`)
   const { body, contentType } = sampleBody(path, method)
   const headers: Record<string, string> = { "X-Requested-With": "simbe" }
   if (contentType) headers["Content-Type"] = contentType
-  return fetch(`/api/v1${samplePath(path)}`, { method: method.toUpperCase(), headers, body })
+  return fetch(`/api/v1${target}`, { method: method.toUpperCase(), headers, body })
 }
 
-/** Seeds the state some GET handlers need (an upload and a conversation). */
+function asOwner() {
+  db.reset()
+  db.session = { email: OWNER_EMAIL, role: "owner" }
+  seed()
+}
+
+function asCoordinator() {
+  db.reset()
+  db.session = { email: COORDINATOR_EMAIL, role: "coordinator" }
+  seed()
+}
+
+/** Seeds the state some GET handlers need (an upload and a conversation owned by the owner). */
 function seed() {
   db.uploads.set(UPLOAD_ID, {
     files: SEVEN,
@@ -143,34 +227,87 @@ function seed() {
   db.conversations.set(CONVO_ID, { owner: OWNER_EMAIL, messages: [message] })
 }
 
-const ajv = new Ajv2020({ strict: false, allErrors: true })
-addFormats(ajv)
-// Register the whole document so the response schemas' `#/components/...` refs resolve.
-ajv.addSchema({ $id: SPEC_ID, ...spec })
+function expectErrorSchema(body: unknown) {
+  const valid = errorValidate(body)
+  if (!valid) throw new Error(`error envelope: ${ajv.errorsText(errorValidate.errors)}`)
+  expect(valid).toBe(true)
+}
 
-const escapePointer = (segment: string) => segment.replace(/~/g, "~0").replace(/\//g, "~1")
+const isPublic = (op: Operation) => Array.isArray(op.security) && op.security.length === 0
+const publicOps = ops.filter(({ op }) => isPublic(op))
+const protectedOps = ops.filter(({ op }) => !isPublic(op))
+const forbiddenOps = ops.filter(({ op }) => op.responses["403"] && !isPublic(op))
+const notFoundOps = ops.filter(({ path, op }) => op.responses["404"] && unknownPath(path) !== null)
+const validatable = ops.filter(({ op }) => jsonStatus(op))
 
-it("has a mock handler for every operation (coverage)", async () => {
-  seed()
+it("has a mock handler for every operation, returning a status the contract lists", async () => {
   expect(ops).toHaveLength(39)
-  for (const { path, method } of ops) {
-    // With onUnhandledRequest: "error", an operation without a handler rejects here.
+  for (const { path, method, op } of ops) {
+    asOwner()
     const res = await call(path, method)
-    expect(res.status).toBeLessThan(500)
+    if (!listed(op).includes(String(res.status))) throw new Error(`${method.toUpperCase()} ${path}: unexpected ${res.status}`)
   }
 })
 
-const validatable = ops.filter(({ op }) => jsonSchema(op))
-
-it.each(validatable)("$method $path default response matches its schema", async ({ path, method, op }) => {
-  seed()
-  const status = first2xx(op) as string
+it.each(validatable)("$method $path default response matches its (tightened) schema", async ({ path, method, op }) => {
+  asOwner()
+  const status = jsonStatus(op) as string
   const res = await call(path, method)
-  expect(res.ok).toBe(true)
+  expect(listed2xx(op)).toContain(String(res.status)) // accept any listed 2xx (connect-platform has 200 and 201)
   const body = await res.json()
-  const pointer = `#/paths/${escapePointer(path)}/${method}/responses/${status}/content/${escapePointer("application/json")}/schema`
-  const validate = ajv.compile({ $ref: `${SPEC_ID}${pointer}` })
+  const validate = compile(TIGHT_ID, path, method, status)
   const valid = validate(body)
   if (!valid) throw new Error(`${method} ${path}: ${ajv.errorsText(validate.errors)}`)
+  expect(valid).toBe(true)
+})
+
+it.each(publicOps)("$method $path is public and returns a listed status", async ({ path, method, op }) => {
+  db.reset()
+  db.session = null
+  seed()
+  const res = await call(path, method)
+  if (!listed(op).includes(String(res.status))) throw new Error(`${method} ${path}: unexpected ${res.status}`)
+})
+
+it.each(protectedOps)("$method $path requires a session (401 + error envelope)", async ({ path, method }) => {
+  db.reset()
+  db.session = null
+  seed()
+  const res = await call(path, method)
+  expect(res.status).toBe(401)
+  expectErrorSchema(await res.json())
+})
+
+it.each(forbiddenOps)("$method $path is 403 for a coordinator", async ({ path, method }) => {
+  asCoordinator()
+  const res = await call(path, method)
+  expect(res.status).toBe(403)
+  expectErrorSchema(await res.json())
+})
+
+it.each(notFoundOps)("$method $path returns 404 for an unknown id", async ({ path, method }) => {
+  asOwner()
+  const res = await call(path, method, true)
+  expect(res.status).toBe(404)
+  expectErrorSchema(await res.json())
+})
+
+it("owner lead detail hides raw screener answers and masks the phone", async () => {
+  asOwner()
+  const res = await call("/leads/{id}", "get")
+  const body = (await res.json()) as { contact: { phone: string } }
+  expect(JSON.stringify(body)).not.toContain('"answer"')
+  expect(body.contact.phone).toMatch(/^•••/)
+})
+
+it("the assigned coordinator sees raw answers and the real phone", async () => {
+  asCoordinator()
+  const res = await call("/leads/{id}", "get")
+  const body = (await res.json()) as { contact: { phone: string }; screener: { items: { answer?: string }[] } }
+  expect(body.screener.items[0].answer).toBeDefined()
+  expect(body.contact.phone).not.toMatch(/^•••/)
+  const validate = compile(TIGHT_ID, "/leads/{id}", "get", "200")
+  const valid = validate(body)
+  if (!valid) throw new Error(`coordinator lead detail: ${ajv.errorsText(validate.errors)}`)
   expect(valid).toBe(true)
 })
