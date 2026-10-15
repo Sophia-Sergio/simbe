@@ -62,6 +62,14 @@ RSpec.describe "boundaries:check" do
     expect(bad.map(&:first)).to eq([ "app/packs/leads/app/services/x.rb:1" ])
   end
 
+  it "exempts only the generated MSW worker, not other files in the mock host's public dir" do
+    files = {
+      "app/javascript/mock-host/public/mockServiceWorker.js" => "fetch('/x')\n",
+      "app/javascript/mock-host/public/sneaky.js" => "fetch('/x')\n"
+    }
+    expect(violations_for(files).map(&:first)).to eq([ "app/javascript/mock-host/public/sneaky.js:1" ])
+  end
+
   it "catches fetch with a space, XMLHttpRequest and EventSource, in .js/.jsx too" do
     files = {
       "app/javascript/features/a/a.ts" => "fetch ('/x')\n",
