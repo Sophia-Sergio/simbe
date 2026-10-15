@@ -27,6 +27,6 @@ Charts beyond those in the design, CSV export, saved views, comparison to arbitr
 ## Acceptance criteria
 1. `make web-test ARGS=app/javascript/features/insights` passes (KPI formatting, range switching updates the URL and refetches, funnel bar coloring by qualified row, channel flags, empty/error states).
 2. `make e2e ARGS=insights` passes against seeded Alpha-like data and writes `e2e/screenshots/{week,funnel,channels,channel}-{desktop,mobile}.png`.
-3. `grep -rniE '#be3a5f|#fdf2f5|#1c1917' frontend/src` prints nothing (brand override honored).
+3. `grep -rniE '#be3a5f|#fdf2f5|#1c1917' app/javascript` prints nothing (brand override honored).
 4. `docker compose exec web npm run typecheck && docker compose exec web npm run lint` exit 0.
 5. At 1280px and 390px widths, screenshots visibly match `handoff/design/screenshots/04–07` in layout (reviewer checks side by side; colors/shapes/logo follow `docs/design/brand.md`).
