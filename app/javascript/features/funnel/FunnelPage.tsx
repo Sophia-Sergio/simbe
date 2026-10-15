@@ -22,12 +22,15 @@ const humanize = (value: string) => {
 
 type Stage = Funnel["stages"][number]
 
+/** One decimal at most, none when whole: 50 -> "50%", 33.33 -> "33.3%", 99.96 -> "100%". */
+const pct = (value: number) => formatPct(value, Math.round(value * 10) % 10 === 0 ? 0 : 1)
+
 /** "50% leave here · age, bmi": the next row's drop, then the top exit reasons (omitted when none). */
 function exitLine(stage: Stage, next: Stage | undefined): string | null {
   if (!next || next.pct_of_previous === null) return null
-  const left = Math.round((100 - next.pct_of_previous) * 10) / 10
+  const left = 100 - next.pct_of_previous
   const reasons = stage.exit_reasons.map((entry) => entry.reason)
-  return `${formatPct(left, left % 1 === 0 ? 0 : 1)} leave here${reasons.length ? ` · ${reasons.join(", ")}` : ""}`
+  return `${pct(left)} leave here${reasons.length ? ` · ${reasons.join(", ")}` : ""}`
 }
 
 export function FunnelPage() {
@@ -41,7 +44,9 @@ export function FunnelPage() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="hidden font-display text-[24px] font-semibold tracking-[-0.02em] text-ink md:block">Funnel</h1>
-          {funnel.data && funnel.data.total > 0 && <Pill tone="neutral">{formatInt(funnel.data.total)} leads</Pill>}
+          {funnel.data && funnel.data.total > 0 && (
+            <Pill tone="neutral">{`${formatInt(funnel.data.total)} ${funnel.data.total === 1 ? "lead" : "leads"}`}</Pill>
+          )}
         </div>
         <p className="mt-0.5 text-[14px] text-ink-muted">
           Qualified = {definitionLabel(agency?.qualified_milestone ?? "consult_attended")}
@@ -51,7 +56,7 @@ export function FunnelPage() {
     </header>
   )
 
-  if (funnel.isPending) {
+  if (funnel.isPending || snapshot.isPending) {
     return (
       <div className="flex flex-col gap-5">
         {header}
@@ -69,7 +74,7 @@ export function FunnelPage() {
   }
 
   const { total, stages, form_dropoff: dropoff } = funnel.data
-  if (total === 0) {
+  if (!snapshot.data?.snapshot) {
     const pending = snapshot.data?.pending
     return (
       <div className="flex flex-col gap-5">
@@ -95,9 +100,19 @@ export function FunnelPage() {
     )
   }
 
+  if (total === 0) {
+    return (
+      <div className="flex flex-col gap-5">
+        {header}
+        <EmptyState title="No leads in this range" body="Try a longer range to see your funnel." />
+      </div>
+    )
+  }
+
   const qualifiedIndex = stages.findIndex((stage) => stage.qualified)
   const toneAt = (index: number): BarTone => (qualifiedIndex === -1 || index < qualifiedIndex ? "dark" : index === qualifiedIndex ? "brand" : "success")
   const worst = dropoff.reduce((max, entry) => Math.max(max, entry.pct), 0)
+  const worstIndex = worst > 0 ? dropoff.findIndex((entry) => entry.pct === worst) : -1
 
   return (
     <div className="flex flex-col gap-5">
@@ -113,9 +128,10 @@ export function FunnelPage() {
                   value={formatInt(stage.count)}
                   pct={stage.pct_of_total}
                   tone={toneAt(index)}
+                  labelClassName={stage.qualified ? "font-medium text-brand-text" : undefined}
                   right={
                     <span className="text-[12px] text-ink-muted">
-                      {stage.pct_of_previous === null ? "" : `${formatPct(stage.pct_of_previous, stage.pct_of_previous % 1 === 0 ? 0 : 1)} of previous`}
+                      {stage.pct_of_previous === null ? "" : `${pct(stage.pct_of_previous)} of previous`}
                     </span>
                   }
                 />
@@ -132,13 +148,13 @@ export function FunnelPage() {
             Where applicants stop in the form
           </h2>
           <div className="flex flex-col gap-3">
-            {dropoff.map((entry) => (
+            {dropoff.map((entry, index) => (
               <BarRow
                 key={entry.section}
                 label={humanize(entry.section)}
-                value={`${formatInt(entry.count)} · ${formatPct(entry.pct, entry.pct % 1 === 0 ? 0 : 1)}`}
+                value={`${formatInt(entry.count)} · ${pct(entry.pct)}`}
                 pct={entry.pct}
-                tone={entry.pct === worst ? "warning" : "muted"}
+                tone={index === worstIndex ? "warning" : "muted"}
               />
             ))}
           </div>

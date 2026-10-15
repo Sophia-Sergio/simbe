@@ -16,6 +16,7 @@ test("owner sees the funnel with the qualified row, exit line and form drop-off"
     await expect(page.getByText(name, { exact: true }).first()).toBeVisible()
   }
   await expect(page.getByText("10 leads")).toBeVisible()
+  await expect(page.getByText("Attended consult", { exact: true }).first()).toHaveClass(/text-brand-text/)
   await expect(page.getByText("50% leave here · age, bmi")).toBeVisible()
   await expect(page.getByText("Pregnancy history")).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
