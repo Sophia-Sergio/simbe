@@ -629,6 +629,43 @@ def open_pr_for(branch):
     prs = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "open", "--json", "number,url") or "[]")
     return prs[0] if prs else None
 
+def cmd_ci(a):
+    """Wait for the lane PR's checks. 0 green (or already merged), 1 red (failing job logs printed), 2 no PR, 3 timed out."""
+    l = get_lane(a.lane); wt = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
+    branch = sh_in(wt, "git", "branch", "--show-current") if os.path.isdir(wt) else f"lane/{l['id']}-<slug>"
+    watch = ["gh", "pr", "checks", branch, "--watch", "--interval", "30"]
+    if a.dry_run: print("$ " + " ".join(watch)); return
+    worktree_of(l)
+    if not open_pr_for(branch):
+        merged = json.loads(sh("gh", "pr", "list", "--head", branch, "--state", "merged", "--json", "url") or "[]")
+        if merged: update_lane(l["id"], phase="merged"); print("merged:", merged[0]["url"]); return
+        print(f"no open PR for {branch}"); sys.exit(2)
+    try: r = subprocess.run(watch, cwd=wt, text=True, capture_output=True, timeout=a.timeout * 60)
+    except subprocess.TimeoutExpired: print(f"timed out after {a.timeout} min waiting for the checks"); sys.exit(3)
+    print((r.stdout or "").strip())
+    if r.returncode == 0: print("checks green"); return
+    runs = json.loads(sh("gh", "run", "list", "--branch", branch, "--limit", "20", "--json", "databaseId,name,conclusion") or "[]")
+    failed = [x for x in runs if x.get("conclusion") in ("failure", "timed_out")]
+    if not failed: print("no failed workflow run found: the red check is a commit status (e.g. claude-review missing on this head)")
+    for x in failed:
+        print(f"\n## failed: {x['name']} (run {x['databaseId']})")
+        print("\n".join(sh("gh", "run", "view", str(x["databaseId"]), "--log-failed", check=False).splitlines()[-a.tail:]))
+    sys.exit(1)
+
+def cmd_rebase(a):
+    """Rebase the lane worktree on origin/main (needed after a ccr merge or a conflict). 0 with a range-diff, 1 on conflict (aborted)."""
+    l = get_lane(a.lane); wt = worktree_of(l)
+    if sh_in(wt, "git", "status", "--porcelain"): sys.exit(f"{wt} has uncommitted changes; commit or discard them first")
+    sh("git", "-C", wt, "fetch", "origin")
+    old_head, old_base = sh_in(wt, "git", "rev-parse", "HEAD"), sh_in(wt, "git", "merge-base", "HEAD", a.base)
+    r = subprocess.run(["git", "-C", wt, "rebase", a.base], text=True, capture_output=True)
+    if r.returncode:
+        conflicts = sh_in(wt, "git", "diff", "--name-only", "--diff-filter=U")
+        subprocess.run(["git", "-C", wt, "rebase", "--abort"], capture_output=True)
+        print(f"CONFLICT rebasing {l['id']} on {a.base} (rebase aborted, worktree unchanged):\n{conflicts}"); sys.exit(1)
+    print(sh_in(wt, "git", "range-diff", f"{old_base}..{old_head}", f"{a.base}..HEAD") or "(no change)")
+    print(f"rebased {l['id']}: re-run G2 on the new head, re-approve, then bin/lane pr (updates the PR with --force-with-lease)")
+
 def cmd_stop(a):
     l = get_lane(a.lane)
     path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
@@ -657,6 +694,8 @@ def main():
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
     st = sub.add_parser("state"); st.add_argument("action", choices=["show", "set", "set-caps", "set-models"]); st.add_argument("args", nargs="*"); st.set_defaults(f=cmd_state)
     n = sub.add_parser("next"); n.add_argument("--json", action="store_true"); n.add_argument("--assume-merged"); n.add_argument("--limit", type=int); n.set_defaults(f=cmd_next)
+    ci = sub.add_parser("ci"); ci.add_argument("lane"); ci.add_argument("--dry-run", action="store_true"); ci.add_argument("--timeout", type=float, default=60, help="minutes"); ci.add_argument("--tail", type=int, default=80); ci.set_defaults(f=cmd_ci)
+    rb = sub.add_parser("rebase"); rb.add_argument("lane"); rb.add_argument("--base", default="origin/main"); rb.set_defaults(f=cmd_rebase)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
     a = p.parse_args(); a.f(a)
 
