@@ -27,7 +27,7 @@ RSpec.describe AgencyScoped do
     Current.agency = a
     mine = ScopedWidget.create!(name: "a-row")
     expect(mine.agency_id).to eq(a.id)
-    expect(ScopedWidget.pluck(:name)).to eq(["a-row"])
+    expect(ScopedWidget.pluck(:name)).to eq([ "a-row" ])
   end
 
   it "raises without a current agency" do

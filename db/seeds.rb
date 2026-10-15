@@ -16,10 +16,10 @@ end
 # Coordinator names must match leads.coordinator values in the exports:
 # Harbor has Dana Ortiz, Jess Kim, Marcus Lee, Priya Shah.
 [
-  [harbor,   "erin@harbor.test",    "Erin Walsh",  "owner",       nil],
-  [harbor,   "maya@harbor.test",    "Maya Chen",   "coordinator", "Jess Kim"],
-  [lakeside, "owner@lakeside.test", "Lena Ortiz",  "owner",       nil],
-  [lakeside, "alex@lakeside.test",  "Alex Rivera", "coordinator", "Alex Rivera"]
+  [ harbor,   "erin@harbor.test",    "Erin Walsh",  "owner",       nil ],
+  [ harbor,   "maya@harbor.test",    "Maya Chen",   "coordinator", "Jess Kim" ],
+  [ lakeside, "owner@lakeside.test", "Lena Ortiz",  "owner",       nil ],
+  [ lakeside, "alex@lakeside.test",  "Alex Rivera", "coordinator", "Alex Rivera" ]
 ].each do |agency, email, name, role, coordinator|
   User.find_or_create_by!(email: email) do |u|
     u.agency = agency
