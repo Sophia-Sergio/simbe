@@ -4,6 +4,8 @@
 !.env.example
 # Sensitive: fictional health data, never commit exports (take-home ground rule)
 handoff/takehome/exports/*/
+# Generated OpenAPI bundle (rebuilt by `make contract`)
+contracts/dist/
 /node_modules
 /log
 /tmp
