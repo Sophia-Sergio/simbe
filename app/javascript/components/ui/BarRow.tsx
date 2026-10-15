@@ -1,11 +1,12 @@
 import type { ReactNode } from "react"
 
-export type BarTone = "dark" | "brand" | "success" | "danger" | "muted"
+export type BarTone = "dark" | "brand" | "success" | "warning" | "danger" | "muted"
 
 const BAR_TONES: Record<BarTone, string> = {
   dark: "bg-ink",
   brand: "bg-brand",
   success: "bg-success",
+  warning: "bg-warning",
   danger: "bg-danger",
   muted: "bg-line-strong",
 }
