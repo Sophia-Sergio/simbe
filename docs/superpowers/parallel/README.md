@@ -29,7 +29,7 @@ flowchart LR
 
 | Lane | Wave | Depends on | Plan |
 |---|---|---|---|
-| W0-1 repo scaffold | 0 | — | [2104](../plans/2026-10/2026-10-14-2104-w0-1-repo-scaffold.md) |
+| W0-1 Rails monolith scaffold (packs, vite_rails, mock host, per-worktree docker) | 0 | — | [2104](../plans/2026-10/2026-10-14-2104-w0-1-repo-scaffold.md) |
 | W0-2 contract tooling, hooks, mocks | 0 | W0-1 | [2105](../plans/2026-10/2026-10-14-2105-w0-2-contract-tooling.md) |
 | W0-3 backend core (auth, schema, Alpha) | 0 | W0-1 | [2106](../plans/2026-10/2026-10-14-2106-w0-3-backend-core.md) |
 | W0-4A UI kit primitives | 0 | W0-1 | [2107](../plans/2026-10/2026-10-14-2107-w0-4a-ui-kit-primitives.md) |
@@ -97,7 +97,7 @@ Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B comp
 ## Backend lane rules (binding for every `B-*` plan)
 
 0. Heavy work (parsing, imports) never runs in a request: it runs in jobs on the `ingest` queue; the API returns immediately and the client polls.
-1. Routes in `config/routes/<lane>.rb`; isolation entries in `spec/support/isolation/<lane>.rb`; Rack::Attack throttles in `config/rack_attack/<lane>.rb`. No migrations (schema shipped in W0-3).
+1. Routes in `app/packs/<pack>/config/routes/<name>.rb` (outside `/api/v1`: `routes_root/`); isolation entries in `spec/support/isolation/<lane>.rb`; Rack::Attack throttles in `app/packs/<pack>/config/rack_attack/<name>.rb`. Code lives in your pack (`app/packs/<pack>/app/{models,controllers,services,serializers,jobs,mailers}`); cross-pack calls only through the other pack's public services (`boundaries:check` ratchet). No migrations (schema shipped in W0-3).
 2. Test data through `AlphaScenario.load!` (and `AlphaSpend.load!`), never the CSV importer (except B-INGEST for its own specs). Lanes with real-data checks add a `:real_data` spec that compares against `Golden.agency(slug)` using `RealData.load!`.
 3. Every request spec runs with OpenAPI conformance on; payloads equal `contracts/examples/**` where the plan says so.
 4. Tenancy and privacy rules from `docs/conventions/` are tested in the lane (404 across agencies/coordinators, no raw answers in JSON/logs).
