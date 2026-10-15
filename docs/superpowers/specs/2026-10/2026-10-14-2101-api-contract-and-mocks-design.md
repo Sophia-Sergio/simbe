@@ -1,5 +1,7 @@
 # API contract, generated client, mocks and conformance — Design
 
+> **Layout superseded by [`2300-rails-monolith-and-packs`](./2026-10-14-2300-rails-monolith-and-packs-design.md):** the app is one Rails monolith with embedded React (`vite_rails`) and backend packs; paths below were migrated mechanically (`app/packs/<pack>/…`, `app/javascript/…`). Product and process decisions here still stand.
+
 **Status:** Approved for planning · **Depends on:** `2100` · **Plan:** `plans/2026-10/2026-10-14-2105-w0-2-contract-tooling.md` (backend conformance wiring is in `…-2106-w0-3-backend-core.md`)
 
 ## Goal
@@ -32,4 +34,4 @@ Mocking the MCP JSON-RPC endpoint, a mock for the CSV importer's heavy validatio
 3. `make web-test ARGS=app/javascript/api app/javascript/mocks` passes, including `app/javascript/mocks/conformance.test.ts` (every operation has a handler; every default response validates).
 4. `VITE_API_MODE=mock make web-dev` then signing in as `erin@harbor.test` shows the shell with no Rails server running: `docker compose stop api && make e2e ARGS=mock-smoke` passes.
 5. `make spec ARGS=spec/requests/me_spec.rb` passes with `openapi_first` validation on, and `make contract-coverage` lists unexercised operations (informational until Wave 3).
-6. `grep -rn "fetch(" frontend/src --include=*.ts --include=*.tsx | grep -v "app/javascript/api/client.ts\|\.test\.\|app/javascript/mocks" ` prints nothing (HTTP only through `client.ts`).
+6. `grep -rn "fetch(" app/javascript --include=*.ts --include=*.tsx | grep -v "app/javascript/api/client.ts\|\.test\.\|app/javascript/mocks" ` prints nothing (HTTP only through `client.ts`).
