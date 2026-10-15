@@ -1,6 +1,6 @@
 # Frontend
 
-- React 18 + TypeScript (strict) + Vite + Tailwind. Icons: `lucide-react`. Router: React Router. Server state: TanStack Query. Folder layout: `src/{api,components,features/<feature>,hooks,lib,routes,styles}`.
+- React 19 + TypeScript (strict), embedded in Rails with `vite_rails` (no Inertia), Tailwind 3.4. Icons: `lucide-react`. Router: React Router. Server state: TanStack Query. Folder layout (`app/javascript/`): `entrypoints/`, `app/` (shell, registry, auth), `api/` (client, generated types, hooks), `mocks/` (MSW), `components/{ui,shared}/`, `hooks/`, `lib/`, `styles/`, `test/`, `features/<lane>/` (one folder per lane, registered by its `feature.ts`).
 - **Layout/behavior is final** (`handoff/design/README.md`). **Colors, type, radii and logo come from `docs/design/brand.md`** (taken from simbefamily.com) and override the handoff's brand values. Tokens live in `tailwind.config.ts` / `app/javascript/styles/tokens.css`. Do not invent colors, radii or spacing; the logo is `public/brand/simbe-mark.png`, never recolored.
 - **HTTP only through `app/javascript/api/`** using `jsonRequest` (CSRF/auth header, error envelope → `ApiError`). No `fetch` in components.
 - **Responsive**: breakpoint 860px. Mobile shell below it (top bar, bottom tab bar, bottom sheets, full-screen panels).
