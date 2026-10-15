@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useCurrentSnapshot } from "@/api/hooks/snapshots"
 import { useRecommendations, useSummary } from "@/api/hooks/metrics"
@@ -21,7 +22,7 @@ import { RecommendationCard } from "./RecommendationCard"
 
 const RANGE_LABEL: Record<Range, string> = { "30d": "30 days", "90d": "90 days", "12m": "12 months" }
 
-function greeting(hour: number): string {
+export function greeting(hour: number): string {
   if (hour < 12) return "Good morning"
   if (hour < 18) return "Good afternoon"
   return "Good evening"
@@ -29,13 +30,26 @@ function greeting(hour: number): string {
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-/** Monday of the week containing `iso`, formatted in the agency time zone ("Oct 12"). */
-function weekOf(iso: string, timeZone: string): string {
-  const date = new Date(iso)
-  const weekday = WEEKDAYS.indexOf(new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date))
-  const daysSinceMonday = (weekday + 6) % 7
-  return formatDate(new Date(date.getTime() - daysSinceMonday * 86_400_000).toISOString(), timeZone)
+/** Hour of day (0-23) in the agency's time zone: the greeting follows the agency, not the browser. */
+export function hourIn(timeZone: string, now = new Date()): number {
+  return Number(new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).format(now))
 }
+
+/** Monday of the week containing `iso`, formatted in the agency time zone ("Oct 12"). The calendar date is taken in the zone first, so a DST change inside the week cannot shift it. */
+export function weekOf(iso: string, timeZone: string): string {
+  const date = new Date(iso)
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "numeric", day: "numeric", weekday: "short" })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value]),
+  )
+  const daysSinceMonday = (WEEKDAYS.indexOf(parts.weekday) + 6) % 7
+  const monday = new Date(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day) - daysSinceMonday, 12))
+  return formatDate(monday.toISOString(), "UTC")
+}
+
+/** "+2.5" -> "+2.5 pp": the formatter leaves the unit to the caller for percentage points. */
+const withUnit = <T extends { text: string }>(delta: T, unit: string): T => ({ ...delta, text: delta.text && delta.text !== "0" ? `${delta.text}${unit}` : delta.text })
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
 const pctOf = (part: number, whole: number) => (whole > 0 ? Math.max(0, Math.min(100, (part / whole) * 100)) : 0)
@@ -48,10 +62,11 @@ function costBars(rows: Summary["cost_by_channel"]) {
   })
 }
 
-/** A rising cost per qualified lead is bad news, so the delta's colour is the reverse of the other KPIs. */
-function costDelta(deltaCents: number | null) {
-  const delta = formatDelta(deltaCents === null ? null : deltaCents / 100)
-  return { ...delta, tone: delta.tone === "up" ? ("down" as const) : delta.tone === "down" ? ("up" as const) : delta.tone }
+/** Money delta ("+$50"), coloured in reverse: a rising cost per qualified lead is bad news. */
+export function costDelta(deltaCents: number | null) {
+  if (deltaCents === null || Math.round(deltaCents) === 0) return { text: deltaCents === null ? "" : "$0", tone: "none" as const }
+  const sign = deltaCents > 0 ? "+" : "−"
+  return { text: `${sign}${formatMoney(Math.abs(deltaCents))}`, tone: deltaCents > 0 ? ("down" as const) : ("up" as const) }
 }
 
 /** 0 = green, 1 = amber, 2 = red, from where this cost sits between the best and worst channel. */
@@ -75,6 +90,19 @@ export function WeekPage() {
   const navigate = useNavigate()
 
   const timeZone = agency?.timezone ?? "UTC"
+
+  // An upload that finishes while this page is open turns "no snapshot" into data: refetch once it does.
+  const pendingNow = Boolean(snapshot.data?.pending)
+  const wasPending = useRef(false)
+  const { refetch: refetchSummary } = summary
+  const { refetch: refetchRecommendations } = recommendations
+  useEffect(() => {
+    if (wasPending.current && !pendingNow) {
+      void refetchSummary()
+      void refetchRecommendations()
+    }
+    wasPending.current = pendingNow
+  }, [pendingNow, refetchSummary, refetchRecommendations])
   const firstName = user?.name.split(/\s+/)[0] ?? ""
   const recs = recommendations.data ?? []
 
@@ -82,11 +110,12 @@ export function WeekPage() {
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="font-display text-[24px] font-semibold tracking-[-0.02em] text-ink">
-          {greeting(new Date().getHours())}, {firstName}
+          {greeting(hourIn(timeZone))}, {firstName}
         </h1>
         {summary.data?.snapshot && (
           <p className="mt-0.5 text-[14px] text-ink-muted">
-            Week of {weekOf(summary.data.snapshot.as_of, timeZone)} · {recs.length} {recs.length === 1 ? "thing" : "things"} worth your time
+            Week of {weekOf(summary.data.snapshot.as_of, timeZone)}
+            {recommendations.isSuccess && ` · ${recs.length} ${recs.length === 1 ? "thing" : "things"} worth your time`}
           </p>
         )}
       </div>
@@ -94,7 +123,7 @@ export function WeekPage() {
     </header>
   )
 
-  if (summary.isPending) {
+  if (summary.isPending || (snapshot.isPending && !summary.data?.snapshot)) {
     return (
       <div className="flex flex-col gap-5">
         {header}
@@ -170,7 +199,7 @@ export function WeekPage() {
         <KpiCard
           label="Qualified rate"
           value={formatPct(kpis.qualified_rate.value)}
-          delta={formatDelta(kpis.qualified_rate.delta, "pp")}
+          delta={withUnit(formatDelta(kpis.qualified_rate.delta, "pp"), " pp")}
           note="Recent leads still maturing"
           bar={{ kind: "fill", pct: kpis.qualified_rate.value }}
         />
@@ -178,7 +207,7 @@ export function WeekPage() {
           label="Cost per qualified"
           value={formatMoney(kpis.cost_per_qualified.value_cents)}
           delta={costDelta(kpis.cost_per_qualified.delta_cents)}
-          note={sample ? "Sample spend" : "Paid spend"}
+          note={data.spend_source === "none" ? "No spend loaded" : sample ? "Sample spend" : "Paid spend"}
           bar={{ kind: "thirds", active: costActive(kpis.cost_per_qualified.value_cents, data.cost_by_channel) }}
         />
       </div>
@@ -227,7 +256,7 @@ export function WeekPage() {
           )}
           {bars.length > 0 && (
             <section className="rounded-card border border-line bg-surface p-4">
-              <h2 className="mb-3 font-display text-[16px] font-semibold text-ink">Cost by channel</h2>
+              <h2 className="mb-3 font-display text-[16px] font-semibold text-ink">Cost per qualified</h2>
               <div className="flex flex-col gap-3">
                 {bars.map((bar) => (
                   <BarRow key={bar.key} label={bar.label} value={bar.value} pct={bar.pct} tone={bar.tone} />
