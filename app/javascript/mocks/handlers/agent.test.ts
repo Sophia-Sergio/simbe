@@ -39,6 +39,12 @@ it("a second message while one is in flight is 409 already_in_progress", async (
   expect((await first).status).toBe(201)
 })
 
+it("a conversation belongs to the user who started it", async () => {
+  const body = await (await ask("Which channel costs the most?")).json()
+  asRole("coordinator")
+  expect((await fetch(`/api/v1/agent/conversations/${body.conversation_id}`)).status).toBe(404)
+})
+
 it("suggestions are four for owners and three for coordinators", async () => {
   expect((await (await fetch("/api/v1/agent/suggestions")).json()).suggestions).toHaveLength(4)
   asRole("coordinator")

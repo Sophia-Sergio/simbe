@@ -4,9 +4,8 @@ import detailCoordinator from "@contracts/examples/leads/detail-coordinator.json
 import detailOwner from "@contracts/examples/leads/detail-owner.json"
 import listFixture from "@contracts/examples/leads/list.json"
 import { db } from "../db"
-import { scenario } from "../scenarios"
 import type { Board, LeadCard, LeadDetail, LeadList } from "@/api/types"
-import { coordinatorName, notFound, unauth } from "./shared"
+import { coordinatorName, hasData, notFound, unauth } from "./shared"
 
 const OPEN_KEYS = ["text_back_now", "nudge", "rebook", "due_back", "on_track"]
 const PAUSED_KEYS = ["paused"]
@@ -108,6 +107,7 @@ export const leadsHandlers = [
   // List + search. Coordinators always see only their own leads; `q` is a literal, case-insensitive contains.
   http.get("/api/v1/leads", ({ request }) => {
     if (!db.session) return unauth()
+    if (!hasData()) return HttpResponse.json({ leads: [], next_cursor: null } satisfies LeadList)
     const url = new URL(request.url)
     const status = url.searchParams.get("status") ?? "open"
     const q = url.searchParams.get("q")
@@ -132,12 +132,13 @@ export const leadsHandlers = [
   http.get("/api/v1/leads/board", ({ request }) => {
     if (!db.session) return unauth()
     const coord = coordinatorName() ?? new URL(request.url).searchParams.get("coordinator")
-    if (scenario === "empty" || scenario === "new") return HttpResponse.json(emptyBoard())
+    if (!hasData()) return HttpResponse.json(emptyBoard())
     return HttpResponse.json(boardFor(coord))
   }),
 
   http.get("/api/v1/leads/:id", ({ params }) => {
     if (!db.session) return unauth()
+    if (!hasData()) return notFound()
     const id = String(params.id)
     const card = ALL_LEADS.find((lead) => lead.id === id)
     if (!card) return notFound()

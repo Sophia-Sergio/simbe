@@ -10,7 +10,7 @@ import Ajv2020 from "ajv/dist/2020"
 import addFormats from "ajv-formats"
 import { parse } from "yaml"
 import uploadOk from "@contracts/examples/snapshots/upload-ok.json"
-import { db } from "@/mocks/db"
+import { db, OWNER_EMAIL } from "@/mocks/db"
 import type { MockUpload } from "@/mocks/db"
 import type { AgentMessage, Report } from "@/api/types"
 
@@ -140,7 +140,7 @@ function seed() {
     snapshot: null,
   } satisfies MockUpload)
   const message: AgentMessage = { id: "99999999-9999-4999-8999-999999999997", role: "user", created_at: NOW, body: { text: "Which channel costs the most?" } }
-  db.conversations.set(CONVO_ID, [message])
+  db.conversations.set(CONVO_ID, { owner: OWNER_EMAIL, messages: [message] })
 }
 
 const ajv = new Ajv2020({ strict: false, allErrors: true })

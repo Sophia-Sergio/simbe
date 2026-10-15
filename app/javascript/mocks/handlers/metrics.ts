@@ -6,13 +6,12 @@ import recommendations from "@contracts/examples/metrics/recommendations.json"
 import summary from "@contracts/examples/metrics/summary.json"
 import summaryEmpty from "@contracts/examples/metrics/summary-empty.json"
 import { db } from "../db"
-import { scenario } from "../scenarios"
-import { forbidden, isOwner, jsonError, notFound, unauth } from "./shared"
+import { forbidden, hasData, isOwner, jsonError, notFound, unauth } from "./shared"
 
 const RANGES = ["30d", "90d", "12m"]
 const KNOWN_CHANNELS = ["Facebook", "Instagram", "Google", "Referral", "TikTok", "Unknown"]
 
-const isEmpty = () => scenario === "empty" || scenario === "new"
+const isEmpty = () => !hasData()
 
 function gate(): Response | null {
   if (!db.session) return unauth()

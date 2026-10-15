@@ -5,6 +5,7 @@
 import agencyFixture from "@contracts/examples/account/agency.json"
 import teamFixture from "@contracts/examples/account/team.json"
 import currentFixture from "@contracts/examples/snapshots/current.json"
+import currentLoadingFixture from "@contracts/examples/snapshots/current-loading.json"
 import settingsFixture from "@contracts/examples/mcp/settings.json"
 import type { AdConnection, Agency, AgentMessage, Report, Snapshot, SnapshotCurrent, Team } from "@/api/types"
 import type { components } from "@/api/generated/schema"
@@ -37,6 +38,9 @@ export type MockUpload = {
   snapshot: Snapshot | null
 }
 
+/** An agent conversation belongs to the user who started it. */
+export type MockConversation = { owner: string; messages: AgentMessage[] }
+
 function clone<T>(value: T): T {
   return structuredClone(value)
 }
@@ -60,20 +64,20 @@ export function persistSession(session: MockSession | null): void {
 }
 
 function defaultSession(): MockSession | null {
-  switch (scenario) {
-    case "coordinator":
-      return { email: COORDINATOR_EMAIL, role: "coordinator" }
-    case "empty":
-    case "new":
-      return { email: OWNER_EMAIL, role: "owner" }
-    default:
-      return loadSession()
-  }
+  // Only the coordinator scenario preselects a session; every other scenario starts from the persisted
+  // mock session, so signing out survives a reload (?mock=new/empty no longer force you back in).
+  return scenario === "coordinator" ? { email: COORDINATOR_EMAIL, role: "coordinator" } : loadSession()
 }
 
 function seed() {
   const noData = scenario === "empty" || scenario === "new"
   const freshKey = scenario === "new"
+  const snapshot: SnapshotCurrent =
+    scenario === "loading"
+      ? (clone(currentLoadingFixture) as SnapshotCurrent)
+      : noData
+        ? { snapshot: null, pending: null, files: [] }
+        : (clone(currentFixture) as SnapshotCurrent)
   return {
     session: defaultSession(),
     completions: new Set<string>(),
@@ -84,9 +88,9 @@ function seed() {
       key_prefix: freshKey ? null : (settingsFixture.key_prefix as string | null),
       created_at: freshKey ? undefined : (settingsFixture.created_at as string | undefined),
     },
-    conversations: new Map<string, AgentMessage[]>(),
+    conversations: new Map<string, MockConversation>(),
     agency: clone(agencyFixture) as Agency,
-    snapshot: (noData ? { snapshot: null, pending: null, files: [] } : clone(currentFixture)) as SnapshotCurrent,
+    snapshot,
   }
 }
 

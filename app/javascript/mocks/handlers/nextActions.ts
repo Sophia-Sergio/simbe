@@ -1,9 +1,8 @@
 import { HttpResponse, http } from "msw"
 import fixture from "@contracts/examples/next-actions/next-actions.json"
 import { db } from "../db"
-import { scenario } from "../scenarios"
 import type { NextActions } from "@/api/types"
-import { coordinatorName, csrfForbidden, jsonError, notFound, unauth } from "./shared"
+import { coordinatorName, csrfForbidden, hasData, jsonError, notFound, unauth } from "./shared"
 
 const QUEUES = ["text_back_now", "nudge_applications", "rebook_consults", "paused_due_back"]
 const LEAD_COORDINATOR: Record<string, string> = {
@@ -18,7 +17,7 @@ function comboExists(leadId: string, queue: string): boolean {
 }
 
 function build(coordinator: string | null): NextActions {
-  const empty = scenario === "empty" || scenario === "new"
+  const empty = !hasData()
   const queues = (structuredClone(fixture.queues) as NextActions["queues"]).map((queue) => {
     const items = empty
       ? []

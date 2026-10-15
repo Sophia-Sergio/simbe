@@ -168,9 +168,10 @@ export const snapshotHandlers = [
     return HttpResponse.json(body(id, upload), { status: 202 })
   }),
 
-  // Any role: the pending banner drives "Loading your data…" on every screen.
+  // Any role: the pending banner drives "Loading your data…" on every screen. A real in-flight upload wins;
+  // otherwise the scenario fixture's `pending` (e.g. ?mock=loading) is preserved.
   http.get("/api/v1/snapshots/current", () => {
     if (!db.session) return unauth()
-    return HttpResponse.json({ ...db.snapshot, pending: activePending() } satisfies SnapshotCurrent)
+    return HttpResponse.json({ ...db.snapshot, pending: activePending() ?? db.snapshot.pending } satisfies SnapshotCurrent)
   }),
 ]

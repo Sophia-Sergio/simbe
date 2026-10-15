@@ -42,12 +42,14 @@ export const agentHandlers = [
     if (scenario === "error") return jsonError(502, "model_unavailable", "I couldn't reach the model. Try again.")
     inFlight = true
     try {
-      await delay(scenario === "slow" ? 1500 : 25)
+      await delay(25)
       const conversationId = body.conversation_id ?? uuid()
+      const owner = db.session.email
+      const existing = db.conversations.get(conversationId)
+      if (existing && existing.owner !== owner) return notFound()
       const message: AgentMessage = { id: uuid(), role: "assistant", created_at: NOW, body: buildAnswer(raw) }
       const user: AgentMessage = { id: uuid(), role: "user", created_at: NOW, body: { text: raw } }
-      const existing = db.conversations.get(conversationId) ?? []
-      db.conversations.set(conversationId, [...existing, user, message])
+      db.conversations.set(conversationId, { owner, messages: [...(existing?.messages ?? []), user, message] })
       return HttpResponse.json({ conversation_id: conversationId, message }, { status: 201 })
     } finally {
       inFlight = false
@@ -56,9 +58,9 @@ export const agentHandlers = [
 
   http.get("/api/v1/agent/conversations/:id", ({ params }) => {
     if (!db.session) return unauth()
-    const id = String(params.id)
-    const messages = db.conversations.get(id)
-    return messages ? HttpResponse.json({ id, messages }) : notFound()
+    const conversation = db.conversations.get(String(params.id))
+    if (!conversation || conversation.owner !== db.session.email) return notFound()
+    return HttpResponse.json({ id: String(params.id), messages: conversation.messages })
   }),
 
   http.get("/api/v1/agent/suggestions", () => {

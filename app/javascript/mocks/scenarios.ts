@@ -1,9 +1,9 @@
-// Scenario switch for the mock API, read ONCE at boot from `?mock=`. The standalone mock host uses it
-// (`npm run dev:mock`, e.g. http://127.0.0.1:5173/?mock=coordinator); Vitest sees no query string and
-// therefore runs the "default" scenario. Per-test tweaks go through `mockApi` overrides instead.
-export type Scenario = "default" | "empty" | "error" | "slow" | "coordinator" | "new"
+// Scenario switch for the mock API, read once at boot from `?mock=`. The standalone mock host and the
+// Rails dev server use it (`npm run dev:mock`, e.g. http://127.0.0.1:5173/?mock=coordinator); Vitest sees
+// no query string and runs the "default" scenario. Tests switch scenarios with `setScenario` instead.
+export type Scenario = "default" | "empty" | "error" | "slow" | "coordinator" | "new" | "loading"
 
-const ALLOWED: Scenario[] = ["default", "empty", "error", "slow", "coordinator", "new"]
+const ALLOWED: Scenario[] = ["default", "empty", "error", "slow", "coordinator", "new", "loading"]
 
 function read(): Scenario {
   if (typeof window === "undefined") return "default"
@@ -11,4 +11,10 @@ function read(): Scenario {
   return value && (ALLOWED as string[]).includes(value) ? (value as Scenario) : "default"
 }
 
-export const scenario: Scenario = read()
+/** A live binding: importing modules read the current scenario on every call. */
+export let scenario: Scenario = read()
+
+/** Switches scenario at runtime (tests/dev); `reset()` usually follows so db re-seeds for it. */
+export function setScenario(next: Scenario): void {
+  scenario = next
+}
