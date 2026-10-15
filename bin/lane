@@ -6,6 +6,7 @@
   bin/lane check [--lane ID]            ownership check (files changed vs base must be inside the lane's Owns)
   bin/lane pr [--draft]                 check, push, open the PR with the lane checklist
   bin/lane status                       who is doing what (branches/PRs from GitHub)
+  bin/lane graph [--file F --write|--check]   dependency diagram + table generated from the plans' 'Depends on' lines
   bin/lane stop F-WEEK                  tear down the worktree's docker stack and remove the worktree
 
 Guide: docs/superpowers/parallel/playbook.md
@@ -48,8 +49,9 @@ def lanes():
             continue
         wave = re.search(r"\*\*Wave:\*\*\s+(\d)", text)
         owns = re.search(r"^\*\*Owns:\*\*(.*)$", text, re.M)
+        dep = re.search(r"^\*\*Depends on \(merged\):\*\*(.*)$", text, re.M)
         title = text.splitlines()[0].lstrip("# ").strip()
-        found[lane.group(1)] = dict(id=lane.group(1), path=path, rel=os.path.relpath(path, ROOT),
+        found[lane.group(1)] = dict(id=lane.group(1), path=path, dep=dep.group(1).strip() if dep else "", rel=os.path.relpath(path, ROOT),
             wave=int(wave.group(1)) if wave else 0, title=title,
             owns=[x for g in re.findall(r"`([^`]+)`", owns.group(1) if owns else "") for x in expand(g)],
             slug=re.sub(r"^\d{4}-\d{2}-\d{2}-\d{4}-", "", os.path.basename(path)[:-3]))
@@ -170,6 +172,95 @@ def cmd_status(a):
         else: state, link = "not started", ""
         print(f"{l['id']:<14}{l['wave']:<6}{state:<16}{link}")
 
+SHORT = {"W0-1": "Rails scaffold", "W0-2": "Contract tooling + mocks", "W0-3": "Backend core", "W0-4A": "UI kit primitives", "W0-4B": "UI kit data-viz",
+  "W0-5": "App core", "W0-6A": "Desktop shell", "W0-6B": "Mobile shell", "W0-7": "CI/CD + deploy",
+  "B-INGEST": "Ingest", "B-METRICS": "Metrics", "B-LEADS": "Leads", "B-ACTIONS": "Next actions", "B-ACCOUNT": "Account", "B-AGENT": "Agent", "B-MCP": "MCP",
+  "F-WEEK": "This week", "F-FUNNEL": "Funnel", "F-CHANNELS": "Channels", "F-PIPELINE": "Pipeline", "F-LEADPANEL": "Lead panel", "F-NEXTACTIONS": "Next actions UI",
+  "F-COORDINATORS": "Coordinators", "F-SEARCH": "Search", "F-SIGNUP": "Sign-up", "F-DATA": "Data sources", "F-SETTINGS": "Settings", "F-AGENT": "Ask Simbe", "F-CONNECT": "Connect Claude",
+  "W3-1": "Integration", "W3-2": "E2E journeys", "W3-3": "Mobile/brand audit"}
+FRONT_SUBSTRATE = ["W0-1", "W0-2", "W0-4A", "W0-4B", "W0-5", "W0-6A", "W0-6B"]
+
+def direct_deps(ls):
+    """lane -> set of lane ids it declares as prerequisites ('Wave 0' means the frontend substrate for F-* lanes)."""
+    out = {}
+    for k, l in ls.items():
+        t, d = l["dep"], set()
+        for o in ls:
+            if o != k and re.search(r"(?<![\w-])" + re.escape(o) + r"(?![\w-])", t): d.add(o)
+        if re.search(r"all Wave 0, Wave 1 and Wave 2", t): d |= {o for o in ls if ls[o]["wave"] < 3}
+        elif "Wave 0" in t and k.startswith("F-"): d |= set(FRONT_SUBSTRATE)
+        out[k] = d
+    return out
+
+def reduce_deps(deps):
+    def reach(a, b, skip):
+        seen, stack = set(), [x for x in deps[a] if (a, x) != skip]
+        while stack:
+            n = stack.pop()
+            if n == b: return True
+            if n in seen: continue
+            seen.add(n); stack += list(deps[n])
+        return False
+    red = {k: set(v) for k, v in deps.items()}
+    for a in deps:
+        for b in list(deps[a]):
+            if any(c != b and reach(c, b, None) for c in deps[a]): red[a].discard(b)
+    return red
+
+def mermaid(ls):
+    red = reduce_deps(direct_deps(ls))
+    wave_title = {0: "Wave 0 - substrate", 1: "Wave 1 - parallel lanes", 2: "Wave 2", 3: "Wave 3 - integration"}
+    lines = ["flowchart LR"]
+    for w in (0, 1, 2, 3):
+        members = sorted(k for k in ls if ls[k]["wave"] == w)
+        lines.append(f'  subgraph W{w}["{wave_title[w]}"]')
+        for k in members: lines.append(f'    {k.replace("-", "_")}["{k}<br/>{SHORT.get(k, k)}"]')
+        lines.append("  end")
+    gate_fe, gate_be, gate_all = "FE_GATE", "BE_GATE", "ALL_GATE"
+    lines += [f'  {gate_fe}(["frontend substrate merged<br/>W0-6A + W0-6B"])', f'  {gate_be}(["backend core merged<br/>W0-3"])', f'  {gate_all}(["every Wave 0-2 lane merged"])']
+    used = set()
+    def node(x): return x.replace("-", "_")
+    for k in sorted(ls):
+        d = red[k]
+        if d == {"W0-6A", "W0-6B"}: lines.append(f"  {gate_fe} --> {node(k)}"); used.add(gate_fe)
+        elif d == {"W0-3"}: lines.append(f"  {gate_be} --> {node(k)}"); used.add(gate_be)
+        elif len(d) >= 8: lines.append(f"  {gate_all} --> {node(k)}"); used.add(gate_all)
+        else:
+            for x in sorted(d): lines.append(f"  {node(x)} --> {node(k)}")
+    for g, members in ((gate_fe, ["W0-6A", "W0-6B"]), (gate_be, ["W0-3"])):
+        if g in used:
+            for m in members: lines.append(f"  {node(m)} --> {g}")
+    if gate_all in used:
+        dependents = {x for d in red.values() for x in d}
+        leaves = sorted(k for k in ls if ls[k]["wave"] < 3 and not any(k in red[o] for o in ls if o != k and not (len(red[o]) >= 8)))
+        for m in leaves: lines.append(f"  {node(m)} --> {gate_all}")
+    return "\n".join(lines)
+
+def table(ls):
+    red, full = reduce_deps(direct_deps(ls)), direct_deps(ls)
+    rows = ["| Lane | Wave | Needs merged first (direct) | Unblocks (direct) |", "|---|---|---|---|"]
+    for k in sorted(ls, key=lambda x: (ls[x]["wave"], x)):
+        needs = ", ".join(sorted(red[k])) or "-"
+        if len(red[k]) >= 8: needs = "every Wave 0-2 lane"
+        elif red[k] == {"W0-6A", "W0-6B"}: needs = "W0-6A, W0-6B (frontend substrate)"
+        unlocks = sorted(o for o in ls if k in red[o])
+        rows.append(f"| {k} {SHORT.get(k, '')} | {ls[k]['wave']} | {needs} | {', '.join(unlocks) if len(unlocks) < 8 else str(len(unlocks)) + ' lanes (' + ', '.join(unlocks[:3]) + ', ...)'} |")
+    return "\n".join(rows)
+
+def cmd_graph(a):
+    ls = lanes()
+    block = "```mermaid\n" + mermaid(ls) + "\n```\n\n" + table(ls) + "\n"
+    if not a.file: print(block); return
+    doc = open(a.file).read()
+    m = re.search(r"(<!-- graph:start -->\n).*?(<!-- graph:end -->)", doc, re.S)
+    if not m: sys.exit(f"{a.file}: missing <!-- graph:start --> / <!-- graph:end --> markers")
+    new = doc[:m.start()] + m.group(1) + block + m.group(2) + doc[m.end():]
+    if a.check:
+        print("dependency graph is up to date" if new == doc else "dependency graph is STALE: run bin/lane graph --file " + a.file + " --write")
+        sys.exit(0 if new == doc else 1)
+    if a.write: open(a.file, "w").write(new); print("updated", a.file)
+    else: print(block)
+
 def cmd_stop(a):
     l = get_lane(a.lane)
     path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
@@ -191,6 +282,7 @@ def main():
     c = sub.add_parser("check"); c.add_argument("--lane"); c.add_argument("--base", default="origin/main"); c.add_argument("--ccr", action="store_true"); c.set_defaults(f=cmd_check)
     r = sub.add_parser("pr"); r.add_argument("--lane"); r.add_argument("--base", default="origin/main"); r.add_argument("--draft", action="store_true"); r.set_defaults(f=cmd_pr)
     sub.add_parser("status").set_defaults(f=cmd_status)
+    g = sub.add_parser("graph"); g.add_argument("--file"); g.add_argument("--write", action="store_true"); g.add_argument("--check", action="store_true"); g.set_defaults(f=cmd_graph)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
     a = p.parse_args(); a.f(a)
 
