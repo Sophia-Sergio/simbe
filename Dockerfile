@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 # Literal tag (not an ARG) so Dependabot can bump it; bin/ci-parity checks it against .ruby-version.
-FROM docker.io/library/ruby:3.4.11-slim AS base
+FROM docker.io/library/ruby:4.0.7-slim AS base
 WORKDIR /rails
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y curl libjemalloc2 libpq5 postgresql-client && \
