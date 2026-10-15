@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Implement task-by-task. Follow `docs/conventions/`. Stop if blocked — do not replan silently. **Commit after every task** (`chore(integration): task N – <title>`). After all Wave 1–2 lanes are merged, ownership rules relax: fixes may touch any file, **one small PR per fix** referencing the failing check.
 
 **Lane:** W3-1 · **Wave:** 3 (one agent; starts when every Wave 1 lane and B-AGENT/B-MCP are merged)
-**Owns:** `lib/tasks/e2e.rake`, `spec/contract/**`, `spec/security/**`, `frontend/.env*`, `vite.config.ts` (mode defaults only), `.github/workflows/ci.yml` (add `e2e-real` job), `docs/superpowers/parallel/integration-log.md`
+**Owns:** `lib/tasks/e2e.rake`, `spec/contract/**`, `spec/security/**`, `.env.example` (VITE_API_MODE default), `vite.config.ts` (mode defaults only), `.github/workflows/ci.yml` (add `e2e-real` job), `docs/superpowers/parallel/integration-log.md`
 **Depends on (merged):** all Wave 0, Wave 1 and Wave 2 lanes
 **Unblocks:** W3-2, W3-3
 **Goal:** The frontend talks to the real Rails API by default; every contract operation is exercised by a backend spec; mock fixtures and real responses agree; the role/tenancy matrix is proven; real Harbor/Lakeside data loads and renders.
@@ -22,7 +22,7 @@
 
 ## Task 1: Real-mode default and e2e seeding
 
-- [ ] **Step 1:** `frontend/.env.development` → `VITE_API_MODE=real` (mock mode stays available: `VITE_API_MODE=mock`); Vite proxy targets `api:3000`; document both in `README.md` (owned by lane maintainers; append a "Mock vs real" section).
+- [ ] **Step 1:** In the Rails-embedded app the API is already the real one (same origin, no proxy): make sure `.env.example` documents `VITE_API_MODE=real` (default) and `mock` (embedded dev against MSW), and that **Playwright's `real-*` projects** are selected with `E2E_API=real E2E_BASE_URL=$(make ports → web)`. The standalone mock host (`npm run dev:mock`) stays always-mock. Document both in `README.md` ("Mock vs real" section).
 - [ ] **Step 2: `lib/tasks/e2e.rake`**
 ```ruby
 namespace :e2e do
