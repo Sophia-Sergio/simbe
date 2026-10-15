@@ -458,6 +458,7 @@ RSpec.describe "bin/lane next" do
     before { merged_on_github("W0-1", "W0-3") }
 
     it "uses the merged PRs on GitHub" do
+      sandbox.write_state("caps" => { "max_running" => 20 }) # the default cap of 4 would cut the 8 ready lanes
       expect(next_ids).to include("W0-2", "B-LEADS")
     end
 

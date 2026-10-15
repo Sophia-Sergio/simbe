@@ -177,19 +177,27 @@ Plan: `{l['rel']}`
         r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash", "--delete-branch"], text=True, capture_output=True)
         print("auto-merge enabled (merges when the required checks are green)" if r.returncode == 0 else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
 
-def cmd_status(a):
-    prs = json.loads(sh("gh", "pr", "list", "--state", "all", "--limit", "300", "--json", "headRefName,state,url,isDraft"))
+def lane_states(ls):
+    """lane -> (state, link) from GitHub: merged / PR open / draft PR / in progress / not started."""
+    prs = json.loads(sh("gh", "pr", "list", "--state", "all", "--limit", "300", "--json", "headRefName,state,url,isDraft") or "[]")
     heads = sh("git", "ls-remote", "--heads", "origin", "lane/*").splitlines()
     branches = [h.split("refs/heads/")[1] for h in heads if "refs/heads/" in h]
-    print(f"{'LANE':<14}{'WAVE':<6}{'STATE':<16}LINK")
-    for l in sorted(lanes().values(), key=lambda x: (x["wave"], x["id"])):
-        pre = f"lane/{l['id']}-"
+    out = {}
+    for k in ls:
+        pre = f"lane/{k}-"
         mine = [p for p in prs if p["headRefName"].startswith(pre)]
-        if any(p["state"] == "MERGED" for p in mine): state, link = "merged", next(p["url"] for p in mine if p["state"] == "MERGED")
+        if any(p["state"] == "MERGED" for p in mine): out[k] = ("merged", next(p["url"] for p in mine if p["state"] == "MERGED"))
         elif any(p["state"] == "OPEN" for p in mine):
-            p = next(p for p in mine if p["state"] == "OPEN"); state, link = ("draft PR" if p["isDraft"] else "PR open"), p["url"]
-        elif any(b.startswith(pre) for b in branches): state, link = "in progress", next(b for b in branches if b.startswith(pre))
-        else: state, link = "not started", ""
+            p = next(p for p in mine if p["state"] == "OPEN"); out[k] = ("draft PR" if p["isDraft"] else "PR open", p["url"])
+        elif any(b.startswith(pre) for b in branches): out[k] = ("in progress", next(b for b in branches if b.startswith(pre)))
+        else: out[k] = ("not started", "")
+    return out
+
+def cmd_status(a):
+    ls = lanes(); st = lane_states(ls)
+    print(f"{'LANE':<14}{'WAVE':<6}{'STATE':<16}LINK")
+    for l in sorted(ls.values(), key=lambda x: (x["wave"], x["id"])):
+        state, link = st[l["id"]]
         print(f"{l['id']:<14}{l['wave']:<6}{state:<16}{link}")
 
 SHORT = {"W0-1": "Rails scaffold", "W0-2": "Contract tooling + mocks", "W0-3": "Backend core", "W0-4A": "UI kit primitives", "W0-4B": "UI kit data-viz",
@@ -531,6 +539,59 @@ def cmd_state(a):
     else: s["models"].update(pairs)
     save_state(s); print(json.dumps({k: s[k] for k in ("caps", "models")}, indent=2, sort_keys=True))
 
+def has_worktree(lane_id): return os.path.isdir(os.path.join(MAIN_ROOT, ".worktrees", lane_id.lower()))
+
+def ccr_open(): return bool(json.loads(sh("gh", "pr", "list", "--state", "open", "--label", "ccr", "--json", "number") or "[]"))
+
+def transitive_dependents(deps):
+    """lane -> how many lanes wait for it, directly or not (the critical-path weight)."""
+    rev = {k: set() for k in deps}
+    for k, ds in deps.items():
+        for d in ds: rev[d].add(k)
+    def reach(k, seen):
+        for n in rev[k]:
+            if n not in seen: seen.add(n); reach(n, seen)
+        return seen
+    return {k: len(reach(k, set())) for k in deps}
+
+def ready_lanes(ls, merged, started, limit=None):
+    deps = direct_deps(ls); weight = transitive_dependents(deps)
+    cands = sorted((k for k in ls if k not in merged and k not in started and deps[k] <= merged), key=lambda k: (-weight[k], ls[k]["wave"], k))
+    return cands if limit is None else cands[:max(limit, 0)]
+
+def cap_room(ls, state):
+    """(lanes that may start, of which non-F lanes that may still get a Docker stack) under state['caps']."""
+    caps, recs = state["caps"], state["lanes"]
+    phase = lambda k: recs.get(k, {}).get("phase")
+    running = sum(phase(k) in ("running", "verifying", "fixing") for k in ls)
+    waiting = sum(phase(k) in ("ready", "approved", "ci") for k in ls)
+    stacks = sum(not k.startswith("F-") and has_worktree(k) for k in ls)
+    room = 0 if waiting >= caps["max_waiting"] else max(caps["max_running"] - running, 0)
+    return room, max(caps["max_stacks"] - stacks, 0)
+
+def cmd_next(a):
+    """Lanes that may start now: prerequisites merged, not started, no open ccr; critical path first; within the caps."""
+    ls = lanes()
+    if a.assume_merged is not None:
+        merged = {get_lane(x.strip())["id"] for x in a.assume_merged.split(",") if x.strip()}
+        out = ready_lanes(ls, merged, set(), a.limit)
+    elif ccr_open():
+        print("paused: a `ccr` PR is open; merge it and rebase the open lanes first (bin/lane rebase <LANE>)", file=sys.stderr); out = []
+    else:
+        st, state = lane_states(ls), load_state()
+        merged = {k for k, (s, _) in st.items() if s == "merged"}
+        started = ({k for k, (s, _) in st.items() if s != "not started"} | {k for k in ls if has_worktree(k)}
+                   | {k for k, r in state["lanes"].items() if r.get("phase") not in (None, "queued")})
+        room, stack_room = cap_room(ls, state); out = []
+        for k in ready_lanes(ls, merged, started):
+            if len(out) >= room or (a.limit is not None and len(out) >= a.limit): break
+            if not k.startswith("F-"):
+                if stack_room <= 0: continue
+                stack_room -= 1
+            out.append(k)
+    if a.json: print(json.dumps(out)); return
+    for k in out: print(f"{k:<14}{ls[k]['wave']:<6}{tier_of(k):<7}{ls[k]['rel']}")
+
 def cmd_stop(a):
     l = get_lane(a.lane)
     path = os.path.join(MAIN_ROOT, ".worktrees", l["id"].lower())
@@ -558,6 +619,7 @@ def main():
     v = sub.add_parser("review"); v.add_argument("lane"); v.add_argument("--base", default="origin/main"); v.set_defaults(f=cmd_review)
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
     st = sub.add_parser("state"); st.add_argument("action", choices=["show", "set", "set-caps", "set-models"]); st.add_argument("args", nargs="*"); st.set_defaults(f=cmd_state)
+    n = sub.add_parser("next"); n.add_argument("--json", action="store_true"); n.add_argument("--assume-merged"); n.add_argument("--limit", type=int); n.set_defaults(f=cmd_next)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
     a = p.parse_args(); a.f(a)
 
