@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci   # ci-only
       - name: Bundle and lint the OpenAPI contract (validates every example)   # parity
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}" }
       - run: npm audit --omit=dev --audit-level=high   # parity
 
@@ -78,7 +78,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci   # ci-only
       - run: npx knip   # parity
@@ -108,7 +108,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci   # ci-only
       - run: npm run lint   # parity
@@ -129,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with: { bundler-cache: true }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - name: Install JS deps (Vite builds the test assets) and bundle the OpenAPI contract for conformance checks
         run: npm ci && npm run contract   # ci-only
@@ -164,7 +164,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci   # ci-only
       - name: Vitest (includes mock-conformance against the contract)   # parity
@@ -176,7 +176,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci && npx playwright install --with-deps chromium   # ci-only
       - name: Start the standalone mock host (no Rails, no Docker)   # ci-only
@@ -218,7 +218,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with: { bundler-cache: true }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci && npx playwright install --with-deps chromium   # ci-only
       - name: Prepare database and seed the Alpha dataset
