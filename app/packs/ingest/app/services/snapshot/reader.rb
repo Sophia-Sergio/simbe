@@ -140,6 +140,7 @@ class Snapshot
     end
 
     def self.read_file(path, filename, spec, tables, errors)
+      csv = nil
       File.open(path, "r:bom|utf-8") do |io|
         csv = CSV.new(io, headers: true)
         csv.each do |row|
@@ -150,6 +151,10 @@ class Snapshot
           tables.fetch(spec[:table]) << parsed
         end
       end
+    rescue CSV::MalformedCSVError, EncodingError
+      # A broken file is reported like any other problem (file and line only, never the content),
+      # so the Validator can show it instead of the import crashing.
+      errors << { file: filename, row: csv&.lineno, code: "malformed_csv", message: "#{filename} is not valid CSV" }
     end
 
     def self.parse_value(raw, type, filename, header, lineno, errors)
@@ -158,7 +163,7 @@ class Snapshot
 
       case type
       when :time then Time.iso8601(value).utc
-      when :date then Date.parse(value)
+      when :date then Date.iso8601(value) # strict: Date.parse turns "12" into this month's 12th
       when :integer then Integer(value, 10)
       else value
       end

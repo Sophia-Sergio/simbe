@@ -73,6 +73,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "turn_started_at"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "id"], name: "index_agent_conversations_on_agency_id_and_id", unique: true
     t.index ["agency_id"], name: "index_agent_conversations_on_agency_id"
   end
 
@@ -264,6 +265,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "finished_at"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "id"], name: "index_snapshot_uploads_on_agency_id_and_id", unique: true
     t.index ["agency_id", "status"], name: "index_snapshot_uploads_on_agency_id_and_status"
     t.index ["agency_id"], name: "index_snapshot_uploads_in_flight_per_agency", unique: true, where: "((status)::text = ANY ((ARRAY['validating'::character varying, 'committing'::character varying])::text[]))"
     t.index ["agency_id"], name: "index_snapshot_uploads_on_agency_id"
@@ -282,6 +284,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
     t.index ["agency_id", "as_of"], name: "index_snapshots_on_agency_id_and_as_of"
+    t.index ["agency_id", "id"], name: "index_snapshots_on_agency_id_and_id", unique: true
     t.index ["agency_id"], name: "index_snapshots_on_agency_id"
   end
 
@@ -486,6 +489,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
   add_foreign_key "agent_conversations", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "agent_messages", "agent_conversations", column: "conversation_id", on_delete: :cascade
   add_foreign_key "ai_usage_events", "agencies", on_delete: :cascade
+  add_foreign_key "ai_usage_events", "agent_conversations", column: ["agency_id", "conversation_id"], primary_key: ["agency_id", "id"], name: "fk_ai_usage_events_conversation_id_tenant"
   add_foreign_key "ai_usage_events", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "applications", "agencies", on_delete: :cascade
   add_foreign_key "applications", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
@@ -495,19 +499,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
   add_foreign_key "contacts", "agencies", on_delete: :cascade
   add_foreign_key "contacts", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
   add_foreign_key "invitations", "agencies", on_delete: :cascade
-  add_foreign_key "invitations", "users", column: "invited_by", on_delete: :nullify
+  add_foreign_key "invitations", "users", column: ["agency_id", "invited_by"], primary_key: ["agency_id", "id"], name: "fk_invitations_invited_by_tenant"
   add_foreign_key "lead_facts", "agencies", on_delete: :cascade
   add_foreign_key "lead_facts", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
   add_foreign_key "leads", "agencies", on_delete: :cascade
   add_foreign_key "mcp_keys", "agencies", on_delete: :cascade
-  add_foreign_key "mcp_keys", "users", column: "created_by", on_delete: :nullify
+  add_foreign_key "mcp_keys", "users", column: ["agency_id", "created_by"], primary_key: ["agency_id", "id"], name: "fk_mcp_keys_created_by_tenant"
   add_foreign_key "screener_answers", "agencies", on_delete: :cascade
   add_foreign_key "screener_answers", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
   add_foreign_key "snapshot_uploads", "agencies", on_delete: :cascade
-  add_foreign_key "snapshot_uploads", "snapshots", on_delete: :nullify
+  add_foreign_key "snapshot_uploads", "snapshots", column: ["agency_id", "snapshot_id"], primary_key: ["agency_id", "id"], name: "fk_snapshot_uploads_snapshot_id_tenant"
   add_foreign_key "snapshot_uploads", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "snapshots", "agencies", on_delete: :cascade
-  add_foreign_key "snapshots", "users", column: "loaded_by", on_delete: :nullify
+  add_foreign_key "snapshots", "snapshot_uploads", column: ["agency_id", "upload_id"], primary_key: ["agency_id", "id"], name: "fk_snapshots_upload_id_tenant"
+  add_foreign_key "snapshots", "users", column: ["agency_id", "loaded_by"], primary_key: ["agency_id", "id"], name: "fk_snapshots_loaded_by_tenant"
   add_foreign_key "solid_queue_batch_executions", "solid_queue_batches", column: "batch_id", on_delete: :cascade
   add_foreign_key "solid_queue_batch_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

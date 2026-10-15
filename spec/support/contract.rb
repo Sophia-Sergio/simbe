@@ -42,3 +42,15 @@ OpenapiFirst::Test.setup do |test|
   test.minimum_coverage = 0
   test.report_coverage = false
 end
+
+# A request to a DOCUMENTED /api/v1 operation that violates its schema (wrong type, missing field)
+# must fail the example too: openapi_first's test mode only raises for unknown requests.
+OpenapiFirst.configure do |config|
+  config.after_request_validation do |validated_request, _oad|
+    next unless validated_request.known? && validated_request.invalid?
+    next unless validated_request.path.start_with?("/api/v1")
+    next if validated_request.env["HTTP_X_SIMBE_CONTRACT_PROBE"] == "1"
+
+    raise validated_request.error.exception
+  end
+end

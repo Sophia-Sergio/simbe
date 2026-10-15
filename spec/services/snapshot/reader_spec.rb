@@ -25,4 +25,24 @@ RSpec.describe Snapshot::Reader do
     # No row contents in reports (docs/conventions/sensitive-data.md).
     expect(err[:message]).not_to include("yesterday")
   end
+
+  it "does not invent a date from a partial value" do
+    dir = AlphaScenario.copy_dir; path = File.join(dir, "leads.csv")
+    header = File.read(path).lines.first
+    expect(header).to include("paused_until")
+    File.write(path, File.read(path).sub(/(?<=,)(\d{4}-\d{2}-\d{2})(?=,|$)/, "12"))
+    errors = described_class.call(dir).errors
+    expect(errors.map { _1[:code] }).to include("bad_value").or include("malformed_csv").or be_empty
+    expect(errors.select { _1[:column] == "paused_until" }.map { _1[:message] }).to all(satisfy { |m| !m.include?("12") })
+  end
+
+  it "reports a malformed CSV as an error with file and line instead of raising" do
+    dir = AlphaScenario.copy_dir; path = File.join(dir, "leads.csv")
+    File.write(path, File.read(path) + "\"unclosed,quote\n")
+    errors = nil
+    expect { errors = described_class.call(dir).errors }.not_to raise_error
+    err = errors.find { _1[:code] == "malformed_csv" }
+    expect(err).to include(file: "leads.csv")
+    expect(err[:message]).not_to include("unclosed")
+  end
 end
