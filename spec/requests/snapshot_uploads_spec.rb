@@ -7,6 +7,15 @@ RSpec.describe "Snapshot uploads", type: :request do
   let(:agency) { create(:agency, slug: "alpha", qualified_milestone: "consult_attended") }
   let!(:owner) { create(:user, agency: agency, password: "secret-pass-1") }
 
+  # Response conformance is global: spec/support/contract.rb observes Rails and validates every
+  # /api/v1 request/response against contracts/openapi (an undocumented status raises
+  # OpenapiFirst::ResponseNotFoundError, an unconformant body fails the example). It is ON for
+  # this file; only the create-failure examples below opt out, and only for the failure statuses
+  # the contract does not declare (see the lane's CCR list).
+  it "validates declared responses against the contract" do
+    expect(OpenapiFirst::Test.registered?(CONTRACT)).to be(true)
+  end
+
   def sign_in(user)
     post "/api/v1/session", params: { email: user.email, password: "secret-pass-1" }, headers: headers, as: :json
     expect(response).to have_http_status(:created)
