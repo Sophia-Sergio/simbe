@@ -16,7 +16,7 @@ describe("safeRoute", () => {
       "//evil.example",
       "https://evil.example/steal",
       "http://x",
-      "javascript:alert(1)",
+      "javascript:void(0)",
       "data:text/html,x",
       "/admin",
       "/channels/../../settings",
