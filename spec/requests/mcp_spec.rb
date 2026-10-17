@@ -80,6 +80,34 @@ RSpec.describe "MCP endpoint", type: :request do
     expect(response.parsed_body.dig("error", "code")).to eq(-32600)
   end
 
+  it "returns -32602 (never a 500) when params is not an object and echoes the id" do
+    rpc("tools/call", "nope", 7)
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body.dig("error", "code")).to eq(-32602)
+    expect(response.parsed_body["id"]).to eq(7)
+  end
+
+  it "returns -32602 (never a 500) when the tool arguments are not an object" do
+    rpc("tools/call", { name: "get_funnel", arguments: "nope" }, 8)
+    expect(response.parsed_body.dig("error", "code")).to eq(-32602)
+    expect(response.parsed_body["id"]).to eq(8)
+
+    rpc("tools/call", { name: "get_funnel", arguments: [ 1, 2 ] }, 9)
+    expect(response.parsed_body.dig("error", "code")).to eq(-32602)
+    expect(response.parsed_body["id"]).to eq(9)
+  end
+
+  it "returns -32600 (never a 500) for a non-object JSON body" do
+    post "/mcp/alpha", params: "123",
+         headers: { "Authorization" => "Bearer #{@key}", "Content-Type" => "application/json" }
+    expect(response.parsed_body.dig("error", "code")).to eq(-32600)
+
+    post "/mcp/alpha", params: '"x"',
+         headers: { "Authorization" => "Bearer #{@key}", "Content-Type" => "application/json" }
+    expect(response.parsed_body.dig("error", "code")).to eq(-32600)
+  end
+
   it "401s a wrong key and 404s a slug/key mismatch" do
     rpc("tools/list", token: "nope")
     expect(response).to have_http_status(:unauthorized)

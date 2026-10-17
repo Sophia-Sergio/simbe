@@ -17,6 +17,7 @@ class McpController < ActionController::API
     Current.agency = key.agency
     body = JSON.parse(request.raw_post)
     return render_jsonrpc_error(nil, -32600, "Invalid Request: batch is not supported") if body.is_a?(Array)
+    return render_jsonrpc_error(nil, -32600, "Invalid Request: body must be a JSON object") unless body.is_a?(Hash)
 
     response = Mcp::Server.call(body, agency: key.agency)
     return head :accepted if response.nil?

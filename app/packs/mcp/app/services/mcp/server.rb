@@ -2,6 +2,9 @@
 # controller parses the request body and this builds the response envelope. Tool calls go through
 # the one shared registry (Agent::Tools) with the key's agency, so an MCP client can only ever
 # see that agency's data — and no tool accepts an agency id.
+#
+# Malformed envelopes never raise: a non-object body is -32600, a non-object `params`/`arguments`
+# is -32602, and the request id is always echoed back.
 module Mcp
   class Server
     PROTOCOL_VERSION = "2025-03-26"
@@ -13,36 +16,45 @@ module Mcp
     end
 
     def initialize(body, agency:)
-      @body = body.is_a?(Hash) ? body : {}
+      @body = body
       @agency = agency
     end
 
     def call
+      return error(nil, -32600, "Invalid Request: body must be a JSON object") unless @body.is_a?(Hash)
+
+      # A `notifications/*` method has no response; the controller answers HTTP 202 empty.
       return nil if notification?
 
       id = @body["id"]
-      case @body["method"].to_s
+      method = @body["method"]
+      return error(id, -32600, "Invalid Request: method must be a string") unless method.is_a?(String)
+
+      params = @body["params"]
+      return error(id, -32602, "Invalid params: expected an object") unless params.nil? || params.is_a?(Hash)
+
+      case method
       when "initialize"
         result(id, { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} }, serverInfo: SERVER_INFO })
       when "ping" then result(id, {})
       when "tools/list" then result(id, { tools: Agent::Tools.mcp_definitions })
-      when "tools/call" then tool_call(id)
+      when "tools/call" then tool_call(id, params || {})
       else error(id, -32601, "Method not found")
       end
     end
 
     private
 
-    # `notifications/initialized` (and any future notification) has no response; the controller
-    # answers HTTP 202 with an empty body.
     def notification? = @body["method"].to_s.start_with?("notifications/")
 
     # A tool error is a *result* with `isError: true` (the model/tool contract), never a JSON-RPC
     # error: an unknown tool, bad input or a disallowed tool must not look like a protocol failure.
-    def tool_call(id)
-      name = @body.dig("params", "name")
-      arguments = @body.dig("params", "arguments") || {}
-      data = Agent::Tools.call(name, arguments, agency: @agency, user: owner_for(@agency))
+    # A malformed `arguments` (not an object) is a protocol error, -32602.
+    def tool_call(id, params)
+      arguments = params["arguments"] || {}
+      return error(id, -32602, "Invalid params: arguments must be an object") unless arguments.is_a?(Hash)
+
+      data = Agent::Tools.call(params["name"], arguments, agency: @agency, user: owner_for(@agency))
       result(id, { content: [ { type: "text", text: JSON.generate(data) } ], isError: false })
     rescue Agent::Tools::Error => e
       result(id, { content: [ { type: "text", text: e.message } ], isError: true })
