@@ -55,17 +55,16 @@ module Leads
       }
     end
 
-    # Idempotent: completing twice leaves exactly one row. Raises BadQueue for an unknown queue
-    # and ActiveRecord::RecordNotFound when the lead is outside the user's scope or not currently
-    # in that queue (docs/superpowers/plans/2026-10/2026-10-14-2009-leads-workflow-api.md, task 4).
+    # Idempotent, and safe under a race: two concurrent POSTs both hit the unique index, the
+    # winner inserts and the loser re-finds its row (create_or_find_by! rescues the unique
+    # violation inside a savepoint) instead of raising RecordNotUnique -> 500. Single-flight
+    # (docs/conventions/controllers.md).
     def self.complete!(user:, lead_id:, queue:)
       row = membership_row(user, lead_id, queue)
-      completion = ActionCompletion.find_or_initialize_by(
+      ActionCompletion.create_or_find_by!(
         user_id: user.id, lead_external_id: row[:external_id], queue: queue,
         snapshot_as_of: Queues.latest_as_of(user.agency)
-      )
-      completion.completed_at ||= Time.current
-      completion.save!
+      ) { |completion| completion.completed_at = Time.current }
       true
     end
 

@@ -61,6 +61,27 @@ RSpec.describe "Next actions API", type: :request do
     expect(response.parsed_body["progress"]).to eq("done" => 0, "total" => 4)
   end
 
+  it "is idempotent on a double POST and a double DELETE (both succeed with the same body)" do
+    sign_in(owner)
+    lead = Lead.unscoped.find_by!(first_name: "L7")
+    path = "/api/v1/next_actions/#{lead.external_id}/text_back_now/completion"
+
+    2.times do
+      post path, headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq("done" => true)
+    end
+    Current.agency = agency
+    expect(ActionCompletion.count).to eq(1)
+
+    2.times do
+      delete path, headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body).to eq("done" => false)
+    end
+    expect(ActionCompletion.count).to eq(0)
+  end
+
   it "404s a completion for another coordinator's lead" do
     sign_in(dana)
     lead = Lead.unscoped.find_by!(first_name: "L7") # Priya's

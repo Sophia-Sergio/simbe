@@ -63,6 +63,19 @@ RSpec.describe Leads::NextActions do
       .to raise_error(Leads::NextActions::BadQueue)
   end
 
+  it "stays idempotent when the insert loses a race on the unique index" do
+    l7 = Lead.find_by!(first_name: "L7")
+    # A concurrent POST has already committed this completion...
+    ActionCompletion.create!(user_id: owner.id, lead_external_id: l7.external_id, queue: "text_back_now",
+                             snapshot_as_of: AlphaScenario::AS_OF, completed_at: Time.current)
+    # ...and this call's INSERT then loses on the unique index (forced here).
+    allow_any_instance_of(ActionCompletion).to receive(:save!)
+      .and_raise(ActiveRecord::RecordNotUnique.new("duplicate key value violates unique constraint"))
+
+    expect { described_class.complete!(user: owner, lead_id: l7.external_id, queue: "text_back_now") }.not_to raise_error
+    expect(ActionCompletion.where(lead_external_id: l7.external_id, queue: "text_back_now").count).to eq(1)
+  end
+
   it "resets when a newer snapshot is loaded" do
     described_class.complete!(user: owner, lead_id: Lead.find_by!(first_name: "L7").external_id, queue: "text_back_now")
     AlphaScenario.load!(agency, :v2)
