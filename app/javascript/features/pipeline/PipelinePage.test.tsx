@@ -27,6 +27,12 @@ it("renders the four board columns with their counts", async () => {
   expect(await screen.findByText("L4 Alpha")).toBeInTheDocument()
 })
 
+it("names each board column as a region without a redundant explicit role", async () => {
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  // A <section> with an accessible name is already a region; the explicit role would be redundant.
+  expect(await screen.findByRole("region", { name: "Action needed" })).not.toHaveAttribute("role")
+})
+
 it("shows an empty column hint", async () => {
   renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
   expect(await screen.findAllByText("Nothing here")).toHaveLength(2)

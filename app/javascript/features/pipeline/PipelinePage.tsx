@@ -211,7 +211,6 @@ export function PipelinePage() {
               return (
                 <section
                   key={definition.key}
-                  role="region"
                   aria-label={definition.label}
                   className="flex min-h-[120px] flex-col gap-2 rounded-panel bg-subtle p-2.5"
                 >
