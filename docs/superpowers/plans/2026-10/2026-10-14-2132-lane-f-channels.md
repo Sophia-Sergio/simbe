@@ -3,7 +3,7 @@
 > **For Cursor / OpenCode:** Work only inside this lane's `Owns` list and follow the **frontend lane rules** in `docs/superpowers/parallel/README.md#frontend-lane-rules` (binding). Follow `docs/conventions/` and **`docs/design/brand.md`**. **Commit after every task** (`feat(f-channels): task N – <title>`).
 
 **Lane:** F-CHANNELS · **Wave:** 1 (frontend, mock API)
-**Owns:** `app/javascript/features/channels/**`, `e2e/channels.spec.ts`
+**Owns:** `app/javascript/features/channels/**`, `e2e/channels.spec.ts`, `app/javascript/components/ui/Table.{tsx,test.tsx}` (a click on a row cell must open the row: the kit only reacted to a click on the `<tr>` itself)
 **Depends on (merged):** Wave 0
 **Hooks consumed:** `useChannels(range)`, `useChannel(channel, range)` (`@/api/hooks/metrics`), `useAgent()`, `useRange()`
 **Kit consumed:** `Table` (responsive), `ChannelTile`, `KpiCard`, `SegmentBar`, `BarRow`, `Pill`, `RangeControl`, `Button`, `Skeleton`, `ErrorState`, `EmptyState`, `formatMoney/Int/Pct`

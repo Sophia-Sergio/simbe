@@ -94,3 +94,37 @@ it("renders an em dash for missing cell values", () => {
   render(<Table columns={columns} rows={[{ id: "2", name: "Referral", leads: null as unknown as number }]} rowKey={(row) => row.id} />)
   expect(screen.getByText("—")).toBeInTheDocument()
 })
+
+it("opens a clickable row when a plain cell is clicked (not only the row element itself)", async () => {
+  const onRowClick = vi.fn()
+  render(
+    <Table
+      columns={[{ key: "name", header: "Name" }]}
+      rows={[{ name: "Facebook" }]}
+      rowKey={(row) => row.name}
+      onRowClick={onRowClick}
+    />,
+  )
+  await userEvent.click(screen.getByRole("cell", { name: "Facebook" }))
+  expect(onRowClick).toHaveBeenCalledTimes(1)
+})
+
+it("does not open the row when a nested button or link inside it is clicked", async () => {
+  const onRowClick = vi.fn()
+  const onInner = vi.fn()
+  render(
+    <Table
+      columns={[
+        { key: "name", header: "Name", render: (row: { name: string }) => <button type="button" onClick={onInner}>{row.name} action</button> },
+        { key: "url", header: "Link", render: () => <a href="#x">go</a> },
+      ]}
+      rows={[{ name: "Facebook" }]}
+      rowKey={(row) => row.name}
+      onRowClick={onRowClick}
+    />,
+  )
+  await userEvent.click(screen.getByRole("button", { name: "Facebook action" }))
+  await userEvent.click(screen.getByRole("link", { name: "go" }))
+  expect(onInner).toHaveBeenCalledTimes(1)
+  expect(onRowClick).not.toHaveBeenCalled()
+})
