@@ -6,6 +6,7 @@
   bin/lane check [--lane ID]            ownership check (files changed vs base must be inside the lane's Owns)
   bin/lane pr [--draft|--no-auto-merge]  check, push, open the PR, post the claude-review status, enable auto-merge
   bin/lane run F-WEEK [--model m]       hand the lane to OpenCode headlessly (locked-down permissions, no push)
+  bin/lane watchdog [--minutes 15]      flag running lanes whose OpenCode run is stalled (log quiet) or dead (no process); exit 7 if any
   bin/lane canary                       prove OpenCode's gated permissions are enforced (scratch repo, local bare remote)
   bin/lane review F-WEEK                independent evidence report for the lane branch (the review gate)
   bin/lane approve F-WEEK               reviewer records approval for the exact HEAD after verification + review (required by `pr`)
@@ -402,6 +403,36 @@ def cmd_run(a):
     print(f"opencode exited {code}; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
     if code: sys.exit(5)  # OpenCode itself failed (bad model, auth, crash): the lane stays reviewable but the caller must not treat the run as a success
 
+def live_run_commands():
+    """Command lines of the processes now running (LANE_WATCHDOG_PS_FILE replaces `ps` in specs)."""
+    f = os.environ.get("LANE_WATCHDOG_PS_FILE")
+    if f: return open(f).read().splitlines()
+    return subprocess.run(["ps", "-axo", "command"], text=True, capture_output=True).stdout.splitlines()
+
+def cmd_watchdog(a):
+    """Flag lanes whose OpenCode run looks stuck or dead: phase `running` with a quiet event log (STALLED) or with no live `bin/lane run` process (DEAD)."""
+    st = load_state()["lanes"]; procs = live_run_commands(); now = time.time(); rows = []
+    for lane_id, rec in sorted(st.items()):
+        if rec.get("phase") != "running": continue
+        logs = sorted(glob.glob(os.path.join(GATE_ROOT, lane_id, "opencode.*.jsonl")), key=os.path.getmtime)
+        log = logs[-1] if logs else rec.get("log")
+        age = (now - os.path.getmtime(log)) / 60 if log and os.path.exists(log) else None
+        alive = any(re.search(rf"lane run {re.escape(lane_id)}(\s|$)", c) for c in procs)
+        if not alive: verdict = "DEAD"
+        elif age is None or age > a.minutes: verdict = "STALLED"
+        else: verdict = "ok"
+        rows.append({"lane": lane_id, "verdict": verdict, "quiet_minutes": None if age is None else round(age, 1), "session": rec.get("session"), "log": log})
+    if a.json: print(json.dumps(rows, indent=2))
+    else:
+        for r in rows:
+            q = "no log" if r["quiet_minutes"] is None else f"log quiet {r['quiet_minutes']} min"
+            print(f"{r['lane']:<14}{r['verdict']:<9}{q}")
+            if r["verdict"] != "ok":
+                print(f"  -> look at {r['log']}; resume with: bin/lane run {r['lane']} --session {r['session'] or '<id from the first line of the log>'} --prompt-file <note>")
+        if not rows: print("no lane is in phase running")
+    bad = [r for r in rows if r["verdict"] != "ok"]
+    sys.exit(7 if bad else 0)
+
 def sh_in(wt, *cmd, check=False):
     r = subprocess.run(cmd, cwd=wt, text=True, capture_output=True)
     return (r.stdout or "").strip()
@@ -763,6 +794,7 @@ def main():
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
     st = sub.add_parser("state"); st.add_argument("action", choices=["show", "set", "set-caps", "set-models"]); st.add_argument("args", nargs="*"); st.set_defaults(f=cmd_state)
     n = sub.add_parser("next"); n.add_argument("--json", action="store_true"); n.add_argument("--assume-merged"); n.add_argument("--limit", type=int); n.set_defaults(f=cmd_next)
+    w = sub.add_parser("watchdog"); w.add_argument("--minutes", type=float, default=15, help="quiet time after which a live run counts as stalled"); w.add_argument("--json", action="store_true"); w.set_defaults(f=cmd_watchdog)
     ci = sub.add_parser("ci"); ci.add_argument("lane"); ci.add_argument("--dry-run", action="store_true"); ci.add_argument("--timeout", type=float, default=60, help="minutes"); ci.add_argument("--tail", type=int, default=80); ci.set_defaults(f=cmd_ci)
     rb = sub.add_parser("rebase"); rb.add_argument("lane"); rb.add_argument("--base", default="origin/main"); rb.set_defaults(f=cmd_rebase)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
