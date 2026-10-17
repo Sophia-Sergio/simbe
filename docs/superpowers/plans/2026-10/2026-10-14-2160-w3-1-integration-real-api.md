@@ -54,9 +54,9 @@ end
 
 ## Task 2: Contract coverage = 39/39
 
-- [ ] **Step 1:** `make contract-coverage` must print `39/39 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
-- [ ] **Step 2:** Add `spec/contract/fixture_parity_spec.rb`: load Alpha, sign in as owner/coordinator, call each operation that has an example fixture under `contracts/examples/**`, and compare the real response to the fixture after normalizing ids, timestamps and tokens (`UUID`→`<uuid>`, ISO times→`<time>`). Operations with expected, documented differences (upload report contents, MCP key, agent answer) assert **shape equality** only (same keys and value types). Failures are listed in `docs/superpowers/parallel/integration-log.md` with the chosen resolution (code fix vs CCR).
-- [ ] **Step 3:** `make spec ARGS=spec/contract` → pass. Commit.
+- [x] **Step 1:** `make contract-coverage` must print `39/39 operations exercised`. For each unexercised operation add the missing request spec **in the owning lane's spec file** (small PR per lane area) or a spec in `spec/contract/` if no lane owns it (e.g. `GET /agent/usage`).
+- [x] **Step 2:** Add `spec/contract/fixture_parity_spec.rb`: load Alpha, sign in as owner/coordinator, call each operation that has an example fixture under `contracts/examples/**`, and compare the real response to the fixture after normalizing ids, timestamps and tokens (`UUID`→`<uuid>`, ISO times→`<time>`). Operations with expected, documented differences (upload report contents, MCP key, agent answer) assert **shape equality** only (same keys and value types). Failures are listed in `docs/superpowers/parallel/integration-log.md` with the chosen resolution (code fix vs CCR).
+- [x] **Step 3:** `make spec ARGS=spec/contract` → pass. Commit.
 
 ---
 
