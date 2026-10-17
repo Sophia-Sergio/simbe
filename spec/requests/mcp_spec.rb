@@ -125,6 +125,24 @@ RSpec.describe "MCP endpoint", type: :request do
     expect(response.parsed_body.dig("error", "code")).to eq(-32600)
   end
 
+  it "rejects a request body over 1 MB with 413" do
+    huge = { jsonrpc: "2.0", id: 1, method: "ping", params: { filler: "a" * 1_100_000 } }.to_json
+
+    post "/mcp/alpha", params: huge,
+         headers: { "Authorization" => "Bearer #{@key}", "Content-Type" => "application/json" }
+
+    expect(response).to have_http_status(413)
+    expect(response.parsed_body.dig("error", "code")).to eq(-32600)
+  end
+
+  it "rejects a non-JSON content type with 415" do
+    post "/mcp/alpha", params: { jsonrpc: "2.0", id: 1, method: "ping" }.to_json,
+         headers: { "Authorization" => "Bearer #{@key}", "Content-Type" => "text/plain" }
+
+    expect(response).to have_http_status(:unsupported_media_type)
+    expect(response.parsed_body.dig("error", "code")).to eq(-32600)
+  end
+
   it "401s a wrong key and 404s a slug/key mismatch" do
     rpc("tools/list", token: "nope")
     expect(response).to have_http_status(:unauthorized)

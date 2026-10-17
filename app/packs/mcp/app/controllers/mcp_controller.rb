@@ -3,6 +3,9 @@
 # exactly one agency, and the path slug must match that agency. GET is a 405 (the route is
 # POST-only; the SPA catch-all already excludes /mcp).
 class McpController < ActionController::API
+  # Chunked bodies without Content-Length are re-checked for size before parsing.
+  MAX_BODY_BYTES = 1.megabyte
+
   def handle
     token = bearer_token
     # path_parameters, never `params`: reading `params` would make Rails parse the JSON body
@@ -18,7 +21,15 @@ class McpController < ActionController::API
     end
 
     Current.agency = key.agency
-    body = JSON.parse(request.raw_post)
+    # 1 MB cap and a JSON content type before reading/parsing the body (chunked requests without
+    # Content-Length are caught again by the byte-size check below).
+    return render_jsonrpc_error(nil, -32600, "Invalid Request: body too large", :content_too_large) if request.content_length.to_i > MAX_BODY_BYTES
+    return render_jsonrpc_error(nil, -32600, "Invalid Request: expected application/json", :unsupported_media_type) unless request.media_type == "application/json"
+
+    raw = request.raw_post
+    return render_jsonrpc_error(nil, -32600, "Invalid Request: body too large", :content_too_large) if raw.bytesize > MAX_BODY_BYTES
+
+    body = JSON.parse(raw)
     return render_jsonrpc_error(nil, -32600, "Invalid Request: batch is not supported") if body.is_a?(Array)
     return render_jsonrpc_error(nil, -32600, "Invalid Request: body must be a JSON object") unless body.is_a?(Hash)
 
@@ -52,7 +63,7 @@ class McpController < ActionController::API
     render json: { error: { code: "not_found", message: "Not found" } }, status: :not_found
   end
 
-  def render_jsonrpc_error(id, code, message)
-    render json: { jsonrpc: "2.0", id: id, error: { code: code, message: message } }, status: :bad_request
+  def render_jsonrpc_error(id, code, message, status = :bad_request)
+    render json: { jsonrpc: "2.0", id: id, error: { code: code, message: message } }, status: status
   end
 end
