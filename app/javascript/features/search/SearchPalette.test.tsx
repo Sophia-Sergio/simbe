@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { HttpResponse } from "msw"
 import { mockApi } from "@/test/mockApi"
@@ -120,5 +120,29 @@ it("only searches the coordinator's own leads", async () => {
   expect(screen.getByRole("option", { name: /L3 Alpha/ })).toBeInTheDocument()
   for (const name of [/L7 Alpha/, /L8 Alpha/, /L2 Alpha/]) {
     expect(screen.queryByRole("option", { name })).toBeNull()
+  }
+})
+
+it("does not show or open a stale row inside the debounce window", async () => {
+  const user = userEvent.setup()
+  const { input, location } = await openPalette()
+
+  await user.type(input, "l4")
+  await screen.findByRole("option", { name: /L4 Alpha/ })
+
+  // `useLeadSearch` debounces 200 ms and keys on the debounced value, so right after a change the
+  // previous query's data is still cached. It must neither be shown nor be openable with Enter.
+  vi.useFakeTimers()
+  try {
+    fireEvent.change(input, { target: { value: "l5" } })
+    await act(async () => {
+      vi.advanceTimersByTime(100) // still inside the 200 ms debounce
+    })
+    expect(screen.queryByRole("option", { name: /L4 Alpha/ })).toBeNull()
+    expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0)
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(location().search).not.toContain("lead=")
+  } finally {
+    vi.useRealTimers()
   }
 })

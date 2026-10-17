@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import type { KeyboardEvent } from "react"
 import { Search } from "lucide-react"
 import { useLeadSearch } from "@/api/hooks/leads"
@@ -16,6 +16,24 @@ import { StatusPill } from "@/components/ui/StatusPill"
 const MAX_RESULTS = 8
 // The hook only fetches from two characters; below that the palette stays quiet.
 const MIN_QUERY = 2
+// Must match the debounce inside `useLeadSearch` (`@/api/hooks/leads`): the hook flushes the raw
+// value to its query key after this delay, so `search.data` only belongs to the current input once
+// this mirror has caught up.
+const DEBOUNCE_MS = 200
+
+/** Mirror of the Wave-0 hook's debounce, used to tell when its `data` matches the current input. */
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return debounced
+}
+
+// idle: fewer than two characters. pending: debouncing or fetching. results: current rows.
+// empty: the current query settled with no rows.
+type Phase = "idle" | "pending" | "results" | "empty"
 
 /** Body of the palette. `Modal` renders children only while open, so mounting resets the search. */
 function PaletteSearch({ onClose }: { onClose: () => void }) {
@@ -25,12 +43,26 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
 
   const trimmed = query.trim()
   const ready = trimmed.length >= MIN_QUERY
+  const debounced = useDebouncedValue(trimmed, DEBOUNCE_MS)
+  // Until the mirror catches up, `search.data` still holds the previous query's rows: `settled`
+  // closes that window so a stale row is never shown, highlighted or opened.
+  const settled = debounced === trimmed
   const search = useLeadSearch(trimmed)
   const leads = useMemo(() => (search.data?.leads ?? []).slice(0, MAX_RESULTS), [search.data])
 
+  const phase: Phase = !ready
+    ? "idle"
+    : !settled || search.isFetching
+      ? "pending"
+      : leads.length > 0
+        ? "results"
+        : search.isSuccess
+          ? "empty"
+          : "pending"
+
   // Results shrink as the query narrows. Deriving the row keeps the highlight valid without an
   // effect: a stale index is clamped instead of triggering a second render.
-  const active = leads.length > 0 ? Math.min(activeIndex, leads.length - 1) : -1
+  const active = phase === "results" && leads.length > 0 ? Math.min(activeIndex, leads.length - 1) : -1
   const activeLead = active >= 0 ? leads[active] : null
 
   const listId = useId()
@@ -43,6 +75,7 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
 
   const move = (delta: 1 | -1) => {
     if (leads.length === 0) return
+    // Wraps around, so Down from the last row lands on the first and Up from the first on the last.
     setActiveIndex((index) => (Math.min(index, leads.length - 1) + delta + leads.length) % leads.length)
   }
 
@@ -54,6 +87,7 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
       event.preventDefault()
       move(-1)
     } else if (event.key === "Enter") {
+      // `activeLead` is only set in the results phase, so Enter on stale data is a no-op.
       if (!activeLead) return
       event.preventDefault()
       select(activeLead)
@@ -64,8 +98,6 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const searching = ready && (search.isLoading || search.isFetching)
-
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
@@ -74,8 +106,8 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
           autoFocus
           role="combobox"
           aria-label="Search candidates"
-          aria-expanded={true}
-          aria-controls={leads.length > 0 ? listId : undefined}
+          aria-expanded={phase === "results"}
+          aria-controls={phase === "results" ? listId : undefined}
           aria-activedescendant={activeLead ? optionId(activeLead) : undefined}
           aria-autocomplete="list"
           placeholder="Search candidates…"
@@ -89,9 +121,15 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
         />
       </div>
 
-      {!ready ? (
+      {phase === "idle" ? (
         <p className="px-1 py-3 text-[13px] text-ink-muted">Type at least two characters to search.</p>
-      ) : leads.length > 0 ? (
+      ) : phase === "pending" ? (
+        <div aria-busy="true" aria-label="Searching" className="flex flex-col gap-2 py-1">
+          {[0, 1, 2].map((row) => (
+            <Skeleton key={row} className="h-10 w-full" />
+          ))}
+        </div>
+      ) : phase === "results" ? (
         <ul
           id={listId}
           role="listbox"
@@ -118,12 +156,6 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
             </li>
           ))}
         </ul>
-      ) : searching || !search.isSuccess ? (
-        <div aria-busy="true" aria-label="Searching" className="flex flex-col gap-2 py-1">
-          {[0, 1, 2].map((row) => (
-            <Skeleton key={row} className="h-10 w-full" />
-          ))}
-        </div>
       ) : (
         <EmptyState className="border-0 bg-transparent py-6" title="No matches" body="Try a first or last name, or an email." />
       )}
