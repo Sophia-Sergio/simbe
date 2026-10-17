@@ -153,15 +153,6 @@ function CrmExportsCard({
   )
 }
 
-function PageSkeleton() {
-  return (
-    <>
-      <Skeleton className="h-[104px]" />
-      <Skeleton className="h-[280px]" />
-    </>
-  )
-}
-
 /**
  * Owner-only Data sources screen (handoff §10, spec decisions 4–6): connector cards, the CRM exports
  * card and the asynchronous upload modal. While `snapshots/current.pending` is set the card shows the
@@ -188,48 +179,38 @@ export function DataSourcesPage() {
     </header>
   )
 
-  if (snapshot.isPending || connections.isPending) {
-    return (
-      <div className="flex flex-col gap-5" aria-busy="true">
-        {header}
-        <PageSkeleton />
-      </div>
-    )
-  }
-  if (snapshot.isError) {
-    return (
-      <div className="flex flex-col gap-5">
-        {header}
-        <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
-      </div>
-    )
-  }
-  if (connections.isError) {
-    return (
-      <div className="flex flex-col gap-5">
-        {header}
-        <ErrorState message="We couldn't load your ad connections." onRetry={() => void connections.refetch()} />
-      </div>
-    )
-  }
-
   const pending = snapshot.data?.pending ?? null
   const current = snapshot.data?.snapshot ?? null
   const files = snapshot.data?.files ?? []
   const byPlatform = new Map((connections.data?.connections ?? []).map((connection) => [connection.platform, connection]))
 
+  // Each card fails on its own: a broken connections call must not hide the CRM exports or the upload path.
+  const connectors = connections.isPending ? (
+    <Skeleton className="h-[104px]" />
+  ) : connections.isError ? (
+    <ErrorState message="We couldn't load your ad connections." onRetry={() => void connections.refetch()} />
+  ) : (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      {PLATFORMS.map((config) => (
+        <ConnectorCard key={config.platform} {...config} connection={byPlatform.get(config.platform) ?? null} />
+      ))}
+    </div>
+  )
+
+  const crm = snapshot.isPending ? (
+    <Skeleton className="h-[280px]" />
+  ) : snapshot.isError ? (
+    <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
+  ) : (
+    <CrmExportsCard snapshot={current} files={files} pending={pending} timezone={timezone} onUpload={() => setUploadOpen(true)} />
+  )
+
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5" aria-busy={snapshot.isPending || connections.isPending}>
       {header}
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {PLATFORMS.map((config) => (
-          <ConnectorCard key={config.platform} {...config} connection={byPlatform.get(config.platform) ?? null} />
-        ))}
-      </div>
-
-      <CrmExportsCard snapshot={current} files={files} pending={pending} timezone={timezone} onUpload={() => setUploadOpen(true)} />
-
+      {connectors}
+      {crm}
+      {/* Mounted outside every loading/error branch: the header button must always work. */}
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} agencyName={agencyName} />
     </div>
   )

@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { HttpResponse } from "msw"
 import { setScenario } from "@/mocks/scenarios"
+import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { DataSourcesPage } from "./DataSourcesPage"
 
@@ -66,5 +68,27 @@ it("opens the upload modal from the header", async () => {
 it("says so when the snapshot call fails, with a retry", async () => {
   setScenario("error")
   renderWithProviders(<DataSourcesPage />)
-  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't load your data/i)
+  // Both cards fail in this scenario; the CRM one keeps its own message.
+  expect(await screen.findByText("We couldn't load your data.")).toBeInTheDocument()
+  expect(screen.getByText("We couldn't load your ad connections.")).toBeInTheDocument()
+})
+
+it("keeps the upload path usable while the data call is failing", async () => {
+  setScenario("error")
+  const user = userEvent.setup()
+  renderWithProviders(<DataSourcesPage />)
+  await user.click((await screen.findAllByRole("button", { name: "Upload new snapshot" }))[0])
+  expect(await screen.findByRole("dialog")).toHaveTextContent("Drop your 7 CSV exports")
+})
+
+it("shows an ad-connection failure in its own card without hiding the CRM exports", async () => {
+  mockApi({
+    "GET /api/v1/ad_connections": () => HttpResponse.json({ error: { code: "boom", message: "x" } }, { status: 500 }),
+  })
+  renderWithProviders(<DataSourcesPage />)
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/ad connections/i)
+  // The CRM card and the upload path are unrelated to the connector failure.
+  expect(screen.getByText("leads.csv")).toBeInTheDocument()
+  expect(screen.getAllByRole("button", { name: "Upload new snapshot" }).length).toBeGreaterThanOrEqual(1)
 })
