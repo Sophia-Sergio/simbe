@@ -78,7 +78,7 @@ test("signs up, loads the seven exports and invites a coordinator", async ({ pag
   await page.getByRole("button", { name: "Continue" }).click()
 
   await expect(page.getByRole("heading", { name: "Invite your team" })).toBeVisible()
-  await page.getByLabel("Email").fill("maya@harbor.test")
+  await page.getByLabel("Email").fill("sam@harbor.test")
   await page.getByLabel("Coordinator").selectOption("Jess Kim")
   await page.getByRole("button", { name: "Invite" }).click()
   await expect(page.getByText("Invitation sent")).toBeVisible()
