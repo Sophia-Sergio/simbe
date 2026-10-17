@@ -58,3 +58,15 @@ it("mobile: renders the needs-action list as full-width cards, not a table", asy
   expect(await screen.findByText("L4 Alpha")).toBeInTheDocument()
   expect(screen.queryByRole("table")).toBeNull()
 })
+
+it("shows a retryable error when the snapshot call fails while the detail loads", async () => {
+  mockApi({
+    "/api/v1/snapshots/current": () =>
+      new Response(JSON.stringify({ error: { code: "server_error", message: "boom" } }), { status: 500 }),
+  })
+  renderWithProviders(<CoordinatorPage />, { route, path })
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your data.")
+  expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
+  expect(screen.queryByText("Load your data")).toBeNull()
+})

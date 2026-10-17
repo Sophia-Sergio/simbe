@@ -75,6 +75,19 @@ it("shows a retryable error when the coordinators call fails", async () => {
   expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
 })
 
+it("shows a retryable error when the snapshot call fails while the stats load", async () => {
+  mockApi({
+    "/api/v1/snapshots/current": () =>
+      new Response(JSON.stringify({ error: { code: "server_error", message: "boom" } }), { status: 500 }),
+  })
+  renderWithProviders(<CoordinatorsPage />)
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your data.")
+  expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
+  // An owner who already loaded data must never be told to load it again.
+  expect(screen.queryByRole("link", { name: "Load your data" })).toBeNull()
+})
+
 it("redirects a coordinator to /next-actions without ever calling the coordinators API", async () => {
   asRole("coordinator")
   setViewport(1280)

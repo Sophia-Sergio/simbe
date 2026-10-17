@@ -80,6 +80,10 @@ export function CoordinatorsPage() {
   if (coordinators.isError) {
     return <ErrorState message="We couldn't load coordinator stats." onRetry={() => void coordinators.refetch()} />
   }
+  // A failed snapshot call is not "no data": say so and let the user retry it (rule 9).
+  if (snapshot.isError) {
+    return <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
+  }
 
   const pending = snapshot.data?.pending ?? null
   const rows = coordinators.data ?? []

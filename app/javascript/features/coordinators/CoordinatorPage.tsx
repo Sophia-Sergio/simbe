@@ -73,6 +73,16 @@ export function CoordinatorPage() {
     )
   }
 
+  // A failed snapshot call is not "no data": say so and let the user retry it (rule 9).
+  if (snapshot.isError) {
+    return (
+      <div className="flex flex-col gap-5">
+        {back}
+        <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
+      </div>
+    )
+  }
+
   const pending = snapshot.data?.pending ?? null
   const coordinator = detail.data
   const { kpis, needs_action: needsAction } = coordinator
