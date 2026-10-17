@@ -52,6 +52,18 @@ RSpec.describe "Leads API", type: :request do
     expect(response.parsed_body["leads"].map { |card| card["name"] }).to eq([ "L3 Alpha", "L2 Alpha" ])
   end
 
+  # Spec 2008 decision 10: search is "scoped like the list", whose default status is `open`, and
+  # neither the contract's `status` default, the W0-2 mock handler nor `useLeadSearch` sends a
+  # status — so the ⌘K palette only finds open leads unless the caller asks for more.
+  it "scopes a search to the default open status" do
+    sign_in(owner)
+    get "/api/v1/leads", params: { q: lead("L5").email }, headers: headers
+    expect(response.parsed_body["leads"]).to eq([])
+
+    get "/api/v1/leads", params: { q: lead("L5").email, status: "all" }, headers: headers
+    expect(response.parsed_body["leads"].map { |card| card["name"] }).to eq([ "L5 Alpha" ])
+  end
+
   it "answers 200 when a filter arrives as a non-scalar" do
     sign_in(owner)
     probe = headers.merge("X-Simbe-Contract-Probe" => "1")

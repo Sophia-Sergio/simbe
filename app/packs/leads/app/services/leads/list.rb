@@ -2,6 +2,9 @@
 # keyset-paged by (lead_created_at desc, id) and searched by a literal, wildcard-escaped
 # name/email contains. Membership + the next-action queue come from the shared
 # `Leads::Queues::SQL_CTE`; the page is then hydrated with the lead's card data.
+#
+# A `q` search shares the list's `status` filter and so defaults to `open` ("scoped like the
+# list", spec decision 10) — the ⌘K palette finds open leads unless it passes `status=all`.
 module Leads
   module List
     DEFAULT_PER = 50
