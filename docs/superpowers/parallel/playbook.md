@@ -16,6 +16,8 @@ You are the **conductor**. Claude Code is the **orchestrator and reviewer** (cri
 | **Cursor** | Frontend lanes with heavy visual iteration (kit, shells, screens, panels) | Fast edit–look loop in the editor, composer/agent mode, you see the browser while it works; `.cursor/rules` load automatically |
 | **OpenCode** | Backend lanes, contract/mock tooling, CI/CD, long unattended runs; many parallel sessions (tmux panes) and cheap-model lanes | Terminal-native, reads `AGENTS.md` + `opencode.json`, easy to run headless (`opencode run "…"`) and to pick a different model per lane |
 
+**OpenCode model: every OpenCode run uses DeepSeek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`), whatever the tier column says.** Pass `--model opencode-go/deepseek-v4.1-flash` or set `LANE_MODEL`. Reviews and the conductor stay on Claude Code.
+
 Suggested assignment (change freely — any tool can run any lane, the plans are tool-agnostic):
 
 | Wave | Lane | Tool | Model tier |
@@ -109,7 +111,7 @@ Rule of thumb: **one reviewer-hour per ~4 concurrent lanes**. If PRs pile up, do
 Design: [`../specs/2026-10/2026-10-14-2330-lane-conductor-design.md`](../specs/2026-10/2026-10-14-2330-lane-conductor-design.md). Ask Claude Code to "conduct": it repeats this loop, with every OpenCode run and CI wait as a background job, and only interrupts you for a batch report or a stop.
 
 ```bash
-bin/lane state set-models top=<provider/model> mid=<provider/model> cheap=<provider/model>   # once
+bin/lane state set-models top=opencode-go/deepseek-v4.1-flash mid=opencode-go/deepseek-v4.1-flash cheap=opencode-go/deepseek-v4.1-flash   # once: every OpenCode run uses DeepSeek V4.1 Flash
 bin/lane next                          # lanes whose prerequisites are merged, critical path first, within the caps (bin/lane state show)
 bin/lane start <LANE> && bin/lane run <LANE>          # background; records phase + OpenCode session id
 bin/lane run <LANE> --session <id>     # a run ends when the model ends its turn: count commits against the plan's tasks and resume until all are committed

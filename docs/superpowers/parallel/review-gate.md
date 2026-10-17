@@ -68,6 +68,6 @@ What you will see at G4: the verdict line, the commit list (one per plan task), 
 ## 8. FAQ
 
 - **What if OpenCode stalls or loops?** `--timeout` kills it; the partial commits stay local; I review what exists and either continue the session or take the lane over myself.
-- **Which model?** Your call (`opencode models`); use a strong coding model for W0-1/W0-3/W0-5/B-INGEST/B-AGENT and cheaper ones for small UI lanes. The gate is model-independent: the review decides, not the model's confidence.
+- **Which model?** DeepSeek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`) for every OpenCode lane; no per-tier choice. The gate is model-independent: the review decides, not the model's confidence.
 - **Does this slow things down?** The first lanes yes (that is the point); the ladder removes manual steps as trust is earned, but never the independent verification or your approval of what gets pushed.
 - **What can still go wrong?** Plans themselves are untested until a lane runs them; the first lane may expose plan defects. Those are fixed in the plan (separate docs PR), not worked around.
