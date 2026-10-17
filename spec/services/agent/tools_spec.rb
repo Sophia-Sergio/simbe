@@ -74,6 +74,13 @@ RSpec.describe Agent::Tools do
     expect(r[:queues].flat_map { _1[:items] }.size).to eq(3)
   end
 
+  it "rejects every owner-only tool for a coordinator" do
+    %w[get_funnel get_channel_performance get_dropoff_reasons forecast_spend].each do |name|
+      expect { described_class.call(name, { "monthly_budget_cents" => 1000 }, agency: agency, user: dana) }
+        .to raise_error(Agent::Tools::Error, /tool_not_allowed/)
+    end
+  end
+
   it "never accepts an agency argument" do
     expect(described_class.definitions(role: "owner").flat_map { _1[:input_schema][:properties].keys }).not_to include("agency", "agency_id")
   end
