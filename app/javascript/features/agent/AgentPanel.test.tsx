@@ -345,6 +345,22 @@ it("hides the FAB while the lead panel is open and while the agent itself is ope
   expect(screen.queryByRole("button", { name: "Ask Simbe" })).toBeNull()
 })
 
+it("keeps the mobile panel inset from the top and sized to the visual viewport", async () => {
+  const visualViewport = { height: 500, addEventListener: vi.fn(), removeEventListener: vi.fn() }
+  Object.defineProperty(window, "visualViewport", { configurable: true, value: visualViewport })
+  try {
+    mount({ viewport: 390 })
+    await openFab()
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog.className).toContain("pt-[env(safe-area-inset-top)]")
+    expect(dialog.className).toContain("h-[100dvh]")
+    // Sized to the visual viewport, so the composer stays above the on-screen keyboard.
+    await waitFor(() => expect(dialog).toHaveStyle({ height: "500px" }))
+  } finally {
+    delete (window as { visualViewport?: unknown }).visualViewport
+  }
+})
+
 it("is a full-screen panel on a phone", async () => {
   mount({ viewport: 390 })
   await openFab()

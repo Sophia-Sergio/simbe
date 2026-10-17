@@ -65,7 +65,11 @@ test("the Ask tab opens the agent full screen on a phone", async ({ page }, test
   const panel = panelOf(page)
   await expect(panel).toBeVisible()
   await expect(panel).toHaveAttribute("data-variant", "full")
-  expect((await panel.boundingBox())?.width).toBe(390)
+  const box = await panel.boundingBox()
+  expect(box?.width).toBe(390)
+  // Full screen from the top edge (the notch inset lives on the panel, not the viewport).
+  expect(box?.y).toBe(0)
+  expect(box?.height).toBeGreaterThan(800)
   await page.screenshot({ path: shot("agent", testInfo.project.name) })
 
   await panel.getByRole("button", { name: "Close" }).click()

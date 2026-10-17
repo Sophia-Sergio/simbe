@@ -20,6 +20,7 @@ import { useAgentThread } from "./useAgentThread"
 export function AgentPanel() {
   const { isOpen, close } = useAgent()
   const isDesktop = useIsDesktop()
+  const viewportHeight = useVisualViewportHeight()
   const ref = useRef<HTMLDivElement>(null)
   const titleId = useId()
 
@@ -40,10 +41,13 @@ export function AgentPanel() {
         aria-labelledby={titleId}
         data-variant={isDesktop ? "panel" : "full"}
         tabIndex={-1}
+        // On mobile the panel fills the *visual* viewport so the composer stays above the on-screen
+        // keyboard, and clears the notch with the top safe-area inset.
+        style={!isDesktop && viewportHeight ? { height: `${viewportHeight}px` } : undefined}
         className={
           isDesktop
             ? "absolute bottom-6 right-6 flex max-h-[min(640px,calc(100dvh-3rem))] w-[400px] max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-modal bg-surface shadow-modal"
-            : "absolute inset-0 flex h-full w-full flex-col bg-surface pb-[env(safe-area-inset-bottom)]"
+            : "absolute inset-0 flex h-[100dvh] w-full flex-col bg-surface pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
         }
       >
         <PanelBody titleId={titleId} onClose={close} />
@@ -51,6 +55,24 @@ export function AgentPanel() {
     </div>,
     document.body,
   )
+}
+
+/** The visual viewport's height (excludes the on-screen keyboard), or `null` where it is unavailable. */
+function useVisualViewportHeight(): number | null {
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const viewport = typeof window === "undefined" ? undefined : window.visualViewport
+    if (!viewport) return
+    const update = () => setHeight(viewport.height)
+    update()
+    viewport.addEventListener("resize", update)
+    viewport.addEventListener("scroll", update)
+    return () => {
+      viewport.removeEventListener("resize", update)
+      viewport.removeEventListener("scroll", update)
+    }
+  }, [])
+  return height
 }
 
 /** The panel's contents. Mounted only while the panel is open, so it never fetches suggestions early. */
