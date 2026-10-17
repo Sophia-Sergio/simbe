@@ -1,0 +1,17 @@
+# Per-million-token prices in USD, keyed by model id, used by Ai::Ledger to compute
+# `ai_usage_events.cost_cents`. Values must come from Anthropic's pricing page
+# (https://www.anthropic.com/pricing) — never guessed; a model with no confirmed entry
+# records `cost_cents: nil` (spec 2013, decisions 6-7).
+#
+# Checked 2026-10-17: the pricing page lists the Sonnet/Haiku model families but no
+# per-token table for the `claude-sonnet-5-5` / `claude-haiku-5-5` ids, so no value can
+# be confirmed and the entries stay commented out. Uncomment and fill from the live page
+# when the ids appear there.
+#
+# claude-sonnet-5-5:
+#   input_per_mtok_usd: <fill from the pricing page>
+#   output_per_mtok_usd: <fill from the pricing page>
+# claude-haiku-5-5:
+#   input_per_mtok_usd: <fill from the pricing page>
+#   output_per_mtok_usd: <fill from the pricing page>
+{}

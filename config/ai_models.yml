@@ -1,0 +1,16 @@
+# Model id per AI task (docs/conventions/ai-agent.md). `Ai::Client.new(task)` reads the
+# entry for `Rails.env`; `AI_MODEL_<TASK>` (e.g. AI_MODEL_AGENT) overrides it. `agent`
+# answers questions in the Ask Simbe panel; `summary` is the cheap task model. Ids are
+# the current family per the agent spec (claude-sonnet-5-5 / claude-haiku-5-5).
+default: &default
+  agent: claude-sonnet-5-5
+  summary: claude-haiku-5-5
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default
