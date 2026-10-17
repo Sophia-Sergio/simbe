@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
+import type { KeyboardEvent } from "react"
 import {
   CalendarCheck,
   CalendarDays,
@@ -28,7 +29,6 @@ import { SourcePill } from "@/components/ui/SourcePill"
 import { Tabs } from "@/components/ui/Tabs"
 import type { TabItem } from "@/components/ui/Tabs"
 import { useAsyncAction } from "@/hooks/useAsyncAction"
-import { useDismiss } from "@/hooks/useDismiss"
 import { useIsDesktop } from "@/hooks/useIsDesktop"
 import { ActivityTab } from "./ActivityTab"
 import { ScreenerTab } from "./ScreenerTab"
@@ -284,23 +284,99 @@ function DoneButton({ leadId, queue, initialDone }: { leadId: string; queue: Non
 function ActionsMenu({ number }: { number: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  useDismiss({ ref, onDismiss: () => setOpen(false), enabled: open })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const itemsRef = useRef<Array<HTMLAnchorElement | null>>([])
+
+  // Escape and item activation return focus to the trigger; an outside click keeps focus where the user clicked.
+  const close = useCallback((restoreFocus = false) => {
+    setOpen(false)
+    if (restoreFocus) triggerRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      const el = ref.current
+      if (el && event.target instanceof Node && el.contains(event.target)) return
+      close()
+    }
+    document.addEventListener("pointerdown", onPointerDown)
+    return () => document.removeEventListener("pointerdown", onPointerDown)
+  }, [open, close])
+
+  // The trigger keeps focus after the click that opens the menu, so move it onto the first item.
+  useEffect(() => {
+    if (open) itemsRef.current[0]?.focus()
+  }, [open])
+
+  /**
+   * The menu owns Escape while it is open: `Sheet` also listens for Escape on `document`, so stopping
+   * propagation here (React listens on the portal container, below `document`) is what keeps one Escape
+   * from closing the menu *and* the whole panel.
+   */
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const items = itemsRef.current.filter((item): item is HTMLAnchorElement => item !== null)
+    if (items.length === 0) return
+    if (!["ArrowDown", "ArrowUp", "Home", "End", "Escape"].includes(event.key)) return
+    event.preventDefault()
+
+    if (event.key === "Escape") {
+      event.stopPropagation()
+      close(true)
+      return
+    }
+
+    const index = items.indexOf(document.activeElement as HTMLAnchorElement)
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? items.length - 1
+          : event.key === "ArrowDown"
+            ? (index + 1) % items.length
+            : (index <= 0 ? items.length : index) - 1
+    items[next]?.focus()
+  }
 
   return (
     <div ref={ref} className="relative">
-      <Button variant="secondary" size="sm" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <Button
+        ref={triggerRef}
+        variant="secondary"
+        size="sm"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
         Actions
         <ChevronDown aria-hidden className="h-3.5 w-3.5" />
       </Button>
       {open ? (
         <div
           role="menu"
+          onKeyDown={onKeyDown}
           className="absolute right-0 z-10 mt-1 w-40 rounded-row border border-line bg-surface p-1 shadow-modal"
         >
-          <a role="menuitem" href={`sms:${number}`} className="block rounded-input px-3 py-2 text-[13px] text-ink-secondary hover:bg-subtle">
+          <a
+            ref={(el) => {
+              itemsRef.current[0] = el
+            }}
+            role="menuitem"
+            href={`sms:${number}`}
+            onClick={() => close(true)}
+            className="block rounded-input px-3 py-2 text-[13px] text-ink-secondary hover:bg-subtle"
+          >
             Send text
           </a>
-          <a role="menuitem" href={`tel:${number}`} className="block rounded-input px-3 py-2 text-[13px] text-ink-secondary hover:bg-subtle">
+          <a
+            ref={(el) => {
+              itemsRef.current[1] = el
+            }}
+            role="menuitem"
+            href={`tel:${number}`}
+            onClick={() => close(true)}
+            className="block rounded-input px-3 py-2 text-[13px] text-ink-secondary hover:bg-subtle"
+          >
             Call
           </a>
         </div>
