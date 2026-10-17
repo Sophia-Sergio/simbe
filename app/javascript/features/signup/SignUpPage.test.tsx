@@ -60,6 +60,40 @@ it("submits account and agency at the end of step 2, then lands on Ad accounts",
   ])
 })
 
+it("hides Back once the account exists, so signup can never be submitted twice", async () => {
+  let posts = 0
+  mockApi({
+    "POST /api/v1/signup": () => {
+      posts += 1
+      db.session = { email: "erin@new.test", role: "owner" }
+      return HttpResponse.json(me, { status: 201 })
+    },
+  })
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep()
+  // Step 2 is the last step the user may walk back from.
+  expect(screen.getByRole("button", { name: "Back" })).toBeInTheDocument()
+
+  await userEvent.type(screen.getByLabelText("Agency name"), "New Agency")
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  await screen.findByRole("heading", { name: "Connect your ad accounts" })
+
+  for (const [heading, button] of [
+    ["Connect your ad accounts", "Continue"],
+    ["Load your data", "Continue"],
+    ["Invite your team", null],
+  ] as const) {
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
+    if (button) await userEvent.click(screen.getByRole("button", { name: button }))
+  }
+
+  // One account per visit: no step above 2 can re-post the signup.
+  expect(posts).toBe(1)
+})
+
 it("shows email_taken and returns the user to step 1 with the message", async () => {
   renderWithProviders(<SignUpPage />, { role: null })
 

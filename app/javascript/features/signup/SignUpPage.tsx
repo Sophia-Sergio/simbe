@@ -90,13 +90,16 @@ export function SignUpPage() {
     }
   })
 
-  const back = step > 1 ? (
-    <Button variant="secondary" onClick={() => setStep(step - 1)}>
-      Back
-    </Button>
-  ) : (
-    <span />
-  )
+  // Once `POST /signup` has created the account, the wizard must not walk back to steps 1–2 (a
+  // second submit would be a duplicate account); Back is only offered on step 2.
+  const back =
+    step === 2 ? (
+      <Button variant="secondary" onClick={() => setStep(1)}>
+        Back
+      </Button>
+    ) : (
+      <span />
+    )
 
   let next: ReactNode = null
   if (step === 1) {
