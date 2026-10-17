@@ -22,7 +22,7 @@ class LeadDetailSerializer
     application = latest_application(lead)
 
     {
-      id: lead.id,
+      id: lead.external_id,
       name: [ lead.first_name, lead.last_name ].compact_blank.join(" "),
       coordinator: lead.coordinator_name,
       stage: lead.current_stage,

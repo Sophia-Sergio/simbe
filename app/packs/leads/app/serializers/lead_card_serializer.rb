@@ -9,7 +9,7 @@ class LeadCardSerializer
   # -> Hash. `queue` is the lead's next-action queue (nil when it is not queued).
   def self.call(lead:, queue: nil)
     {
-      id: lead.id,
+      id: lead.external_id,
       name: name(lead),
       channel: lead.channel,
       status: Leads::Status.call(outcome: lead.outcome, queue: queue),

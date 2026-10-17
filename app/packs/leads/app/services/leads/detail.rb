@@ -8,9 +8,10 @@ module Leads
     ASSOCIATIONS = %i[lead_fact stage_events contacts screener_answers web_sessions appointments applications].freeze
 
     # -> Hash (LeadDetailSerializer#call), or raises ActiveRecord::RecordNotFound outside the
-    # user's scope.
+    # user's scope. Leads are addressed by their external_id (the export's lead_id), which is
+    # also the `id` cards and contract examples use.
     def self.call(user:, id:)
-      lead = Leads::Access.relation(user).includes(*ASSOCIATIONS).find(id)
+      lead = Leads::Access.relation(user).includes(*ASSOCIATIONS).find_by!(external_id: id)
       queue = queue_for(lead)
       LeadDetailSerializer.call(user: user, lead: lead, queue: queue, done: done?(user, lead, queue))
     end
