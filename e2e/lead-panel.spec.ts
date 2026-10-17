@@ -53,7 +53,7 @@ test("owner: summary, then screener with verdicts and no raw answers", async ({ 
 
 test("coordinator: raw answers, contact links and a working Mark done", async ({ page }) => {
   await signIn(page, COORDINATOR)
-  await page.goto(`/?lead=${L4}&tab=screener`)
+  await page.goto(`/pipeline?lead=${L4}&tab=screener`)
 
   const panel = page.getByRole("dialog")
   await expect(panel).toBeVisible()
@@ -75,7 +75,7 @@ test("coordinator: raw answers, contact links and a working Mark done", async ({
 
 test("coordinator: another coordinator's lead is not available", async ({ page }) => {
   await signIn(page, COORDINATOR)
-  await page.goto(`/?lead=${L7}`)
+  await page.goto(`/pipeline?lead=${L7}`)
 
   const panel = page.getByRole("dialog")
   await expect(panel).toBeVisible()
