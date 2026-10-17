@@ -3,8 +3,10 @@ import type { ReactNode } from "react"
 import { useUpdateAgency } from "@/api/hooks/account"
 import type { Agency } from "@/api/types"
 import { useAuth } from "@/app/auth/useAuth"
+import { TIMEZONES } from "@/components/shared/options"
 import { QualifiedRadioCards } from "@/components/shared/QualifiedRadioCards"
 import { TimezoneChips } from "@/components/shared/TimezoneChips"
+import { Chip } from "@/components/ui/Chip"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { useToast } from "@/components/ui/Toast"
 import { useAsyncAction } from "@/hooks/useAsyncAction"
@@ -13,6 +15,22 @@ import { TeamCard } from "./TeamCard"
 const DEFINITION_SAVED = "Saved. Every number now uses this definition."
 const TIMEZONE_SAVED = "Saved. Times now use this time zone."
 const SAVE_FAILED = "We could not save that. Try again."
+const DEFINITION_NOTICE = "Your funnel, channels and cost per qualified all recompute from this definition."
+
+/** The kit's chips only know the four offered zones: a stored zone outside them would render unselected. */
+function ZoneChips({ value, onChange }: { value: string; onChange: (timezone: string) => void }) {
+  if (TIMEZONES.some((zone) => zone.value === value)) return <TimezoneChips value={value} onChange={onChange} />
+  const zones: { label: string; value: string }[] = [...TIMEZONES, { label: value, value }]
+  return (
+    <div role="group" aria-label="Time zone" className="flex flex-wrap gap-2">
+      {zones.map((zone) => (
+        <Chip key={zone.value} selected={zone.value === value} onClick={() => onChange(zone.value)}>
+          {zone.label}
+        </Chip>
+      ))}
+    </div>
+  )
+}
 
 function Section({
   id,
@@ -105,6 +123,8 @@ export function SettingsPage() {
           disabled={definition.pending}
           onChange={(milestone) => void definition.run(milestone)}
         />
+        {/* Says what is about to change, before the save fires. */}
+        <p className="text-[13px] text-ink-muted">{DEFINITION_NOTICE}</p>
       </Section>
 
       <Section
@@ -113,7 +133,7 @@ export function SettingsPage() {
         subtitle="Every date and time in Simbe uses this zone."
         error={timezoneError}
       >
-        <TimezoneChips value={agency.timezone} onChange={(value) => void timezone.run(value)} />
+        <ZoneChips value={agency.timezone} onChange={(value) => void timezone.run(value)} />
       </Section>
 
       <TeamCard />

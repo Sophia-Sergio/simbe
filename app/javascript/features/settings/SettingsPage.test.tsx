@@ -1,11 +1,19 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import agencyFixture from "@contracts/examples/account/agency.json"
+import meOwner from "@contracts/examples/auth/me-owner.json"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { SettingsPage } from "./SettingsPage"
 
 const saved = () => screen.findByText("Saved. Every number now uses this definition.")
+
+it("says what a new definition recomputes before it is saved", async () => {
+  renderWithProviders(<SettingsPage />)
+
+  const definition = await screen.findByRole("region", { name: "Definition of qualified" })
+  expect(definition).toHaveTextContent(/funnel, channels and cost per qualified/i)
+})
 
 it("changing the qualified definition saves immediately with the handoff toast", async () => {
   let body: unknown
@@ -121,4 +129,28 @@ it("is one 720px column with the three cards", async () => {
   expect(screen.getAllByRole("heading", { level: 2 })).toHaveLength(3)
   // The page body is the 720px column described by the handoff (every card is a direct child of it).
   expect(definition.closest("section")?.parentElement).toHaveClass("max-w-[720px]")
+})
+
+it("keeps a time zone that is not one of the four options selected", async () => {
+  mockApi({
+    "GET /api/v1/me": () => Response.json({ ...meOwner, agency: { ...meOwner.agency, timezone: "Europe/London" } }),
+  })
+  renderWithProviders(<SettingsPage />)
+
+  // The extra zone is offered as a chip and reads as the current choice, so nothing looks unset.
+  const extra = await screen.findByRole("button", { name: "Europe/London" })
+  expect(extra).toHaveAttribute("aria-pressed", "true")
+  expect(screen.getByRole("button", { name: "Pacific" })).toHaveAttribute("aria-pressed", "false")
+
+  // Picking one of the four still saves.
+  let body: unknown
+  mockApi({
+    "PATCH /api/v1/agency": async (request: Request) => {
+      body = await request.json()
+      return Response.json({ ...agencyFixture, timezone: "America/Chicago" })
+    },
+  })
+  await userEvent.click(screen.getByRole("button", { name: "Central" }))
+  expect(await screen.findByText("Saved. Times now use this time zone.")).toBeInTheDocument()
+  expect(body).toEqual({ timezone: "America/Chicago" })
 })
