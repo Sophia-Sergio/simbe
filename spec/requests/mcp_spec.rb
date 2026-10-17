@@ -132,4 +132,26 @@ RSpec.describe "MCP endpoint", type: :request do
   ensure
     Rack::Attack.enabled = false
   end
+
+  # A fresh token per request would reset the per-key counter, so an IP-keyed throttle (300/min)
+  # is the backstop. Same bare Rack app setup as above.
+  it "throttles an IP to 300 requests per minute even with a fresh token each time" do
+    Rack::Attack.enabled = true
+    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
+    app = Rack::Builder.new do
+      use Rack::Attack
+      run ->(_env) { [ 200, {}, [ "ok" ] ] }
+    end.to_app
+    session = Rack::Test::Session.new(app)
+
+    statuses = 301.times.map do
+      session.post("/mcp/alpha", {},
+                   "HTTP_AUTHORIZATION" => "Bearer #{SecureRandom.hex(16)}", "REMOTE_ADDR" => "127.0.0.1")
+      session.last_response.status
+    end
+    expect(statuses.first(300)).to all(eq(200))
+    expect(statuses.last).to eq(429)
+  ensure
+    Rack::Attack.enabled = false
+  end
 end

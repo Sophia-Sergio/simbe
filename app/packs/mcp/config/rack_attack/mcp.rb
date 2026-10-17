@@ -10,3 +10,11 @@ throttle("mcp/requests", limit: 60, period: 1.minute) do |req|
   token = req.get_header("HTTP_AUTHORIZATION").to_s[/\ABearer\s+(.+)\z/i, 1]
   token ? Digest::SHA256.hexdigest(token) : req.ip
 end
+
+# Backstop for the per-key limit above: an attacker who sends a fresh random Bearer token on every
+# request gets a fresh per-key counter, so the key limit alone never trips. This cap is per IP.
+throttle("mcp/requests/ip", limit: 300, period: 1.minute) do |req|
+  next unless req.post? && req.path.start_with?("/mcp/")
+
+  req.ip
+end
