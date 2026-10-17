@@ -58,7 +58,13 @@ module Signup
     rescue ActiveRecord::RecordInvalid => e
       raise translated_error(e)
     rescue ActiveRecord::RecordNotUnique
-      raise Error.new("email_taken", "That email already has an account")
+      # The unique indexes are email and slug. A concurrent signup with the same email is
+      # `email_taken`; a concurrent slug race is retried by the user (never a 500).
+      if User.exists?(email: @user[:email])
+        raise Error.new("email_taken", "That email already has an account")
+      end
+
+      raise Error.new("invalid_agency", "That agency name was just taken — try again")
     end
 
     private

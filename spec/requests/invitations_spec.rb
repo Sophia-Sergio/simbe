@@ -5,6 +5,7 @@ require "rails_helper"
 # (docs/conventions/testing.md). GET /team and GET /coordinator_names live in team_spec.
 RSpec.describe "Invitations", type: :request do
   include ActiveSupport::Testing::TimeHelpers
+  include ActiveJob::TestHelper
 
   let(:headers) { { "X-Requested-With" => "simbe" } }
   let(:agency) { create(:agency, slug: "alpha", name: "Alpha Surrogacy") }
@@ -29,6 +30,13 @@ RSpec.describe "Invitations", type: :request do
       "role" => "coordinator", "coordinator_name" => "Jess Kim", "status" => "pending"
     )
     token = response.parsed_body["accept_url"].split("/").last
+
+    # The mail goes out through a job: plain arguments, so the AgencyScoped record is never
+    # looked up outside a tenant context.
+    expect { perform_enqueued_jobs }.to change { ActionMailer::Base.deliveries.size }.by(1)
+    mail = ActionMailer::Base.deliveries.last
+    expect(mail.to).to eq([ "maya@alpha.test" ])
+    expect(mail.body.encoded).to include(token)
 
     delete "/api/v1/session", headers: headers
 

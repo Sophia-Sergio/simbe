@@ -1,11 +1,16 @@
-# Invitation email (spec decision 7). No provider yet: dev renders it with letter_opener,
-# test keeps it in ActionMailer::Base.deliveries, and the API response also returns accept_url.
+# Invitation email (spec decision 7). No provider yet: test keeps deliveries in memory, dev
+# uses Rails' default behaviour, and the API response also returns `accept_url`.
+#
+# The mailer takes plain values on purpose: Invitation is AgencyScoped, so handing the record
+# to `deliver_later` would make the background job locate it without `Current.agency` and
+# raise Agency::MissingContext. No provider/token ever goes in the message body beyond the link.
 class InvitationMailer < ApplicationMailer
-  def invite(invitation, accept_url)
-    @invitation = invitation
+  def invite(email:, agency_name:, coordinator_name:, accept_url:)
+    @email = email
+    @agency_name = agency_name
+    @coordinator_name = coordinator_name
     @accept_url = accept_url
-    @agency = invitation.agency
 
-    mail(to: invitation.email, subject: "You're invited to #{@agency.name} on Simbe")
+    mail(to: email, subject: "You're invited to #{agency_name} on Simbe")
   end
 end

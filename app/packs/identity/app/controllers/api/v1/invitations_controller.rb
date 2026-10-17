@@ -15,7 +15,12 @@ module Api
           coordinator_name: params[:coordinator_name].to_s
         )
         url = Signup::Invitations.accept_url(raw_token)
-        InvitationMailer.invite(invitation, url).deliver_later
+        InvitationMailer.invite(
+          email: invitation.email,
+          agency_name: Current.agency.name,
+          coordinator_name: invitation.coordinator_name,
+          accept_url: url
+        ).deliver_later
         render json: Signup::Invitations.as_json(invitation, accept_url: url), status: :created
       rescue Signup::Invitations::Error => e
         render_invitation_error(e)
