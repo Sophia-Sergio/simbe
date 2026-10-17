@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Check, Upload } from "lucide-react"
 import { useCurrentSnapshot } from "@/api/hooks/snapshots"
 import { useAdConnections, useConnectPlatform, useDisconnectPlatform } from "@/api/hooks/account"
@@ -29,6 +29,24 @@ function ConnectorCard({ platform, label, tile, connection }: { platform: AdPlat
   const connect = useConnectPlatform()
   const disconnect = useDisconnectPlatform()
   const [confirming, setConfirming] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  // Focus returns to the card's button once the confirmation closes (Connected on cancel, Connect after a disconnect).
+  const returnFocus = useRef(false)
+
+  useEffect(() => {
+    if (confirming) {
+      confirmRef.current?.querySelectorAll("button")[1]?.focus()
+    } else if (returnFocus.current) {
+      returnFocus.current = false
+      cardRef.current?.querySelector("button")?.focus()
+    }
+  }, [confirming])
+
+  const closeConfirm = () => {
+    returnFocus.current = true
+    setConfirming(false)
+  }
 
   const connectAction = useAsyncAction(async () => {
     try {
@@ -41,15 +59,16 @@ function ConnectorCard({ platform, label, tile, connection }: { platform: AdPlat
     try {
       await disconnect.mutateAsync(platform)
     } catch {
-      // Surfaced by the mutation state below.
+      // Keep the confirmation open so the user can retry; the error shows in the card.
+      return
     }
-    setConfirming(false)
+    closeConfirm()
   })
 
   const connected = connection?.status === "connected"
 
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+    <div ref={cardRef} className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
       <div className="flex items-center gap-3">
         <ChannelTile channel={tile} size={38} />
         <div className="min-w-0 flex-1">
@@ -62,6 +81,8 @@ function ConnectorCard({ platform, label, tile, connection }: { platform: AdPlat
             size="sm"
             className="border-success-border bg-success-bg text-success-text hover:bg-success-bg"
             leftIcon={<Check aria-hidden className="h-3.5 w-3.5" />}
+            aria-expanded={confirming}
+            aria-label={`Connected to ${label} — click to disconnect`}
             onClick={() => setConfirming(true)}
           >
             Connected
@@ -78,13 +99,15 @@ function ConnectorCard({ platform, label, tile, connection }: { platform: AdPlat
         </p>
       ) : null}
       {confirming ? (
-        <ConfirmInline
-          message={`Disconnect ${label}?`}
-          confirmLabel="Disconnect"
-          pending={disconnectAction.pending}
-          onConfirm={() => void disconnectAction.run()}
-          onCancel={() => setConfirming(false)}
-        />
+        <div ref={confirmRef}>
+          <ConfirmInline
+            message={`Disconnect ${label}?`}
+            confirmLabel="Disconnect"
+            pending={disconnectAction.pending}
+            onConfirm={() => void disconnectAction.run()}
+            onCancel={closeConfirm}
+          />
+        </div>
       ) : null}
     </div>
   )

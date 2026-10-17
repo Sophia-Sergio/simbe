@@ -119,6 +119,50 @@ it("keeps the last snapshot visible when a refetch fails", async () => {
   expect(screen.queryByText("We couldn't load your data.")).toBeNull()
 })
 
+it("moves focus into the disconnect confirmation and back to the card button", async () => {
+  const user = userEvent.setup()
+  renderWithProviders(<DataSourcesPage />)
+
+  await user.click((await screen.findAllByRole("button", { name: "Connect" }))[0])
+  const connected = await screen.findByRole("button", { name: /Connected/ })
+  expect(connected).toHaveAccessibleName(/disconnect/i)
+  expect(connected).toHaveAttribute("aria-expanded", "false")
+
+  await user.click(connected)
+  const confirm = screen.getByRole("group")
+  await waitFor(() => expect(within(confirm).getByRole("button", { name: "Disconnect" })).toHaveFocus())
+  expect(screen.getByRole("button", { name: /Connected/ })).toHaveAttribute("aria-expanded", "true")
+
+  await user.click(within(confirm).getByRole("button", { name: "Cancel" }))
+  await waitFor(() => expect(screen.getByRole("button", { name: /Connected/ })).toHaveFocus())
+  expect(screen.getByRole("button", { name: /Connected/ })).toHaveAttribute("aria-expanded", "false")
+})
+
+it("keeps the inline confirmation open when disconnecting fails, so it can be retried", async () => {
+  const user = userEvent.setup()
+  let attempts = 0
+  mockApi({
+    "DELETE /api/v1/ad_connections/:platform": () => {
+      attempts += 1
+      return attempts === 1
+        ? HttpResponse.json({ error: { code: "boom", message: "x" } }, { status: 500 })
+        : new HttpResponse(null, { status: 204 })
+    },
+  })
+  renderWithProviders(<DataSourcesPage />)
+
+  await user.click((await screen.findAllByRole("button", { name: "Connect" }))[0])
+  await user.click(await screen.findByRole("button", { name: /Connected/ }))
+  await user.click(within(screen.getByRole("group")).getByRole("button", { name: "Disconnect" }))
+
+  // The failure keeps the confirmation open with the error, so the user can retry.
+  await waitFor(() => expect(screen.getByRole("group")).toBeInTheDocument())
+  expect(screen.getByRole("alert")).toHaveTextContent(/couldn't update this connection/i)
+
+  await user.click(within(screen.getByRole("group")).getByRole("button", { name: "Disconnect" }))
+  await waitFor(() => expect(screen.queryByRole("group")).toBeNull())
+})
+
 it("does not drop an in-flight upload modal when a pending refetch fails", async () => {
   let calls = 0
   mockApi({
