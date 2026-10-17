@@ -26,8 +26,10 @@ module Api
         render_invitation_error(e)
       end
 
+      # Only pending invitations can be revoked; an accepted one backs a real user, so it
+      # answers 404 (never a 403, and never deletes the coordinator).
       def destroy
-        Current.agency.invitations.find(params[:id]).destroy
+        Current.agency.invitations.where(accepted_at: nil).find(params[:id]).destroy
         head :no_content
       end
 

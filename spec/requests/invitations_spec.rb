@@ -151,6 +151,47 @@ RSpec.describe "Invitations", type: :request do
     expect(response).to have_http_status(:no_content)
   end
 
+  it "does not revoke an already-accepted invitation" do
+    sign_in
+    invite
+    id = response.parsed_body["id"]
+    token = response.parsed_body["accept_url"].split("/").last
+    delete "/api/v1/session", headers: headers
+    post "/api/v1/invitations/#{token}/accept",
+         params: { name: "Maya Chen", password: "long-enough-pass" }, headers: headers, as: :json
+    expect(response).to have_http_status(:created)
+    sign_in
+
+    expect { delete "/api/v1/invitations/#{id}", headers: headers }.not_to change(Invitation.unscoped, :count)
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "410s an expired token on accept" do
+    sign_in
+    invite(email: "expired@alpha.test")
+    token = response.parsed_body["accept_url"].split("/").last
+
+    travel_to(8.days.from_now) do
+      post "/api/v1/invitations/#{token}/accept",
+           params: { name: "Maya Chen", password: "long-enough-pass" }, headers: headers, as: :json
+      expect(response).to have_http_status(:gone)
+      expect(response.parsed_body.dig("error", "code")).to eq("invitation_expired")
+    end
+  end
+
+  it "rejects a malformed accept body" do
+    sign_in
+    invite(email: "malformed@alpha.test")
+    token = response.parsed_body["accept_url"].split("/").last
+    delete "/api/v1/session", headers: headers
+
+    post "/api/v1/invitations/#{token}/accept",
+         params: { name: "", password: "long-enough-pass" }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("invalid_invitation")
+  end
+
   it "404s another agency's invitation on delete" do
     beta = create(:agency)
     foreign = Current.set(agency: beta) do

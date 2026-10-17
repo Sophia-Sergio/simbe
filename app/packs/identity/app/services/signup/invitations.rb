@@ -83,6 +83,9 @@ module Signup
         if password.to_s.length < CreateAgency::MINIMUM_PASSWORD_LENGTH
           raise Error.new("weak_password", "Password must be at least #{CreateAgency::MINIMUM_PASSWORD_LENGTH} characters")
         end
+        if name.to_s.strip.blank?
+          raise Error.new("invalid_invitation", "Enter your name")
+        end
 
         User.transaction do
           invitation.lock!
@@ -90,7 +93,7 @@ module Signup
 
           user = User.create!(
             agency: invitation.agency,
-            name: name,
+            name: name.to_s.strip,
             email: invitation.email,
             password: password,
             role: "coordinator",
