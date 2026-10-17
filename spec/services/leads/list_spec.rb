@@ -69,6 +69,12 @@ RSpec.describe Leads::List do
     expect(described_class.call(user: owner, per: [ "3" ])[:leads].size).to eq(open_names.size)
   end
 
+  it "treats an unknown status as the default (open): the contract declares no 4xx for a bad enum value" do
+    open_names = names
+    expect(names(described_class.call(user: owner, status: "bogus"))).to eq(open_names)
+    expect(names(described_class.call(user: owner, status: ""))).to eq(open_names)
+  end
+
   it "returns an empty list without a snapshot" do
     empty = create(:agency)
     Current.agency = empty

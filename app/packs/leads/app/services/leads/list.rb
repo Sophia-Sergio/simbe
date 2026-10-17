@@ -8,8 +8,10 @@ module Leads
     MAX_PER = 50
     SEARCH_LIMIT = 8
 
-    # Status filter -> SQL over the `queued` CTE's `q`. Unknown values fall back to "open"
-    # (the contract only documents this enum).
+    # Status filter -> SQL over the `queued` CTE's `q`. An unknown value falls back to "open":
+    # the contract documents this enum but declares no 4xx for an invalid value, and nothing
+    # validates requests at runtime, so returning 200 is the pinned behaviour. A 422 here would
+    # need a contract change (CCR) first.
     STATUSES = {
       "open" => "q.outcome = 'open'",
       "paused" => "q.outcome = 'paused'",

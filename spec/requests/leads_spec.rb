@@ -62,6 +62,16 @@ RSpec.describe "Leads API", type: :request do
     end
   end
 
+  # The contract documents the `status` enum but declares no 4xx for an invalid value, and
+  # nothing validates requests at runtime (only the spec harness does). The probe header opts
+  # this example out of that harness validation so it can pin the app's real behaviour.
+  it "answers 200 for an unknown status (contract gap: no 4xx is declared)" do
+    sign_in(owner)
+    get "/api/v1/leads", params: { status: "bogus" }, headers: headers.merge("X-Simbe-Contract-Probe" => "1")
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["leads"].map { |card| card["name"] }).to eq([ "L7 Alpha", "L8 Alpha", "L4 Alpha", "L3 Alpha", "L2 Alpha" ])
+  end
+
   it "ignores a malformed cursor" do
     sign_in(owner)
     get "/api/v1/leads", params: { cursor: "2026-01-01T00:00:00Z|abc" }, headers: headers
