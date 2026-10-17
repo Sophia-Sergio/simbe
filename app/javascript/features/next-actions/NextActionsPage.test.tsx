@@ -88,6 +88,28 @@ it("a failed Done rolls back, toasts, and leaves no unhandled rejection", async 
   expect(rejections).toEqual([])
 })
 
+it("only the clicked task's button goes pending", async () => {
+  mockApi({
+    "POST /api/v1/next_actions/aaaaaaaa-0000-4000-8000-000000000004/nudge_applications/completion": () =>
+      new Promise<Response>((resolve) =>
+        setTimeout(() => resolve(new Response(JSON.stringify({ done: true }), { status: 201 })), 150),
+      ),
+  })
+  renderWithProviders(<NextActionsPage />, { role: "coordinator" })
+
+  const nudge = await screen.findByRole("region", { name: "Nudge applications" })
+  await userEvent.click(within(nudge).getByRole("button", { name: "Done" }))
+
+  // The clicked card is busy; every other card stays usable.
+  await waitFor(() =>
+    expect(
+      within(screen.getByRole("region", { name: "Nudge applications" })).getByRole("button", { name: "Undo" }),
+    ).toBeDisabled(),
+  )
+  expect(within(screen.getByRole("region", { name: "Rebook consults" })).getByRole("button", { name: "Done" })).toBeEnabled()
+  expect(within(screen.getByRole("region", { name: "Paused, due back" })).getByRole("button", { name: "Done" })).toBeEnabled()
+})
+
 it("clicking a card body opens the lead panel on that lead", async () => {
   const { location } = renderWithProviders(<NextActionsPage />, { role: "coordinator" })
 

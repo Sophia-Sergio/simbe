@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useNextActions, useToggleDone } from "@/api/hooks/nextActions"
 import { useCurrentSnapshot } from "@/api/hooks/snapshots"
 import type { NextActions, QueueKey, Role, TaskItem } from "@/api/types"
@@ -33,12 +33,12 @@ function QueueWell({
   queue,
   onOpen,
   onToggle,
-  pending,
+  pendingTaskId,
 }: {
   queue: Queue
   onOpen: (leadId: string, tab?: "summary") => void
   onToggle: (item: TaskItem, done: boolean) => void
-  pending: boolean
+  pendingTaskId: string | null
 }) {
   return (
     <section aria-label={queue.title} className="flex flex-col gap-3 rounded-panel border border-line bg-subtle p-3">
@@ -56,7 +56,14 @@ function QueueWell({
       ) : (
         <div className="flex flex-col gap-2">
           {queue.items.map((item) => (
-            <TaskCard key={item.lead_id} item={item} queue={queue.key} onOpen={onOpen} onToggle={onToggle} pending={pending} />
+            <TaskCard
+              key={item.lead_id}
+              item={item}
+              queue={queue.key}
+              onOpen={onOpen}
+              onToggle={onToggle}
+              pending={pendingTaskId === item.lead_id}
+            />
           ))}
         </div>
       )}
@@ -129,8 +136,31 @@ export function NextActionsPage() {
   const nextActions = useNextActions()
   const snapshot = useCurrentSnapshot()
   const { toggle } = useToggleDone()
-  const action = useAsyncAction((leadId: string, queue: QueueKey, done: boolean) => toggle(leadId, queue, done))
+  const { run: runToggle } = useAsyncAction((leadId: string, queue: QueueKey, done: boolean) => toggle(leadId, queue, done))
   const [activeQueue, setActiveQueue] = useState<QueueKey | null>(null)
+  // Only the task whose completion is in flight shows a spinner; the ref is the single-flight guard
+  // (a same-tick second click must not clobber the marker of the task already running).
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(null)
+  const inFlight = useRef<string | null>(null)
+
+  // Declared before the early returns: hooks must run in the same order on every render.
+  const toggleTask = useCallback(
+    (item: TaskItem, done: boolean, queue: QueueKey) => {
+      // Single-flight: one completion at a time for the whole board (non-negotiable 9).
+      if (inFlight.current) return
+      inFlight.current = item.lead_id
+      setPendingTaskId(item.lead_id)
+      void runToggle(item.lead_id, queue, done)
+        // `useToggleDone` rolls back and toasts on failure; swallow the re-thrown error so a failed
+        // completion never becomes an unhandled rejection.
+        .catch(() => undefined)
+        .finally(() => {
+          inFlight.current = null
+          setPendingTaskId(null)
+        })
+    },
+    [runToggle],
+  )
 
   if (nextActions.isLoading || snapshot.isLoading) return <PageSkeleton />
   if (nextActions.isError || !nextActions.data) {
@@ -155,13 +185,9 @@ export function NextActionsPage() {
     <QueueWell
       key={queue.key}
       queue={queue}
-      pending={action.pending}
+      pendingTaskId={pendingTaskId}
       onOpen={onOpen}
-      onToggle={(item, next) => {
-        // `useToggleDone` rolls back and toasts on failure; swallow the re-thrown error so a failed
-        // completion never becomes an unhandled rejection.
-        void action.run(item.lead_id, queue.key, next).catch(() => undefined)
-      }}
+      onToggle={(item, done) => toggleTask(item, done, queue.key)}
     />
   )
 
