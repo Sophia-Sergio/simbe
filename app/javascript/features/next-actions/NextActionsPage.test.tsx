@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { HttpResponse } from "msw"
 import nextActionsFixture from "@contracts/examples/next-actions/next-actions.json"
 import type { NextActions } from "@/api/types"
 import { setScenario } from "@/mocks/scenarios"
@@ -13,6 +14,18 @@ const EMPTY: NextActions = {
   progress: { done: 0, total: 0 },
   queues: fixture.queues.map((queue) => ({ ...queue, count: 0, items: [] })),
 }
+
+/** The fixture with `done` applied to the given lead ids — a stateful stand-in for the mock's completions. */
+function applyDone(done: Set<string>): NextActions {
+  const queues = fixture.queues.map((queue) => {
+    const items = queue.items.map((item) => ({ ...item, done: done.has(item.lead_id) }))
+    return { ...queue, count: items.filter((item) => !item.done).length, items }
+  })
+  const all = queues.flatMap((queue) => queue.items)
+  return { ...fixture, progress: { done: all.filter((item) => item.done).length, total: all.length }, queues }
+}
+
+const allLeadIds = fixture.queues.flatMap((queue) => queue.items.map((item) => item.lead_id))
 
 // The mock filters /next_actions to the signed-in coordinator: Dana sees L4 (nudge), L3 (rebook)
 // and L10 (paused) — the text-back queue is empty for her (lane override 4).
@@ -95,20 +108,37 @@ it("the contact button opens the lead panel too", async () => {
 })
 
 it("shows 'You're all caught up' once every action is done", async () => {
-  const allDone: NextActions = {
-    ...fixture,
-    progress: { done: 4, total: 4 },
-    queues: fixture.queues.map((queue) => ({
-      ...queue,
-      count: 0,
-      items: queue.items.map((item) => ({ ...item, done: true })),
-    })),
-  }
-  mockApi({ "/api/v1/next_actions": allDone })
+  mockApi({ "/api/v1/next_actions": applyDone(new Set(allLeadIds)) })
   renderWithProviders(<NextActionsPage />, { role: "coordinator" })
 
   expect(await screen.findByText(/all caught up/)).toBeInTheDocument()
   expect(screen.getByText("0 open")).toBeInTheDocument()
+})
+
+it("keeps the done cards (and Undo) reachable while caught up", async () => {
+  const done = new Set(allLeadIds)
+  mockApi({
+    "/api/v1/next_actions": () => HttpResponse.json(applyDone(done)),
+    "DELETE /api/v1/next_actions/aaaaaaaa-0000-4000-8000-000000000004/nudge_applications/completion": () => {
+      done.delete("aaaaaaaa-0000-4000-8000-000000000004")
+      return HttpResponse.json({ done: false })
+    },
+  })
+  renderWithProviders(<NextActionsPage />, { role: "coordinator" })
+
+  expect(await screen.findByText(/all caught up/)).toBeInTheDocument()
+
+  // A mistaken Done must be revertible without leaving the screen.
+  const nudge = screen.getByRole("region", { name: "Nudge applications" })
+  expect(within(nudge).getByRole("button", { name: "Undo" })).toBeEnabled()
+  await userEvent.click(within(nudge).getByRole("button", { name: "Undo" }))
+
+  // Removing the banner re-creates the board, so re-query the well instead of holding a stale node.
+  await waitFor(() =>
+    expect(within(screen.getByRole("region", { name: "Nudge applications" })).getByRole("button", { name: "Done" })).toBeEnabled(),
+  )
+  expect(screen.getByText("1 open")).toBeInTheDocument()
+  expect(screen.queryByText(/all caught up/)).toBeNull()
 })
 
 it("shows four empty wells when a snapshot is loaded but has no actions", async () => {

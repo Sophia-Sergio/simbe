@@ -165,38 +165,45 @@ export function NextActionsPage() {
     />
   )
 
+  const board = (
+    <>
+      {chips && (
+        <div className="flex flex-wrap gap-2">
+          {data.queues.map((queue) => (
+            <Chip
+              key={queue.key}
+              selected={selected?.key === queue.key}
+              onClick={() => setActiveQueue(queue.key)}
+              leading={<span aria-hidden className={`h-2 w-2 rounded-full ${DOT_TONE[queue.tone]}`} />}
+            >
+              {queue.title} <span className="text-ink-muted">{queue.count}</span>
+            </Chip>
+          ))}
+        </div>
+      )}
+      <div className={isDesktop ? "grid gap-4 md:grid-cols-4" : "flex flex-col gap-4"}>
+        {chips ? well(selected) : data.queues.map(well)}
+      </div>
+    </>
+  )
+
   let body
   if (total === 0 && pending) body = <LoadingYourData progress={pending.progress} />
   else if (total === 0 && !hasSnapshot) body = <NoDataState role={role} />
   else if (caughtUp) {
-    body = (
-      <EmptyState
-        title="You're all caught up"
-        body="Every action for the current snapshot is done. New tasks appear when your data changes."
-      />
-    )
-  } else {
+    // Everything is done, but a mistaken Done must stay revertible: keep the board (its done cards
+    // read Undo) under the banner instead of replacing it.
     body = (
       <>
-        {chips && (
-          <div className="flex flex-wrap gap-2">
-            {data.queues.map((queue) => (
-              <Chip
-                key={queue.key}
-                selected={selected?.key === queue.key}
-                onClick={() => setActiveQueue(queue.key)}
-                leading={<span aria-hidden className={`h-2 w-2 rounded-full ${DOT_TONE[queue.tone]}`} />}
-              >
-                {queue.title} <span className="text-ink-muted">{queue.count}</span>
-              </Chip>
-            ))}
-          </div>
-        )}
-        <div className={isDesktop ? "grid gap-4 md:grid-cols-4" : "flex flex-col gap-4"}>
-          {chips ? well(selected) : data.queues.map(well)}
-        </div>
+        <EmptyState
+          title="You're all caught up"
+          body="Every action for the current snapshot is done. Undo any card below if you marked one by mistake."
+        />
+        {board}
       </>
     )
+  } else {
+    body = board
   }
 
   return (
