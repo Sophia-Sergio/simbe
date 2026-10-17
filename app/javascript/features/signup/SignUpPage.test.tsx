@@ -1,0 +1,103 @@
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { HttpResponse } from "msw"
+import meOwner from "@contracts/examples/auth/me-owner.json"
+import { db } from "@/mocks/db"
+import { mockApi } from "@/test/mockApi"
+import { renderWithProviders } from "@/test/renderWithProviders"
+import { SignUpPage } from "./SignUpPage"
+import type { Me } from "@/api/types"
+
+const me = meOwner as Me
+
+/** Fill step 1 and continue; the promise resolves once step 2 is on screen. */
+async function reachAgencyStep(email = "erin@new.test") {
+  await userEvent.type(screen.getByLabelText("Your name"), "Erin Walsh")
+  await userEvent.type(screen.getByLabelText("Work email"), email)
+  await userEvent.type(screen.getByLabelText("Password"), "long-enough-pass")
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  await screen.findByLabelText("Agency name")
+}
+
+it("disables Continue until the account step is valid", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+  const next = screen.getByRole("button", { name: "Continue" })
+
+  expect(next).toBeDisabled()
+  await userEvent.type(screen.getByLabelText("Your name"), "Erin Walsh")
+  await userEvent.type(screen.getByLabelText("Work email"), "erin@new.test")
+  await userEvent.type(screen.getByLabelText("Password"), "short")
+  expect(next).toBeDisabled()
+
+  await userEvent.clear(screen.getByLabelText("Password"))
+  await userEvent.type(screen.getByLabelText("Password"), "long-enough-pass")
+  expect(next).toBeEnabled()
+})
+
+it("submits account and agency at the end of step 2, then lands on Ad accounts", async () => {
+  const bodies: unknown[] = []
+  mockApi({
+    "POST /api/v1/signup": async (request: Request) => {
+      bodies.push(await request.json())
+      db.session = { email: "erin@new.test", role: "owner" }
+      return HttpResponse.json(me, { status: 201 })
+    },
+  })
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep()
+  await userEvent.type(screen.getByLabelText("Agency name"), "New Agency")
+  await userEvent.click(screen.getByRole("button", { name: "Mountain" }))
+  await userEvent.click(screen.getByRole("radio", { name: /reached medical records/i }))
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+  expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
+  expect(bodies).toEqual([
+    {
+      user: { name: "Erin Walsh", email: "erin@new.test", password: "long-enough-pass" },
+      agency: { name: "New Agency", timezone: "America/Denver", qualified_milestone: "records" },
+    },
+  ])
+})
+
+it("shows email_taken and returns the user to step 1 with the message", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep("taken@x.test")
+  await userEvent.type(screen.getByLabelText("Agency name"), "Harbor")
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+  expect(await screen.findByText("That email already has an account")).toBeInTheDocument()
+  expect(screen.getByLabelText("Your name")).toHaveValue("Erin Walsh")
+})
+
+it("preselects the recommended definition with the selected card styling", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+  await reachAgencyStep()
+
+  const recommended = screen.getByRole("radio", { name: /attended a consult/i })
+  expect(recommended).toBeChecked()
+  expect(screen.getByText("Recommended")).toBeInTheDocument()
+  expect(recommended.closest("label")?.className).toContain("bg-brand-tint")
+})
+
+it("posts signup once when Continue is double-clicked on step 2", async () => {
+  let posts = 0
+  mockApi({
+    "POST /api/v1/signup": () => {
+      posts += 1
+      db.session = { email: "erin@new.test", role: "owner" }
+      return HttpResponse.json(me, { status: 201 })
+    },
+  })
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep()
+  await userEvent.type(screen.getByLabelText("Agency name"), "New Agency")
+  const next = screen.getByRole("button", { name: "Continue" })
+  fireEvent.click(next)
+  fireEvent.click(next)
+
+  await waitFor(() => expect(posts).toBe(1))
+  expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
+})
