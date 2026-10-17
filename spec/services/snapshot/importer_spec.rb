@@ -113,6 +113,51 @@ RSpec.describe Snapshot::Importer do
     end
   end
 
+  # Planner statistics: after a load every table is ANALYZEd so the NEXT replace's cascaded FK
+  # triggers get index plans instead of seq-scanning a bulk-loaded table (autovacuum may not have
+  # run yet). pg_stat_user_tables.last_analyze is only published at commit, and these specs run
+  # inside a transaction that is rolled back, so the immediately-visible pg_class.reltuples is
+  # asserted instead.
+  describe "planner statistics" do
+    def reltuples(table)
+      ActiveRecord::Base.connection.select_value(
+        "SELECT reltuples FROM pg_class WHERE relname = #{ActiveRecord::Base.connection.quote(table)}"
+      ).to_i
+    end
+
+    it "analyzes every loaded table after the rows are in" do
+      analyzed = []
+      allow(described_class).to receive(:analyze).and_wrap_original do |original, table|
+        analyzed << table
+        original.call(table)
+      end
+
+      described_class.call(agency: agency, dir: dir)
+
+      expect(analyzed).to include(*Snapshot::Importer::ANALYZE_TABLES)
+      expect(reltuples("leads")).to eq(10)
+      expect(reltuples("screener_answers")).to eq(100)
+      expect(reltuples("lead_facts")).to eq(10)
+    end
+
+    it "analyzes never-analyzed tables before replacing the old snapshot" do
+      allow(described_class).to receive(:analyzed?).and_return(false)
+      allow(described_class).to receive(:analyze).and_call_original
+      expect(described_class).to receive(:analyze_unanalyzed_tables).and_call_original
+
+      described_class.call(agency: agency, dir: dir)
+
+      expect(described_class).to have_received(:analyze).with("leads").at_least(:once)
+    end
+
+    it "leaves tables that already have statistics alone before replacing" do
+      allow(described_class).to receive(:analyzed?).and_return(true)
+      expect(described_class).not_to receive(:analyze)
+
+      described_class.analyze_unanalyzed_tables
+    end
+  end
+
   def raw_connection
     config = ActiveRecord::Base.connection_db_config.configuration_hash
     PG.connect(host: config[:host], port: config[:port], dbname: config[:database],

@@ -42,6 +42,13 @@ class Snapshot
     # put_copy_data is flushed in bounded chunks (a single ~1 MB buffer trips the driver).
     FLUSH_BYTES = 256 * 1024
 
+    # Every table the import loads. After a load, `ANALYZE` gives the planner fresh statistics so
+    # the NEXT replace's cascaded FK triggers use the child indexes instead of seq-scanning a
+    # bulk-loaded table whose stats still say 0 rows (autovacuum may not have run yet).
+    ANALYZE_TABLES = %w[
+      leads stage_events contacts screener_answers web_sessions appointments applications lead_facts
+    ].freeze
+
     # COPY column order per table (ids use the DB default). created_at/updated_at are NOT NULL
     # with no DB default, so they are written explicitly.
     COPY_COLUMNS = {
@@ -74,11 +81,16 @@ class Snapshot
       ActiveRecord::Base.transaction do
         raise InProgress unless try_lock(agency)
 
+        # A first big load may predate any stats: without them the cascade below seq-scans the
+        # child tables (minutes), so analyze anything never analyzed before the delete.
+        analyze_unanalyzed_tables
         # Replacing a snapshot: the previous leads (children cascade) go first.
         Lead.unscoped.where(agency_id: agency.id).delete_all
         stream!(agency, dir, report, progress, cancel)
         progress&.update(phase: "computing", pct: 95)
         Facts.call(agency.id)
+        # Leave stats behind so the next replace's FK triggers get index plans (see ANALYZE_TABLES).
+        analyze_loaded_tables
         snapshot = Snapshot.create!(
           agency: agency,
           as_of: report[:as_of],
@@ -115,6 +127,36 @@ class Snapshot
       raise Invalid.new(report) unless report[:ok]
 
       report
+    end
+
+    # `ANALYZE` every table the import loaded: inside a transaction it is cheap (it samples and
+    # only writes planner statistics) and it leaves the next replace's FK cascade with fresh
+    # numbers.
+    def self.analyze_loaded_tables
+      ANALYZE_TABLES.each { |table| analyze(table) }
+    end
+
+    # Analyze only the tables the planner has never seen (a load that came from the rake task or a
+    # restore), so the replace's cascaded FK triggers get index plans.
+    def self.analyze_unanalyzed_tables
+      ANALYZE_TABLES.reject { |table| analyzed?(table) }.each { |table| analyze(table) }
+    end
+
+    def self.analyze(table)
+      connection.execute("ANALYZE #{connection.quote_table_name(table)}")
+    end
+
+    # true once any ANALYZE (manual or autovacuum) has ever run on the table.
+    def self.analyzed?(table)
+      value = connection.select_value(
+        "SELECT (last_analyze IS NOT NULL OR last_autoanalyze IS NOT NULL) FROM pg_stat_user_tables WHERE relname = $1",
+        "Snapshot::Importer Stats", [ bind_string("relname", table) ]
+      )
+      value == true || value == "t"
+    end
+
+    def self.bind_string(name, value)
+      ActiveRecord::Relation::QueryAttribute.new(name, value, ActiveRecord::Type::String.new)
     end
 
     # Streams each export file into its table, lead_id-ordered, one 5,000-row batch at a time.
