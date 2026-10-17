@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"
 import { useAgent } from "@/app/agent"
 import { BarChart } from "@/components/ui/BarChart"
 import { Chip } from "@/components/ui/Chip"
+import { safeRoute } from "./routes"
 import type { AgentTurn } from "./useAgentThread"
 
 /**
@@ -26,7 +27,10 @@ export function MessageBubble({ turn }: { turn: AgentTurn }) {
 
   const { text, chart, action, sources } = turn.body
   const visit = (route: string) => {
-    navigate(route)
+    // Belt and braces: `toTurn` already drops unsafe routes, but never navigate an unchecked one.
+    const safe = safeRoute(route)
+    if (!safe) return
+    navigate(safe)
     close()
   }
 

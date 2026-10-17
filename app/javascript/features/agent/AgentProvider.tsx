@@ -8,6 +8,7 @@ import { ApiError } from "../../api/client"
 import { useSendAgentMessage } from "../../api/hooks/agent"
 import { useAsyncAction } from "../../hooks/useAsyncAction"
 import type { AgentMessage } from "../../api/types"
+import { safeRoute } from "./routes"
 import { AgentThreadProvider } from "./useAgentThread"
 import type { AgentTurn } from "./useAgentThread"
 
@@ -18,6 +19,12 @@ const nextTurnId = () => `agent-turn-${(localTurn += 1)}`
 /** Maps the API's stored assistant message onto the panel's turn shape, dropping anything unexpected. */
 function toTurn(message: AgentMessage): AgentTurn {
   const { body } = message
+  // Routes are sanitised here (the app's own paths only); an off-app action/source is dropped, so the
+  // bubble renders the text without the button or the chip.
+  const actionRoute = body.action ? safeRoute(body.action.route) : null
+  const sources = (body.sources ?? [])
+    .map((source) => ({ label: source.label, route: safeRoute(source.route) }))
+    .filter((source): source is { label: string; route: string } => source.route !== null)
   return {
     id: message.id,
     role: "assistant",
@@ -26,8 +33,8 @@ function toTurn(message: AgentMessage): AgentTurn {
       chart: body.chart
         ? { title: body.chart.title, bars: body.chart.bars.map((bar) => ({ label: bar.label, value: bar.value, display: bar.display })) }
         : undefined,
-      action: body.action ? { label: body.action.label, route: body.action.route } : undefined,
-      sources: body.sources?.map((source) => ({ label: source.label, route: source.route })),
+      action: body.action && actionRoute ? { label: body.action.label, route: actionRoute } : undefined,
+      sources: sources.length > 0 ? sources : undefined,
       suggestions: body.suggestions,
     },
   }

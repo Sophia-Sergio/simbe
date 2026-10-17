@@ -90,6 +90,56 @@ it("renders the action and source chips; the action navigates and closes the pan
   expect(screen.queryByRole("dialog")).toBeNull()
 })
 
+it("drops an off-app action and off-app source chips but keeps the in-app ones", async () => {
+  mockApi({
+    "POST /api/v1/agent/messages": () =>
+      Response.json(
+        {
+          conversation_id: "c1",
+          message: {
+            id: "m1",
+            role: "assistant",
+            body: {
+              text: "Here you go.",
+              action: { label: "Open evil", route: "//evil.example" },
+              sources: [
+                { label: "Evil", route: "https://evil.example" },
+                { label: "Channels", route: "/channels" },
+              ],
+            },
+          },
+        },
+        { status: 201 },
+      ),
+  })
+  const { location } = mount()
+  await openFab()
+  await ask("hi")
+
+  expect(await screen.findByText("Here you go.")).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: /open evil/i })).toBeNull()
+  expect(screen.queryByText("Evil")).toBeNull()
+  await userEvent.click(screen.getByRole("button", { name: "Channels" }))
+  expect(location().pathname).toBe("/channels")
+})
+
+it("allows an in-app action with a query string", async () => {
+  mockApi({
+    "POST /api/v1/agent/messages": () =>
+      Response.json(
+        { conversation_id: "c1", message: { id: "m1", role: "assistant", body: { text: "ok", action: { label: "Open pipeline", route: "/pipeline?lead=1" } } } },
+        { status: 201 },
+      ),
+  })
+  const { location } = mount()
+  await openFab()
+  await ask("hi")
+
+  await userEvent.click(await screen.findByRole("button", { name: "Open pipeline" }))
+  expect(location().pathname).toBe("/pipeline")
+  expect(location().search).toBe("?lead=1")
+})
+
 it("a source chip navigates and a follow-up chip sends the next question", async () => {
   const seen: string[] = []
   mockApi({
