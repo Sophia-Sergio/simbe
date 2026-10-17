@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import nextActionsFixture from "@contracts/examples/next-actions/next-actions.json"
 import type { NextActions } from "@/api/types"
@@ -50,6 +50,29 @@ it("Done updates the queue, header and progress immediately, and Undo restores t
   expect(screen.getByText("0 / 3")).toBeInTheDocument()
   expect(within(nudge).getByRole("button", { name: "Done" })).toBeInTheDocument()
   expect(within(nudge).getByTestId("task-card")).not.toHaveClass("opacity-50")
+})
+
+it("a failed Done rolls back, toasts, and leaves no unhandled rejection", async () => {
+  const rejections: unknown[] = []
+  const onRejection = (reason: unknown) => rejections.push(reason)
+  process.on("unhandledRejection", onRejection)
+  mockApi({
+    "POST /api/v1/next_actions/aaaaaaaa-0000-4000-8000-000000000004/nudge_applications/completion": () =>
+      new Response(JSON.stringify({ error: { code: "server_error", message: "boom" } }), { status: 500 }),
+  })
+  renderWithProviders(<NextActionsPage />, { role: "coordinator" })
+
+  const nudge = await screen.findByRole("region", { name: "Nudge applications" })
+  await userEvent.click(within(nudge).getByRole("button", { name: "Done" }))
+
+  // The optimistic change is rolled back, the toast explains, and nothing escapes the handler.
+  await waitFor(() => expect(within(nudge).getByRole("button", { name: "Done" })).toBeEnabled())
+  expect(screen.getByText("3 open")).toBeInTheDocument()
+  expect(document.querySelector('[data-testid="toast"]')).toHaveTextContent("Couldn't save")
+
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  process.off("unhandledRejection", onRejection)
+  expect(rejections).toEqual([])
 })
 
 it("clicking a card body opens the lead panel on that lead", async () => {

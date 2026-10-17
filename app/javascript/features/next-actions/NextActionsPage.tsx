@@ -157,7 +157,11 @@ export function NextActionsPage() {
       queue={queue}
       pending={action.pending}
       onOpen={onOpen}
-      onToggle={(item, next) => void action.run(item.lead_id, queue.key, next)}
+      onToggle={(item, next) => {
+        // `useToggleDone` rolls back and toasts on failure; swallow the re-thrown error so a failed
+        // completion never becomes an unhandled rejection.
+        void action.run(item.lead_id, queue.key, next).catch(() => undefined)
+      }}
     />
   )
 
