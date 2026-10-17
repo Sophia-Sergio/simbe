@@ -24,20 +24,20 @@ RSpec.describe "bin/lane next" do
       expect(next_ids("--assume-merged", "")).to eq([ "W0-1" ])
     end
 
-    it "offers the four lanes W0-1 unblocks, critical path first" do
-      expect(next_ids("--assume-merged", "W0-1")).to eq(%w[W0-4A W0-2 W0-3 W0-7])
+    it "offers the three lanes W0-1 unblocks, critical path first (W0-3 also waits for W0-7)" do
+      expect(next_ids("--assume-merged", "W0-1")).to eq(%w[W0-4A W0-2 W0-7])
     end
 
     it "adds the five backend lanes once W0-3 is merged" do
-      expect(next_ids("--assume-merged", "W0-1,W0-3")).to include("B-INGEST", "B-METRICS", "B-LEADS", "B-ACTIONS", "B-ACCOUNT")
+      expect(next_ids("--assume-merged", "W0-1,W0-7,W0-3")).to include("B-INGEST", "B-METRICS", "B-LEADS", "B-ACTIONS", "B-ACCOUNT")
     end
 
     it "never offers a lane before its prerequisites" do
-      expect(next_ids("--assume-merged", "W0-1,W0-3")).not_to include("B-AGENT", "B-MCP", "F-WEEK")
+      expect(next_ids("--assume-merged", "W0-1,W0-7,W0-3")).not_to include("B-AGENT", "B-MCP", "F-WEEK")
     end
 
     it "honours --limit" do
-      expect(next_ids("--assume-merged", "W0-1,W0-3", "--limit", "2").size).to eq(2)
+      expect(next_ids("--assume-merged", "W0-1,W0-7,W0-3", "--limit", "2").size).to eq(2)
     end
 
     it "does not call GitHub" do
@@ -51,7 +51,7 @@ RSpec.describe "bin/lane next" do
   end
 
   describe "live (GitHub + state)" do
-    before { merged_on_github("W0-1", "W0-3") }
+    before { merged_on_github("W0-1", "W0-7", "W0-3") }
 
     it "uses the merged PRs on GitHub" do
       sandbox.write_state("caps" => { "max_running" => 20 }) # the default cap of 4 would cut the 8 ready lanes
