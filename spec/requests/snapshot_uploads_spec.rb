@@ -178,4 +178,55 @@ RSpec.describe "Snapshot uploads", type: :request do
     delete "/api/v1/snapshot_uploads/#{foreign_id}", headers: headers
     expect(response).to have_http_status(:not_found)
   end
+
+  # --- create is robust: a failed store must not leave the agency blocked -------------------
+  # The contract does not declare 422/500 for create (see the lane summary's CCR list), so these
+  # two examples ignore unknown response statuses; conformance stays on for every declared status.
+  context "with a failure status the contract does not declare" do
+    around do |example|
+      configuration = OpenapiFirst::Test.configuration
+      previous = configuration.ignore_unknown_response_status?
+      configuration.ignore_unknown_response_status = true
+      example.run
+    ensure
+      configuration.ignore_unknown_response_status = previous
+    end
+
+    def uploaded_with_name(path, original_filename)
+      file = Rack::Test::UploadedFile.new(path, "text/csv")
+      allow(file).to receive(:original_filename).and_return(original_filename)
+      file
+    end
+
+    it "rejects a filename with control characters (422) before creating a row" do
+      sign_in(owner)
+      dir = AlphaScenario.copy_dir
+
+      post "/api/v1/snapshot_uploads",
+           params: { files: [ uploaded_with_name(File.join(dir, "leads.csv"), "leads\u0000.csv") ] },
+           headers: headers
+
+      expect(response).to have_http_status(422)
+      expect(response.parsed_body.dig("error", "code")).to eq("invalid_request")
+      expect(agency.snapshot_uploads).to be_empty
+    end
+
+    it "marks the upload failed and frees the agency when storing breaks" do
+      sign_in(owner)
+      allow(Snapshot::Storage).to receive(:store).and_raise(Errno::ENOSPC)
+
+      post "/api/v1/snapshot_uploads", params: { files: files }, headers: headers
+      expect(response).to have_http_status(500)
+      expect(response.parsed_body.dig("error", "code")).to eq("upload_failed")
+
+      failed = agency.snapshot_uploads.find_by(status: "failed")
+      expect(failed).to be_present
+      expect(agency.snapshot_uploads.in_flight).to be_empty
+      expect(Dir.exist?(Snapshot::Storage.dir(failed))).to be(false)
+
+      # the agency is no longer blocked: a new upload works
+      allow(Snapshot::Storage).to receive(:store).and_call_original
+      expect(create_upload(files)).to be_present
+    end
+  end
 end

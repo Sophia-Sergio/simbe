@@ -11,14 +11,14 @@ module Api
       def create
         files = upload_files
         return render_error("invalid_request", "Attach at least one CSV file", 422) if files.empty?
+        return render_error("invalid_request", "A filename is not usable", 422) if unsafe_names?(files)
         return render_error("too_large", "Uploads are capped at 250 MB", 413) if too_large?(files)
 
         upload = Current.agency.snapshot_uploads.create!(
           user: Current.user, status: "validating", progress: { phase: "storing", pct: 0 }
         )
-        Snapshot::Storage.store(upload, files)
-        upload.update!(dir: Snapshot::Storage.dir(upload).to_s)
-        Snapshot::ValidateUploadJob.perform_later(upload)
+        return render_error("upload_failed", "The upload could not be stored", 500) unless store_and_enqueue(upload, files)
+
         render json: SnapshotUploadSerializer.call(upload), status: :created
       rescue ActiveRecord::RecordNotUnique
         render_error("already_in_progress", "A load is already running", :conflict)
@@ -59,6 +59,26 @@ module Api
 
       def upload_files
         Array(params[:files]).select { |file| file.respond_to?(:original_filename) }
+      end
+
+      def unsafe_names?(files)
+        files.any? { |file| Snapshot::Storage.safe_name(file.original_filename).nil? }
+      end
+
+      # A failure here (disk full, a bad name, the queue) must not leave the row in the in-flight
+      # unique index, or the agency could never upload again. Remove any partial files and mark the
+      # row failed; the caller renders the error.
+      def store_and_enqueue(upload, files)
+        Snapshot::Storage.store(upload, files)
+        upload.update!(dir: Snapshot::Storage.dir(upload).to_s)
+        Snapshot::ValidateUploadJob.perform_later(upload)
+        true
+      rescue StandardError => e
+        Snapshot::Storage.remove(upload)
+        upload.update!(status: "failed", progress: nil, finished_at: Time.current,
+                       error: { "code" => "upload_failed", "message" => "The upload could not be stored" })
+        Rails.logger.error("snapshot upload store failed for upload #{upload.id} (#{e.class})")
+        false
       end
 
       def too_large?(files)

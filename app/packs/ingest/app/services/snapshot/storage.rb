@@ -57,12 +57,19 @@ class Snapshot
       Constants::REQUIRED_FILES.find { |required| required == name.downcase }
     end
 
-    # Basename only, so a crafted filename can never escape the upload directory.
+    # Basename only, so a crafted filename can never escape the upload directory. Returns nil for
+    # anything unsafe (empty, "..", a control character such as a NUL byte — File.basename itself
+    # raises ArgumentError on a NUL), so callers can reject the request instead of 500ing.
     def self.safe_name(name)
-      base = File.basename(name.to_s.tr("\\", "/")).strip
+      raw = name.to_s
+      return nil if raw.empty? || raw.match?(/[[:cntrl:]]/)
+
+      base = File.basename(raw.tr("\\", "/")).strip
       return nil if base.empty? || base == "." || base == ".."
 
       base
+    rescue ArgumentError
+      nil
     end
 
     def self.write(path, file)
