@@ -62,8 +62,8 @@ end
 
 ## Task 3: Role and tenancy matrix
 
-- [ ] **Step 1: Failing spec** `spec/security/role_matrix_spec.rb`: a table of every operation × {signed-out, coordinator, owner, owner-of-another-agency} with the expected status (from the contract: owner-only operations → 403 for coordinators; signed-out → 401 except public operations; other agency's ids → 404). Generated from the bundled OpenAPI (`x-roles` is **not** in the contract, so derive from each operation's documented `403` response: present ⇒ owner-only) and asserted against the real app.
-- [ ] **Step 2:** Run; fix gaps in the owning lane's code via small PRs. **Step 3:** pass; commit.
+- [x] **Step 1: Failing spec** `spec/security/role_matrix_spec.rb`: a table of every operation × {signed-out, coordinator, owner, owner-of-another-agency} with the expected status (from the contract: owner-only operations → 403 for coordinators; signed-out → 401 except public operations; other agency's ids → 404). Generated from the bundled OpenAPI (`x-roles` is **not** in the contract, so derive from each operation's documented `403` response: present ⇒ owner-only) and asserted against the real app.
+- [x] **Step 2:** Run; fix gaps in the owning lane's code via small PRs. **Step 3:** pass; commit.
 
 ---
 

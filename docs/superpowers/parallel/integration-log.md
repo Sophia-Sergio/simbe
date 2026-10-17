@@ -77,7 +77,38 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
 
 ## Task 3 — Role and tenancy matrix
 
-_(filled in below)_
+- Added `spec/security/role_matrix_spec.rb`: the table is generated from the bundled OpenAPI (39
+  operations), and "owner-only" is derived from each operation's documented `403`. Each operation is
+  called as `:signed_out`, `:owner`, `:coordinator` and with another agency's ids (`:foreign`), on the
+  real app: signed-out → 401 (public operations must answer a documented status), owner → a documented
+  success (never 401/403/404), coordinator → 403 on owner-only operations, foreign ids → 404
+  (exhaustive per-route sweep: `spec/isolation/isolation_spec.rb`).
+
+  ```
+  docker compose exec -e RAILS_ENV=test web bundle exec rspec spec/contract spec/security
+  27 examples, 0 failures
+  ```
+
+### Contract gaps found by the matrix (owner-only in the app, 403 missing from the contract → CCRs)
+These are **not** app authorization bugs: the matrix proves coordinators are refused (403) on each. The
+contract omits the 403, so a `ccr` PR should add it. The spec encodes them in `CONTRACT_GAPS` and
+asserts the secure (403) behaviour.
+
+| Operation | App gate | Contract declares |
+|---|---|---|
+| `getAgency` (`GET /agency`) | `agencies_controller` `require_owner!` | 200, 401 |
+| `deleteInvitation` (`DELETE /invitations/{id}`) | `invitations_controller` `require_owner!` | 204, 404 |
+| `cancelSnapshotUpload` (`DELETE /snapshot_uploads/{id}`) | `snapshot_uploads_controller` `require_owner!` | 204, 404 |
+| `commitSnapshotUpload` (`POST /snapshot_uploads/{id}/commit`) | `snapshot_uploads_controller` `require_owner!` | 202, 404, 409, 422 |
+
+Two contract readings needed an explicit exception, documented in the spec:
+- `createSession` documents a 403, but it is not an owner gate (any role signs in) → treated as public.
+- several operations document no 401/404/403 for statuses the app legitimately returns; the spec opts
+  out of response conformance with `ignore_unknown_response_status` (the mechanism the snapshot-uploads
+  lane also uses) because pinning those statuses is the point of the matrix.
+
+No app-side authorization gap was found: every coordinator request to an owner-only operation is 403
+and every cross-agency id is 404.
 
 ## Task 4 — Real-data run
 
