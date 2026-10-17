@@ -22,14 +22,15 @@ class Snapshot
   # (children cascade) → stream every table in → Snapshot::Facts → snapshots row. A failure rolls
   # back to the previous snapshot and a reload never double counts.
   #
-  # Rows are streamed table by table with Postgres `COPY` (lane override 6): a 69 MB Lakeside
-  # export must load in under 120 s, and `insert_all` costs roughly 0.5 ms per row here, which
-  # would not fit. Screener answers are encrypted per row before they reach the COPY stream
-  # (docs/conventions/sensitive-data.md) and are the only per-row cost.
+  # Rows are streamed file by file and table by table straight into Postgres `COPY` (lane override
+  # 6): a 69 MB Lakeside export must load in under 120 s. Holding a whole export as arrays costs
+  # far more than the parse itself — GC pressure roughly quintuples the per-row encryption — so
+  # only one 5,000-row batch is ever in memory. Screener answers are encrypted per row before they
+  # reach the COPY stream (docs/conventions/sensitive-data.md) and are the only per-row cost.
   #
   # `unscoped` is used deliberately (this and the Validator are the only places) to replace THIS
-  # agency's rows; every statement is bound to the agency id. `cancel:` is polled between batches
-  # so a cancelled upload aborts; `progress:` (Snapshot::Progress) advances as batches land.
+  # agency's rows; every statement is bound to the agency id. `cancel:` is polled between batches so
+  # a cancelled upload aborts; `progress:` (Snapshot::Progress) advances as batches land.
   module Importer
     # Aliases so callers can reach the error classes through the autoloadable Importer (Zeitwerk
     # maps Snapshot::Importer to this file, never Snapshot::InProgress to one of its own).
@@ -38,14 +39,8 @@ class Snapshot
     Cancelled = Snapshot::Cancelled
 
     BATCH = 5_000
-    # put_copy_data is flushed in bounded chunks: a single ~1 MB buffer trips the driver
-    # ("no COPY in progress"), so the stream is flushed well under that.
+    # put_copy_data is flushed in bounded chunks (a single ~1 MB buffer trips the driver).
     FLUSH_BYTES = 256 * 1024
-
-    TABLES = %i[
-      leads stage_events contacts screener_answers web_sessions appointments applications
-    ].freeze
-    CHILD_TABLES = TABLES.drop(1).freeze
 
     # COPY column order per table (ids use the DB default). created_at/updated_at are NOT NULL
     # with no DB default, so they are written explicitly.
@@ -64,25 +59,30 @@ class Snapshot
     }.freeze
 
     # -> Snapshot. Raises InProgress, Invalid(report) or Cancelled.
-    def self.call(agency:, dir:, user: nil, progress: nil, cancel: nil)
+    # `report:` is the already-stored validation report (the upload job passes it, so the files are
+    # not parsed for validation a second time); without it the files are validated here (rake task).
+    def self.call(agency:, dir:, user: nil, report: nil, progress: nil, cancel: nil)
       previous = Current.agency
       Current.agency = agency
 
-      rows = Reader.call(dir)
-      report = Validator.call(agency: agency, dir: dir, rows: rows)
-      raise Invalid.new(report) unless report[:ok]
+      report = symbolize(report) if report
+      # A stored report always carries the diff; anything less (an old row, a hand-built one) is
+      # re-validated rather than trusted.
+      report = validate!(agency, dir) unless report&.key?(:diff)
 
       snapshot = nil
       ActiveRecord::Base.transaction do
         raise InProgress unless try_lock(agency)
 
-        replace!(agency, rows, progress: progress, cancel: cancel)
+        # Replacing a snapshot: the previous leads (children cascade) go first.
+        Lead.unscoped.where(agency_id: agency.id).delete_all
+        stream!(agency, dir, report, progress, cancel)
         progress&.update(phase: "computing", pct: 95)
         Facts.call(agency.id)
         snapshot = Snapshot.create!(
           agency: agency,
-          as_of: report[:as_of] || AsOf.call(rows),
-          row_counts: row_counts(rows),
+          as_of: report[:as_of],
+          row_counts: row_counts(report),
           warnings: report[:warnings],
           loaded_by: user&.id,
           loaded_at: Time.current
@@ -108,38 +108,78 @@ class Snapshot
       ActiveRecord::Relation::QueryAttribute.new(name, value, ActiveRecord::Type::BigInteger.new)
     end
 
-    def self.replace!(agency, rows, progress: nil, cancel: nil)
-      Lead.unscoped.where(agency_id: agency.id).delete_all
-      now = Time.current
-      step = tracker(progress, TABLES.sum { |table| rows[table].size })
+    # Reader + Validator over the directory; raises Invalid (carrying the report) on any error.
+    def self.validate!(agency, dir)
+      rows = Reader.call(dir)
+      report = Validator.call(agency: agency, dir: dir, rows: rows)
+      raise Invalid.new(report) unless report[:ok]
 
-      copy_table(:leads, rows[:leads], agency, {}, now, step, cancel)
-      lead_ids = Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h
-      CHILD_TABLES.each { |table| copy_table(table, rows[table], agency, lead_ids, now, step, cancel) }
+      report
     end
 
-    # Streams one table into Postgres with COPY, one COPY per 5,000-row batch. Keeping the COPY
-    # statements short lets the cancel check and the progress write run between them (a progress
-    # write during an open COPY is not possible on the same connection), while the COPY buffer is
-    # still flushed in bounded chunks. An exception inside a COPY (a cancel, a constraint) aborts
-    # that stream cleanly, so the surrounding transaction can roll back.
-    def self.copy_table(table, rows, agency, lead_ids, now, step, cancel)
-      return if rows.empty?
+    # Streams each export file into its table, lead_id-ordered, one 5,000-row batch at a time.
+    def self.stream!(agency, dir, report, progress, cancel)
+      step = tracker(progress, total_rows(report))
+      now = Time.current
+      lead_ids = {}
+      Reader::SPEC.each do |file, spec|
+        raise Cancelled if cancel&.call
 
+        table = spec[:table]
+        copy_file(table, File.join(dir.to_s, file), spec, agency, lead_ids, now, step, cancel)
+        lead_ids = Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h if table == :leads
+      end
+    end
+
+    def self.copy_file(table, path, spec, agency, lead_ids, now, step, cancel)
       raw = connection.raw_connection
       sql = "COPY #{table} (#{COPY_COLUMNS.fetch(table).join(', ')}) FROM STDIN WITH (FORMAT csv)"
-      each_batch(rows, step, cancel) do |batch|
-        raw.copy_data(sql) do
-          buffer = +""
-          batch.each do |row|
-            buffer << CSV.generate_line(row_values(table, row, agency, lead_ids, now))
-            next if buffer.bytesize < FLUSH_BYTES
+      batch = []
+      CSV.foreach(path, headers: true, encoding: "bom|utf-8") do |csv_row|
+        batch << typed_row(spec, csv_row)
+        next if batch.size < BATCH
 
-            raw.put_copy_data(buffer)
-            buffer.clear
-          end
-          raw.put_copy_data(buffer) unless buffer.empty?
+        write_batch(raw, sql, table, batch, agency, lead_ids, now)
+        step.call(batch.size)
+        batch.clear
+        raise Cancelled if cancel&.call
+      end
+      write_batch(raw, sql, table, batch, agency, lead_ids, now) unless batch.empty?
+    end
+
+    # One COPY per batch, flushed in bounded chunks. An exception aborts the stream cleanly so the
+    # surrounding transaction can roll back.
+    def self.write_batch(raw, sql, table, batch, agency, lead_ids, now)
+      raw.copy_data(sql) do
+        buffer = +""
+        batch.each do |row|
+          buffer << CSV.generate_line(row_values(table, row, agency, lead_ids, now))
+          next if buffer.bytesize < FLUSH_BYTES
+
+          raw.put_copy_data(buffer)
+          buffer.clear
         end
+        raw.put_copy_data(buffer) unless buffer.empty?
+      end
+    end
+
+    # CSV row → typed row in the Snapshot::Reader shape (values are already known valid: the report
+    # said so, or validate! raised).
+    def self.typed_row(spec, csv_row)
+      spec[:columns].to_h do |header, (key, type)|
+        [ key, parse_value(csv_row[header], type) ]
+      end
+    end
+
+    def self.parse_value(raw, type)
+      value = raw.is_a?(String) ? raw.strip : raw
+      return nil if value.nil? || value.empty?
+
+      case type
+      when :time then Time.iso8601(value).utc
+      when :date then Date.iso8601(value)
+      when :integer then Integer(value, 10)
+      else value
       end
     end
 
@@ -187,15 +227,6 @@ class Snapshot
       ScreenerAnswer.type_for_attribute("answer").serialize(value)
     end
 
-    def self.each_batch(rows, step, cancel)
-      rows.each_slice(BATCH) do |batch|
-        raise Cancelled if cancel&.call
-
-        yield batch
-        step.call(batch.size)
-      end
-    end
-
     # Lazily reports import progress; total is the row count across all seven tables.
     def self.tracker(progress, total)
       done = 0
@@ -208,8 +239,17 @@ class Snapshot
       end
     end
 
-    def self.row_counts(rows)
-      TABLES.index_with { |table| rows[table].size }.transform_keys(&:to_s)
+    def self.total_rows(report)
+      report[:diff].sum { |_table, diff| diff[:incoming].to_i }
+    end
+
+    def self.row_counts(report)
+      report[:diff].transform_values { |diff| diff[:incoming] }.transform_keys(&:to_s)
+    end
+
+    # The stored report has string keys (jsonb); a freshly computed one has symbols.
+    def self.symbolize(report)
+      report.respond_to?(:deep_symbolize_keys) ? report.deep_symbolize_keys : report
     end
 
     def self.connection

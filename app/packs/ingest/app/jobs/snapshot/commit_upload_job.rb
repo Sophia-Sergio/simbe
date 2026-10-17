@@ -14,7 +14,7 @@ class Snapshot::CommitUploadJob < ApplicationJob
     progress.update(phase: "importing", pct: 0)
 
     snapshot = Snapshot::Importer.call(
-      agency: upload.agency, dir: upload.dir, user: upload.user,
+      agency: upload.agency, dir: upload.dir, user: upload.user, report: upload.report,
       progress: progress, cancel: -> { upload.reload.status == "cancelled" }
     )
     progress.finish

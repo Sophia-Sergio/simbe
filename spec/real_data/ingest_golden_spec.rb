@@ -120,8 +120,11 @@ RSpec.describe "Snapshot ingest golden numbers", :real_data, type: :request do
       expect(counts.except("first_outbound_missing")).to eq(golden["qualified_all_time"])
       expect(counts["first_outbound_missing"]).to eq(csv_leads_without_outbound(slug))
 
-      # Re-loading the same files leaves identical counts (no double counting).
-      repeat, = upload_and_commit(owner, slug)
+      # Re-loading the same files leaves identical counts (no double counting). The replace's
+      # timing is printed for the record: its cost is the FK-cascade DELETE, whose plan is a
+      # separate database concern (see the lane notes), so it is not budget-asserted here.
+      repeat, _repeat_validate, replace_seconds = upload_and_commit(owner, slug)
+      puts "#{slug}: replace=#{replace_seconds.round(1)}s"
       expect(repeat["snapshot"]["row_counts"]).to eq(snapshot["row_counts"])
       expect(fact_counts(agency)).to eq(counts)
     end

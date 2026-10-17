@@ -5,8 +5,9 @@ RSpec.describe Snapshot::CommitUploadJob do
   let(:user) { create(:user, agency: agency) }
 
   def upload_for(status: "committing")
-    SnapshotUpload.create!(agency: agency, user: user, status: status, dir: AlphaScenario.copy_dir,
-                           report: { "ok" => true })
+    dir = AlphaScenario.copy_dir
+    report = Snapshot::Validator.call(agency: agency, dir: dir)
+    SnapshotUpload.create!(agency: agency, user: user, status: status, dir: dir, report: report)
   end
 
   it "imports the snapshot and marks the upload committed" do
