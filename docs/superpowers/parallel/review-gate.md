@@ -87,3 +87,18 @@ A go request that cannot report all five says which is missing and why.
 ## Do not defer work on an unchecked assumption
 
 Before holding, delaying or queueing a step "to avoid load or a clash", the conductor names the specific shared resource (a lane slot, a Docker stack, the Playwright dev-server port, a database, a CI quota) and checks whether the step really uses it. A read-only review (a subagent reading a diff, Vitest only) uses none of them and starts immediately. The lane caps limit builder runs, not reviews. If the claim cannot be verified in one command, run the step. Delaying needs a named resource, not a feeling.
+
+## Act on every state change (no waiting to be asked)
+
+The conductor reacts to these events as they happen, without a prompt from the human:
+
+| Event | Immediate action |
+|---|---|
+| A builder run ends (phase `verifying`, or a log that stopped growing with no live process) | Start the fresh review at once (read-only, no lane slot needed) |
+| A review report arrives | Send the findings to the builder session the same minute (a conductor-built lane has no session: fix it inline) |
+| A fix round ends | Re-verify at once: rebase, full suite with `RAILS_ENV=test` (or the frontend checks), rubocop/eslint, `bin/lane check`, read the diff against each finding |
+| A lane passes re-verification | Add it to the next go request; when a batch is ready, ask for the go |
+| A PR merges | Clean its worktree, stack and images; mark it merged; start the lanes it unblocks |
+| A process or log goes quiet | Look at the log and the process right away, resume with `--session` if it stopped |
+
+When waiting on something, the conductor says what it is waiting for and checks on it at a stated interval. "Waiting for the user" is only valid when a go or a decision is actually pending.
