@@ -17,8 +17,8 @@ const card = (over: Partial<LeadCardData> = {}): LeadCardData => ({
 })
 
 /** Mounts the palette overlay and opens it the way the shell does: Ctrl+K. */
-async function openPalette(role: "owner" | "coordinator" = "owner", route = "/") {
-  const rendered = renderWithProviders(<SearchPalette />, { role, route })
+async function openPalette(role: "owner" | "coordinator" = "owner", route = "/", viewport = 1280) {
+  const rendered = renderWithProviders(<SearchPalette />, { role, route, viewport })
   fireEvent.keyDown(window, { key: "k", ctrlKey: true })
   const input = await screen.findByRole("combobox", { name: "Search candidates" })
   return { ...rendered, input }
@@ -322,4 +322,16 @@ it("ignores Enter while an IME composition is active", async () => {
   // A committed Enter still opens the active row.
   fireEvent.keyDown(input, { key: "Enter" })
   await waitFor(() => expect(location().search).toContain(`lead=${L4}`))
+})
+
+it("makes the results list the only scroll area, sized in dvh", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette("owner", "/", 390)
+
+  await user.type(input, "alpha")
+  const listbox = await screen.findByRole("listbox")
+  // One scroller (the list), so the modal body never becomes a second nested scroll area, and a
+  // viewport-relative height that shrinks with the on-screen keyboard rather than 100vh.
+  expect(listbox).toHaveClass("overflow-y-auto")
+  expect(listbox.className).toContain("dvh")
 })

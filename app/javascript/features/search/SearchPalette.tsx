@@ -119,7 +119,7 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex min-h-0 flex-col gap-2">
       <div className="relative">
         <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
         <Input
@@ -163,7 +163,10 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
           id={listId}
           role="listbox"
           aria-label="Search results"
-          className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto"
+          // The results list is the palette's only scroll area, capped in dvh so it shrinks with
+          // the on-screen keyboard. The Modal body itself never needs to scroll, keeping the input
+          // in view above the list (no nested scrollers).
+          className="flex max-h-[55dvh] flex-col gap-1 overflow-y-auto"
         >
           {leads.map((lead, index) => (
             <li
