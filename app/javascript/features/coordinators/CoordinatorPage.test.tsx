@@ -23,7 +23,7 @@ it("shows the KPIs and opens the lead panel from a needs-action row", async () =
   expect(screen.getByText("23m")).toBeInTheDocument() // formatDuration(22.5)
 
   // The three queue rows from the fixture; clicking one opens the lead panel on that lead.
-  const row = await screen.findByRole("row", { name: /L4 Alpha/ })
+  const row = await screen.findByRole("button", { name: /L4 Alpha/ })
   expect(row).toHaveTextContent("Nudge applications")
   await userEvent.click(row)
 
@@ -94,4 +94,13 @@ it.each(TRICKY_NAMES)("decodes %s from the route and matches the mock API", asyn
   renderWithProviders(<CoordinatorPage />, { route: `/coordinators/${encodeURIComponent(name)}`, path })
 
   expect(await screen.findByRole("heading", { name })).toBeInTheDocument()
+})
+
+it("desktop: every needs-action row is a control named by its lead and reason", async () => {
+  renderWithProviders(<CoordinatorPage />, { route, path })
+
+  const row = await screen.findByRole("button", {
+    name: "L4 Alpha — Application 40% · quiet 8d · last section pregnancy history",
+  })
+  expect(row).toBeInTheDocument()
 })

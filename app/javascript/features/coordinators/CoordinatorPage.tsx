@@ -13,8 +13,6 @@ import { ErrorState } from "@/components/ui/ErrorState"
 import { KpiCard } from "@/components/ui/KpiCard"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { StatusPill } from "@/components/ui/StatusPill"
-import { Table } from "@/components/ui/Table"
-import type { Column } from "@/components/ui/Table"
 import { formatDuration, formatInt, formatPct } from "@/lib/format"
 import { barPct, COORDINATOR_STATUS, CoordinatorNoData } from "./lib"
 
@@ -27,6 +25,28 @@ const QUEUE_LABEL: Record<QueueKey, string> = {
   nudge_applications: "Nudge applications",
   rebook_consults: "Rebook consults",
   paused_due_back: "Paused, due back",
+}
+
+/**
+ * One "Leads needing action" row. A real button (not a table row) so its accessible name — the lead
+ * plus the reason — reaches keyboard and screen-reader users, and click/Enter both open the lead panel.
+ */
+function NeedsActionRow({ item, onOpen }: { item: NeedsAction; onOpen: (leadId: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(item.lead_id)}
+      aria-label={`${item.name} — ${item.reason}`}
+      className="flex w-full flex-col gap-1 rounded-row border border-line bg-surface px-3 py-2.5 text-left transition-colors hover:border-line-strong md:flex-row md:items-center md:gap-3"
+    >
+      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{item.name}</span>
+      <span className="text-[12px] text-ink-muted md:w-[150px] md:shrink-0">{QUEUE_LABEL[item.queue]}</span>
+      <span className="text-[12px] text-ink-muted md:min-w-0 md:flex-[2] md:truncate">{item.reason}</span>
+      <span className="text-[12px] tabular-nums text-ink-muted md:w-[44px] md:shrink-0 md:text-right">
+        {formatDuration(item.age_minutes)}
+      </span>
+    </button>
+  )
 }
 
 /**
@@ -87,18 +107,6 @@ export function CoordinatorPage() {
   const coordinator = detail.data
   const { kpis, needs_action: needsAction } = coordinator
 
-  const columns: Column<NeedsAction>[] = [
-    { key: "name", header: "Lead", render: (row) => <span className="font-medium text-ink">{row.name}</span> },
-    { key: "queue", header: "Queue", render: (row) => QUEUE_LABEL[row.queue] },
-    { key: "reason", header: "Reason", render: (row) => <span className="text-ink-muted">{row.reason}</span> },
-    {
-      key: "age",
-      header: "Age",
-      align: "right",
-      render: (row) => <span className="tabular-nums">{formatDuration(row.age_minutes)}</span>,
-    },
-  ]
-
   let body
   if (pending) {
     body = <LoadingYourData progress={pending.progress} />
@@ -129,28 +137,25 @@ export function CoordinatorPage() {
           />
         </div>
 
-        <section aria-labelledby="needs-action-heading" className="overflow-hidden rounded-card border border-line bg-surface">
-          <h2 id="needs-action-heading" className="px-4 pt-4 font-display text-[16px] font-semibold text-ink">
+        <section aria-labelledby="needs-action-heading" className="rounded-card border border-line bg-surface p-3">
+          <h2 id="needs-action-heading" className="px-1 pb-2 font-display text-[16px] font-semibold text-ink">
             Leads needing action
           </h2>
-          <div className="p-3 md:p-0">
-            <Table
-              columns={columns}
-              rows={needsAction}
-              rowKey={(row) => row.lead_id}
-              onRowClick={(row) => open(row.lead_id)}
-              emptyText="Nothing needs action right now"
-              renderCard={(row) => (
-                <div>
-                  <p className="break-words text-[14px] font-semibold text-ink">{row.name}</p>
-                  <p className="mt-0.5 text-[12px] text-ink-muted">
-                    {QUEUE_LABEL[row.queue]} · {formatDuration(row.age_minutes)}
-                  </p>
-                  <p className="text-[12px] text-ink-muted">{row.reason}</p>
-                </div>
-              )}
-            />
+          <div aria-hidden className="hidden gap-3 px-1 pb-2 text-[12px] font-medium text-ink-muted md:flex">
+            <span className="flex-1">Lead</span>
+            <span className="w-[150px] shrink-0">Queue</span>
+            <span className="flex-[2]">Reason</span>
+            <span className="w-[44px] shrink-0 text-right">Age</span>
           </div>
+          {needsAction.length === 0 ? (
+            <p className="px-1 py-2 text-[13px] text-ink-muted">Nothing needs action right now</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {needsAction.map((item) => (
+                <NeedsActionRow key={item.lead_id} item={item} onOpen={open} />
+              ))}
+            </div>
+          )}
         </section>
       </>
     )
