@@ -100,7 +100,9 @@ module Metrics
       total = rows.sum { |row| row[:leads].to_i }
       unattributed = rows.find { |row| row[:channel] == "Unknown" }&.fetch(:leads, 0).to_i
       states = base.rows(STATES_SQL)
-      main = states.select { |row| row[:state] && Metrics::Base.rate(row[:n].to_i, total) >= 1.0 }
+      # The oracle compares the raw share (`100 * n / total >= 1.0`), so do not use the
+      # rounded rate here: a 0.96% share rounds to 1.0 but is still out of area.
+      main = states.select { |row| row[:state] && (100.0 * row[:n].to_i / total) >= 1.0 }
       out_count = total - main.sum { |row| row[:n].to_i }
       {
         unattributed: { count: unattributed, pct: Metrics::Base.rate(unattributed, total) },

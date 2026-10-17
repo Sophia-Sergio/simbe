@@ -8,14 +8,13 @@ require "benchmark"
 # on demand:
 #   docker compose exec -e RAILS_ENV=development web bundle exec rspec spec/performance --tag perf
 RSpec.describe "metrics performance", :perf do
-  BUDGET = 0.5
-
   let(:agency) { Agency.find_by(slug: "lakeside") }
 
   before { Current.agency = agency }
 
   it "answers summary, funnel, channels and recommendations for 12m within the budget" do
     expect(agency).to be_present, "run `rails \"data:load_real[lakeside]\"` in development first"
+    budget = 0.5
 
     endpoints = {
       "summary" => -> { Metrics::Summary.call(agency: agency, range: "12m") },
@@ -27,7 +26,7 @@ RSpec.describe "metrics performance", :perf do
     endpoints.each do |name, call|
       Rails.cache.clear
       elapsed = Benchmark.realtime { call.call }
-      expect(elapsed).to be < BUDGET, "#{name} took #{(elapsed * 1000).round} ms"
+      expect(elapsed).to be < budget, "#{name} took #{(elapsed * 1000).round} ms"
     end
   end
 end
