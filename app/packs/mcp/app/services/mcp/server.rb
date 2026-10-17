@@ -11,13 +11,14 @@ module Mcp
     SERVER_INFO = { name: "simbe", version: "1.0.0" }.freeze
 
     # The JSON-RPC response Hash, or nil for a notification (the controller answers 202).
-    def self.call(body, agency:)
-      new(body, agency: agency).call
+    def self.call(body, agency:, user:)
+      new(body, agency: agency, user: user).call
     end
 
-    def initialize(body, agency:)
+    def initialize(body, agency:, user:)
       @body = body
       @agency = agency
+      @user = user
     end
 
     def call
@@ -54,15 +55,10 @@ module Mcp
       arguments = params["arguments"] || {}
       return error(id, -32602, "Invalid params: arguments must be an object") unless arguments.is_a?(Hash)
 
-      data = Agent::Tools.call(params["name"], arguments, agency: @agency, user: owner_for(@agency))
+      data = Agent::Tools.call(params["name"], arguments, agency: @agency, user: @user)
       result(id, { content: [ { type: "text", text: JSON.generate(data) } ], isError: false })
     rescue Agent::Tools::Error => e
       result(id, { content: [ { type: "text", text: e.message } ], isError: true })
-    end
-
-    # MCP keys are created by an owner; the tools are the owner's five (spec decision 1).
-    def owner_for(agency)
-      agency.users.find_by(role: "owner") || agency.users.first
     end
 
     def result(id, value) = { "jsonrpc" => "2.0", "id" => id, "result" => value }

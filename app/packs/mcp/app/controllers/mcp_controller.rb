@@ -9,9 +9,12 @@ class McpController < ActionController::API
     # first, so malformed JSON could never reach our own parser (it must answer -32700).
     key = Mcp::Keys.authenticate(token, slug: request.path_parameters[:slug])
     if key.nil?
-      return render_not_found if Mcp::Keys.active_key(token)
+      # 404 only when a valid key (with a live owner creator) is used against another agency's
+      # slug; an unknown/revoked key or an invalid actor is 401.
+      active = Mcp::Keys.active_key(token)
+      return render_unauthorized if active.nil? || Mcp::Keys.actor_for(active).nil?
 
-      return render_unauthorized
+      return render_not_found
     end
 
     Current.agency = key.agency
@@ -19,7 +22,8 @@ class McpController < ActionController::API
     return render_jsonrpc_error(nil, -32600, "Invalid Request: batch is not supported") if body.is_a?(Array)
     return render_jsonrpc_error(nil, -32600, "Invalid Request: body must be a JSON object") unless body.is_a?(Hash)
 
-    response = Mcp::Server.call(body, agency: key.agency)
+    # authenticate already proved `created_by` is a live owner of the key's agency.
+    response = Mcp::Server.call(body, agency: key.agency, user: key.created_by)
     return head :accepted if response.nil?
 
     render json: response

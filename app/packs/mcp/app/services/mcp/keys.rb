@@ -26,13 +26,25 @@ module Mcp
       raw
     end
 
-    # The key when the token is active AND belongs to `slug`'s agency; nil otherwise (revoked,
-    # unknown or slug/key mismatch).
+    # The key when the token is active, belongs to `slug`'s agency AND its creator is still an
+    # owner there; nil otherwise (revoked, unknown, slug mismatch or an invalid actor).
     def authenticate(token, slug:)
       key = active_key(token)
-      return nil if key.nil? || key.agency.slug.to_s != slug.to_s
+      return nil if key.nil? || actor_for(key).nil?
+      return nil if key.agency.slug.to_s != slug.to_s
 
       key
+    end
+
+    # The user an MCP key acts as: the owner who created it, and only while that user still exists,
+    # is still an owner and belongs to the key's agency. A removed or demoted creator makes the key
+    # invalid (401), and a key with no creator never nil-derefs.
+    def actor_for(key)
+      user = key.created_by
+      return nil if user.nil?
+      return nil unless user.agency_id == key.agency_id && user.owner?
+
+      user
     end
 
     # The active key for a token regardless of slug. Lets the endpoint tell an invalid/revoked key

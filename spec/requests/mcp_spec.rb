@@ -173,6 +173,43 @@ RSpec.describe "MCP endpoint", type: :request do
     expect(Mcp::Keys.authenticate(second, slug: "alpha")).to be_present
   end
 
+  it "acts as the key's creator, not an arbitrary owner" do
+    second_owner = create(:user, agency: agency, role: "owner")
+    key = McpKey.active.find_by!(key_digest: Mcp::Keys.digest_for(@key))
+
+    expect(Mcp::Keys.actor_for(key)).to eq(owner)
+    expect(Mcp::Keys.actor_for(key)).not_to eq(second_owner)
+  end
+
+  it "runs a tool as the key's creator" do
+    other_owner = create(:user, agency: agency, role: "owner")
+    captured = nil
+    original = Agent::Tools.method(:call)
+    allow(Agent::Tools).to receive(:call) do |*args, **kwargs|
+      captured = kwargs[:user]
+      original.call(*args, **kwargs)
+    end
+
+    rpc("tools/call", { name: "get_funnel", arguments: { range: "30d" } })
+
+    expect(captured).to eq(owner)
+    expect(captured).not_to eq(other_owner)
+  end
+
+  it "401s a key whose creator is no longer an owner" do
+    owner.update!(role: "coordinator", coordinator_name: "Dana Ortiz")
+
+    rpc("tools/list")
+    expect(response).to have_http_status(:unauthorized)
+  end
+
+  it "401s a key whose creator has been removed and never 500s" do
+    McpKey.active.find_by!(key_digest: Mcp::Keys.digest_for(@key)).update_column(:created_by, nil)
+
+    rpc("tools/list")
+    expect(response).to have_http_status(:unauthorized)
+  end
+
   it "405s a GET on the endpoint" do
     get "/mcp/alpha", headers: { "Authorization" => "Bearer #{@key}" }
     expect(response).to have_http_status(:method_not_allowed)
