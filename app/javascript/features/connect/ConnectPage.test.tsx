@@ -101,3 +101,67 @@ it("shows an error with retry when settings fail", async () => {
   renderWithProviders(<ConnectPage />)
   expect(await screen.findByRole("alert")).toHaveTextContent(/could not load/i)
 })
+
+it("moves focus into the confirmation, back to the trigger on cancel and to the key field after generating", async () => {
+  renderWithProviders(<ConnectPage />)
+  await userEvent.click(await screen.findByRole("button", { name: "Generate new key" }))
+  const confirm = within(screen.getByRole("group")).getByRole("button", { name: "Generate new key" })
+  await waitFor(() => expect(confirm).toHaveFocus())
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+  await waitFor(() => expect(screen.getByRole("button", { name: "Generate new key" })).toHaveFocus())
+  await userEvent.click(screen.getByRole("button", { name: "Generate new key" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Generate new key" }))
+  await waitFor(() => expect(screen.getByLabelText("API key")).toHaveFocus())
+})
+
+it("announces the shown-once notice through a live region that exists before the key does", async () => {
+  renderWithProviders(<ConnectPage />)
+  await screen.findByLabelText("API key")
+  const region = within(screen.getByRole("region", { name: "Connection" })).getByRole("status")
+  expect(region).toBeEmptyDOMElement()
+  await userEvent.click(screen.getByRole("button", { name: "Generate new key" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Generate new key" }))
+  await waitFor(() => expect(region).toHaveTextContent(/shown only once/i))
+})
+
+it("Copy API key is disabled while only the masked key or no key is shown, and enabled with the full key", async () => {
+  renderWithProviders(<ConnectPage />)
+  expect(await screen.findByRole("button", { name: "Copy API key" })).toBeDisabled()
+  await userEvent.click(screen.getByRole("button", { name: "Generate new key" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Generate new key" }))
+  await waitFor(() => expect(screen.getByRole("button", { name: "Copy API key" })).toBeEnabled())
+})
+
+it("the configuration Copy button is at least 36px tall (mobile tap target)", async () => {
+  renderWithProviders(<ConnectPage />)
+  expect(await screen.findByRole("button", { name: "Copy configuration" })).toHaveClass("h-9")
+})
+
+it("a failed clipboard write shows the manual-copy toast", async () => {
+  const user = userEvent.setup()
+  renderWithProviders(<ConnectPage />)
+  const button = await screen.findByRole("button", { name: "Copy Server URL" })
+  vi.spyOn(navigator.clipboard, "writeText").mockRejectedValueOnce(new Error("denied"))
+  await user.click(button)
+  expect(await screen.findByText(/could not copy/i)).toBeInTheDocument()
+})
+
+it("the in-progress alert clears when a retry succeeds", async () => {
+  let first = true
+  mockApi({
+    "POST /api/v1/mcp/rotate": () => {
+      if (first) {
+        first = false
+        return Response.json({ code: "already_in_progress", message: "x" }, { status: 409 })
+      }
+      return Response.json({ key: "simbe_live_" + "b".repeat(24), url: "https://mcp.simbe.app/harbor", key_prefix: "simbe_live_bbbbbbb" }, { status: 201 })
+    },
+  })
+  renderWithProviders(<ConnectPage />)
+  await userEvent.click(await screen.findByRole("button", { name: "Generate new key" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Generate new key" }))
+  expect(await screen.findByRole("alert")).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Generate new key" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Generate new key" }))
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+})

@@ -1,5 +1,5 @@
 import { Copy } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { ApiError } from "@/api/client"
 import { useMcpSettings, useRotateMcpKey } from "@/api/hooks/mcp"
 import { Button } from "@/components/ui/Button"
@@ -21,7 +21,7 @@ function configJson(url: string, key: string): string {
   return JSON.stringify({ mcpServers: { simbe: { url, headers: { Authorization: `Bearer ${key}` } } } }, null, 2)
 }
 
-function CopyField({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
+function CopyField({ label, value, mono = true, copyable = true }: { label: string; value: string; mono?: boolean; copyable?: boolean }) {
   const toast = useToast()
   const copy = async () => {
     try {
@@ -44,7 +44,7 @@ function CopyField({ label, value, mono = true }: { label: string; value: string
           value={value}
           className={`h-10 min-w-0 flex-1 rounded-input border border-line bg-subtle px-3 text-[13px] text-ink ${mono ? "font-mono" : ""}`}
         />
-        <Button variant="secondary" size="sm" className="h-10" leftIcon={<Copy aria-hidden className="h-3.5 w-3.5" />} onClick={copy} aria-label={`Copy ${label}`}>
+        <Button variant="secondary" size="sm" className="h-10" leftIcon={<Copy aria-hidden className="h-3.5 w-3.5" />} onClick={copy} disabled={!copyable} aria-label={`Copy ${label}`}>
           Copy
         </Button>
       </div>
@@ -60,12 +60,28 @@ export function ConnectPage() {
   // The full key lives in this component only: leaving the page discards it, nothing is stored client-side.
   const [fullKey, setFullKey] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  // Where focus goes when the inline confirmation closes: back to the trigger on cancel, to the key field on success.
+  const focusAfterClose = useRef<"trigger" | "key" | null>(null)
+
+  useEffect(() => {
+    if (confirming) {
+      confirmRef.current?.querySelectorAll("button")[1]?.focus()
+    } else if (focusAfterClose.current) {
+      if (focusAfterClose.current === "trigger") triggerRef.current?.querySelector("button")?.focus()
+      else document.getElementById("field-api-key")?.focus()
+      focusAfterClose.current = null
+    }
+  }, [confirming])
 
   const generate = useAsyncAction(async () => {
     setError(null)
     try {
       const rotated = await rotate.mutateAsync()
       setFullKey(rotated.key)
+      rotate.reset() // the mutation cache would otherwise keep the full key for minutes
+      focusAfterClose.current = "key"
       setConfirming(false)
       void settings.refetch()
     } catch (caught) {
@@ -111,28 +127,36 @@ export function ConnectPage() {
             Connection
           </h2>
           <CopyField label="Server URL" value={url} />
-          <CopyField label="API key" value={shownKey} />
+          <CopyField label="API key" value={shownKey} copyable={fullKey !== null} />
 
-          {fullKey && (
-            <p role="status" className="rounded-input border border-warning-border bg-warning-bg p-3 text-[13px] font-medium text-ink">
-              This key is shown only once. Copy it now: after you leave this page only its beginning is visible.
-            </p>
-          )}
+          {/* The live region exists before the key does, so screen readers announce the text when it is filled in. */}
+          <div role="status">
+            {fullKey && (
+              <p className="rounded-input border border-warning-border bg-warning-bg p-3 text-[13px] font-medium text-ink">
+                This key is shown only once. Copy it now: after you leave this page only its beginning is visible.
+              </p>
+            )}
+          </div>
           {error && (
             <p role="alert" className="text-[13px] font-medium text-danger-text">
               {error}
             </p>
           )}
           {confirming ? (
-            <ConfirmInline
-              message="This revokes the current key immediately."
-              confirmLabel="Generate new key"
-              pending={generate.pending}
-              onCancel={() => setConfirming(false)}
-              onConfirm={() => void generate.run()}
-            />
+            <div ref={confirmRef}>
+              <ConfirmInline
+                message="This revokes the current key immediately."
+                confirmLabel="Generate new key"
+                pending={generate.pending}
+                onCancel={() => {
+                  focusAfterClose.current = "trigger"
+                  setConfirming(false)
+                }}
+                onConfirm={() => void generate.run()}
+              />
+            </div>
           ) : (
-            <div>
+            <div ref={triggerRef}>
               <Button variant="outline-brand" size="sm" onClick={() => setConfirming(true)}>
                 Generate new key
               </Button>
@@ -145,6 +169,7 @@ export function ConnectPage() {
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-9"
                 aria-label="Copy configuration"
                 onClick={async () => {
                   try {
