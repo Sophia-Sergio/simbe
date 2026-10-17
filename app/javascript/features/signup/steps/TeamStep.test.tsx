@@ -24,6 +24,29 @@ it("invites a coordinator by name and lists the owner and the invitation", async
   expect(await screen.findByText("Invite link copied")).toBeInTheDocument()
 })
 
+it("rejects an email already on the team and resets the picker after a successful invite", async () => {
+  renderWithProviders(<TeamStep owner={null} />)
+
+  // The pending invitation in the team fixture is a duplicate; so is the owner.
+  for (const duplicate of ["maya@harbor.test", "erin@harbor.test"]) {
+    await userEvent.clear(screen.getByLabelText("Email"))
+    await userEvent.type(screen.getByLabelText("Email"), duplicate)
+    await userEvent.selectOptions(screen.getByLabelText("Coordinator"), "Jess Kim")
+    await userEvent.click(screen.getByRole("button", { name: "Invite" }))
+    expect(await screen.findByText("That email is already on your team")).toBeInTheDocument()
+    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true")
+    expect(screen.queryByText("Invitation sent")).not.toBeInTheDocument()
+  }
+
+  await userEvent.clear(screen.getByLabelText("Email"))
+  await userEvent.type(screen.getByLabelText("Email"), "sam@harbor.test")
+  await userEvent.click(screen.getByRole("button", { name: "Invite" }))
+
+  expect(await screen.findByText("Invitation sent")).toBeInTheDocument()
+  expect(screen.getByLabelText("Email")).toHaveValue("")
+  expect(screen.getByLabelText("Coordinator")).toHaveValue("")
+})
+
 it("shows the valid coordinator names after an unknown_coordinator error", async () => {
   mockApi({
     "POST /api/v1/invitations": () =>

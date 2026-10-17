@@ -21,13 +21,27 @@ import { TeamStep } from "./steps/TeamStep"
 export type AccountDraft = { name: string; email: string; password: string }
 export type AgencyDraft = { name: string; timezone: string; milestone: Milestone }
 
-export type FieldErrors = Partial<Record<"name" | "email" | "password", string>>
+export type AccountField = "name" | "email" | "password"
+export type FieldErrors = Partial<Record<AccountField, string>>
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+/** The server's minimum (spec decision 1); the client says the same thing before a round trip. */
+const MIN_PASSWORD = 10
+
+/** Messages for step 1, shown once the field has been left (or when the server rejects a submit). */
+function accountMessages(account: AccountDraft): FieldErrors {
+  const messages: FieldErrors = {}
+  if (account.name.trim() === "") messages.name = "Enter your name"
+  if (!EMAIL.test(account.email.trim())) messages.email = "Enter a valid work email"
+  if (account.password.length < MIN_PASSWORD) messages.password = `Use at least ${MIN_PASSWORD} characters`
+  return messages
+}
+
+const AGENCY_NAME_REQUIRED = "Enter your agency name"
 
 /** Step 1 is complete when the name, a valid email and a ≥10-character password are there. */
 export function isAccountValid(account: AccountDraft): boolean {
-  return account.name.trim().length > 0 && EMAIL.test(account.email.trim()) && account.password.length >= 10
+  return account.name.trim().length > 0 && EMAIL.test(account.email.trim()) && account.password.length >= MIN_PASSWORD
 }
 
 const STEPS = [
@@ -81,26 +95,37 @@ function Wizard({
   const [step, setStep] = useState(initialStep)
   const [account, setAccount] = useState<AccountDraft>({ name: "", email: "", password: "" })
   const [agency, setAgency] = useState<AgencyDraft>({ name: "", timezone: TIMEZONES[0].value, milestone: "consult_attended" })
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [agencyError, setAgencyError] = useState<string | null>(null)
+  const [serverErrors, setServerErrors] = useState<FieldErrors>({})
+  const [touched, setTouched] = useState<Partial<Record<AccountField | "agency", boolean>>>({})
+  const [serverAgencyError, setServerAgencyError] = useState<string | null>(null)
 
   const created = signup.data ?? null
   const agencyName = created?.agency.name ?? createdAgencyName ?? agency.name.trim()
   const owner = created?.user ?? createdOwner ?? null
 
+  // Client messages appear once a field has been left; a server message (email_taken, …) wins.
+  const messages = accountMessages(account)
+  const accountErrors: FieldErrors = {
+    ...(touched.name ? { name: messages.name } : {}),
+    ...(touched.email ? { email: messages.email } : {}),
+    ...(touched.password ? { password: messages.password } : {}),
+    ...serverErrors,
+  }
+  const agencyError = serverAgencyError ?? (touched.agency && agency.name.trim() === "" ? AGENCY_NAME_REQUIRED : null)
+
   const patchAccount = (patch: Partial<AccountDraft>) => {
     setAccount((previous) => ({ ...previous, ...patch }))
-    setFieldErrors((previous) => ({
-      ...previous,
-      ...(patch.name !== undefined ? { name: undefined } : {}),
-      ...(patch.email !== undefined ? { email: undefined } : {}),
-      ...(patch.password !== undefined ? { password: undefined } : {}),
-    }))
+    // Editing a field clears its *server* message; an undefined value must not shadow the client one.
+    setServerErrors((previous) => {
+      const next = { ...previous }
+      for (const field of Object.keys(patch) as AccountField[]) delete next[field]
+      return next
+    })
   }
 
   const submit = useAsyncAction(async () => {
-    setFieldErrors({})
-    setAgencyError(null)
+    setServerErrors({})
+    setServerAgencyError(null)
     try {
       await signup.mutateAsync({
         user: { name: account.name.trim(), email: account.email.trim(), password: account.password },
@@ -109,21 +134,21 @@ function Wizard({
       setStep(3)
     } catch (caught) {
       if (!(caught instanceof ApiError)) {
-        setAgencyError("Something went wrong. Try again.")
+        setServerAgencyError("Something went wrong. Try again.")
         return
       }
       // The account is created on submit, so a taken email / weak password sends the user back to step 1.
       if (caught.code === "email_taken") {
-        setFieldErrors({ email: caught.message || "That email already has an account" })
+        setServerErrors({ email: caught.message || "That email already has an account" })
         setStep(1)
         return
       }
       if (caught.code === "weak_password") {
-        setFieldErrors({ password: caught.message || "Password must be at least 10 characters" })
+        setServerErrors({ password: caught.message || `Use at least ${MIN_PASSWORD} characters` })
         setStep(1)
         return
       }
-      setAgencyError(caught.code === "invalid_agency" ? caught.message : "Something went wrong. Try again.")
+      setServerAgencyError(caught.code === "invalid_agency" ? caught.message : "Something went wrong. Try again.")
     }
   })
 
@@ -158,15 +183,23 @@ function Wizard({
 
   return (
     <WizardShell step={step} title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} footer={<>{back}{next}</>}>
-      {step === 1 ? <AccountStep value={account} onChange={patchAccount} errors={fieldErrors} /> : null}
+      {step === 1 ? (
+        <AccountStep
+          value={account}
+          onChange={patchAccount}
+          onBlur={(field) => setTouched((previous) => ({ ...previous, [field]: true }))}
+          errors={accountErrors}
+        />
+      ) : null}
       {step === 2 ? (
         <AgencyStep
           value={agency}
           error={agencyError}
           onChange={(patch) => {
             setAgency((previous) => ({ ...previous, ...patch }))
-            setAgencyError(null)
+            setServerAgencyError(null)
           }}
+          onBlur={() => setTouched((previous) => ({ ...previous, agency: true }))}
         />
       ) : null}
       {step === 3 ? <AdAccountsStep /> : null}

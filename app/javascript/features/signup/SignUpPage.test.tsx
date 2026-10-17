@@ -120,6 +120,58 @@ it("resumes an unfinished onboarding at step 3 for a signed-in owner", async () 
   expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument()
 })
 
+it("explains a malformed email and a too-short password once the fields are left", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+  await screen.findByLabelText("Your name")
+
+  // Leaving a field (nothing after the password on step 1 is focusable, so blur explicitly).
+  const email = screen.getByLabelText("Work email")
+  await userEvent.type(email, "not-an-email")
+  fireEvent.blur(email)
+  expect(await screen.findByText("Enter a valid work email")).toBeInTheDocument()
+  expect(email).toHaveAttribute("aria-invalid", "true")
+
+  const password = screen.getByLabelText("Password")
+  await userEvent.type(password, "short")
+  fireEvent.blur(password)
+  expect(await screen.findByText("Use at least 10 characters")).toBeInTheDocument()
+  expect(password).toHaveAttribute("aria-invalid", "true")
+
+  // Fixing the value clears the message again.
+  await userEvent.type(password, "long-enough-pass")
+  expect(screen.queryByText("Use at least 10 characters")).not.toBeInTheDocument()
+})
+
+it("explains an empty agency name once the field is left", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+  await reachAgencyStep()
+
+  const name = screen.getByLabelText("Agency name")
+  await userEvent.type(name, "x")
+  await userEvent.clear(name)
+  await userEvent.tab()
+
+  expect(await screen.findByText("Enter your agency name")).toBeInTheDocument()
+  expect(name).toHaveAttribute("aria-invalid", "true")
+  expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled()
+})
+
+it("returns to step 1 with the weak_password message the server sends", async () => {
+  mockApi({
+    "POST /api/v1/signup": () =>
+      HttpResponse.json({ error: { code: "weak_password", message: "Password must be at least 10 characters" } }, { status: 422 }),
+  })
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep()
+  await userEvent.type(screen.getByLabelText("Agency name"), "Harbor")
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+  expect(await screen.findByText("Password must be at least 10 characters")).toBeInTheDocument()
+  expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true")
+  expect(screen.getByRole("heading", { name: "Create your account" })).toBeInTheDocument()
+})
+
 it("shows email_taken and returns the user to step 1 with the message", async () => {
   renderWithProviders(<SignUpPage />, { role: null })
 

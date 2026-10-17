@@ -28,22 +28,40 @@ export function TeamStep({ owner }: { owner: User | null }) {
   const toast = useToast()
   const [email, setEmail] = useState("")
   const [coordinator, setCoordinator] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [coordinatorError, setCoordinatorError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const options = (names.data?.names ?? []).map((name) => ({ value: name, label: name }))
   const ready = EMAIL.test(email.trim()) && coordinator !== ""
   const ownerUser = team.data?.users.find((user) => user.role === "owner") ?? owner
   const invitations = team.data?.invitations ?? []
+  // Everyone who already has a seat or an invitation: inviting them again would be a duplicate.
+  const knownEmails = new Set(
+    [...(team.data?.users ?? []).map((user) => user.email), ...invitations.map((invitation) => invitation.email)].map((address) =>
+      address.toLowerCase(),
+    ),
+  )
 
   const send = useAsyncAction(async () => {
-    setError(null)
+    setEmailError(null)
+    setCoordinatorError(null)
+    setFormError(null)
+    const address = email.trim()
+    if (knownEmails.has(address.toLowerCase())) {
+      setEmailError("That email is already on your team")
+      return
+    }
     try {
-      await invite.mutateAsync({ email: email.trim(), coordinator_name: coordinator })
+      await invite.mutateAsync({ email: address, coordinator_name: coordinator })
       toast.show("Invitation sent")
       setEmail("")
+      setCoordinator("")
     } catch (caught) {
-      if (caught instanceof ApiError) setError(caught.code === "unknown_coordinator" ? unknownCoordinator(caught) : caught.message)
-      else setError("Something went wrong. Try again.")
+      if (caught instanceof ApiError && caught.code === "unknown_coordinator") setCoordinatorError(unknownCoordinator(caught))
+      else if (caught instanceof ApiError && caught.code === "invalid_email") setEmailError(caught.message)
+      else if (caught instanceof ApiError) setFormError(caught.message)
+      else setFormError("Something went wrong. Try again.")
     }
   })
 
@@ -59,21 +77,32 @@ export function TeamStep({ owner }: { owner: User | null }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
-        <Field label="Email">
-          <Input type="email" autoComplete="off" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <Field label="Email" error={emailError ?? undefined}>
+          <Input
+            type="email"
+            autoComplete="off"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value)
+              setEmailError(null)
+            }}
+          />
         </Field>
-        <Field label="Coordinator">
+        <Field label="Coordinator" error={coordinatorError ?? undefined}>
           <Select
             aria-label="Coordinator"
             options={options}
             value={coordinator}
-            onChange={setCoordinator}
+            onChange={(value) => {
+              setCoordinator(value)
+              setCoordinatorError(null)
+            }}
             placeholder="Choose a coordinator"
           />
         </Field>
-        {error ? (
+        {formError ? (
           <p role="alert" className="text-[12px] font-medium text-danger-text">
-            {error}
+            {formError}
           </p>
         ) : null}
         <Button className="self-start" leftIcon={<UserPlus aria-hidden className="h-4 w-4" />} disabled={!ready} pending={send.pending} onClick={() => void send.run()}>

@@ -8,16 +8,23 @@ import type { AgencyDraft } from "../SignUpPage"
 export function AgencyStep({
   value,
   onChange,
+  onBlur,
   error,
 }: {
   value: AgencyDraft
   onChange: (patch: Partial<AgencyDraft>) => void
+  onBlur?: () => void
   error?: string | null
 }) {
   return (
     <div className="flex flex-col gap-5">
       <Field label="Agency name" error={error ?? undefined}>
-        <Input autoComplete="organization" value={value.name} onChange={(event) => onChange({ name: event.target.value })} />
+        <Input
+          autoComplete="organization"
+          value={value.name}
+          onChange={(event) => onChange({ name: event.target.value })}
+          onBlur={onBlur}
+        />
       </Field>
 
       <div className="flex flex-col gap-2">
