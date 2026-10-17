@@ -7,6 +7,10 @@ module Ai
   class Client
     TIMEOUT = 45
 
+    # Raised at client boot when ANTHROPIC_API_KEY is missing outside the test environment,
+    # so a misconfigured deploy fails loudly instead of sending an unauthenticated request.
+    ConfigurationError = Class.new(StandardError)
+
     attr_reader :model
 
     def self.config
@@ -14,16 +18,25 @@ module Ai
                       .fetch(Rails.env.to_s) { {} }
     end
 
+    # The real key everywhere; the test environment falls back to a placeholder so specs
+    # never need a real key. Anywhere else a blank key raises at boot of the client.
+    def self.api_key
+      ENV["ANTHROPIC_API_KEY"].presence ||
+        ("test" if Rails.env.test?) ||
+        raise(ConfigurationError, "ANTHROPIC_API_KEY is not set")
+    end
+
     def initialize(task)
       @task = task.to_s
       @model = ENV["AI_MODEL_#{@task.upcase}"] || self.class.config.fetch(@task)
+      @api_key = self.class.api_key
     end
 
     # -> { content: [Hash blocks with string keys], stop_reason: String, usage: { input_tokens:, output_tokens: } }
-    def converse(messages:, system:, tools: [], max_tokens: 1024, ledger:)
+    def converse(messages:, system:, tools: [], max_tokens: 1024, ledger:, timeout: TIMEOUT)
       raise ArgumentError, "ledger: is required (every call must be recorded)" if ledger.nil?
 
-      http = Anthropic::Client.new(api_key: ENV.fetch("ANTHROPIC_API_KEY", "test"), timeout: TIMEOUT)
+      http = Anthropic::Client.new(api_key: @api_key, timeout: timeout)
       params = { model: @model, max_tokens: max_tokens, system: system, messages: messages }
       params[:tools] = tools if tools.any?
       response = http.messages.create(**params)
@@ -35,6 +48,11 @@ module Ai
         stop_reason: response.stop_reason.to_s,
         usage: usage
       }
+    rescue Anthropic::Errors::Error, Timeout::Error
+      # A failed attempt is still recorded (zero tokens, nil cost) before re-raising, so the
+      # ledger accounts for every call to the provider, not just the successful ones.
+      ledger.record_failure!(model: @model)
+      raise
     end
   end
 end

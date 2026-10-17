@@ -5,6 +5,9 @@
 namespace :agent do
   desc "Ask the agent from the CLI: rails 'agent:smoke[slug,question]'"
   task :smoke, %i[slug question] => :environment do |_task, args|
+    abort "agent:smoke is disabled in production" if Rails.env.production?
+    abort "ANTHROPIC_API_KEY is not set" if ENV["ANTHROPIC_API_KEY"].blank?
+
     slug = args[:slug].to_s
     question = args[:question].to_s
     abort "usage: rake 'agent:smoke[slug,question]'" if slug.empty? || question.empty?
