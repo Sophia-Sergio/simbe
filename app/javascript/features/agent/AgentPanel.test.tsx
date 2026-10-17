@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import answerFixture from "@contracts/examples/agent/answer.json"
 import { useAgent } from "@/app/agent"
+import { useAuth } from "@/app/auth/useAuth"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { AgentFab } from "./AgentFab"
@@ -392,6 +393,43 @@ it("is a floating bottom-right panel on desktop", async () => {
   mount({ viewport: 1280 })
   await openFab()
   expect(await screen.findByRole("dialog")).toHaveAttribute("data-variant", "panel")
+})
+
+it("clears the thread and conversation when the session ends", async () => {
+  function SessionHarness() {
+    const agent = useAgent()
+    const { signOut } = useAuth()
+    return (
+      <>
+        <button type="button" onClick={() => agent.open("which channel costs the most?")}>
+          Ask
+        </button>
+        <button type="button" onClick={() => agent.open()}>
+          Reopen
+        </button>
+        <button type="button" onClick={() => void signOut()}>
+          Sign out
+        </button>
+        <AgentPanel />
+      </>
+    )
+  }
+  renderWithProviders(
+    <AgentProvider>
+      <SessionHarness />
+    </AgentProvider>,
+  )
+
+  await userEvent.click(screen.getByRole("button", { name: "Ask" }))
+  expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole("button", { name: "Sign out" }))
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+
+  await userEvent.click(screen.getByRole("button", { name: "Reopen" }))
+  expect(await screen.findByText("How can I help this week?")).toBeInTheDocument()
+  expect(screen.queryByText(ANSWER.text)).toBeNull()
+  expect(screen.queryByText("which channel costs the most?")).toBeNull()
 })
 
 it("shows the coordinator's three chips", async () => {

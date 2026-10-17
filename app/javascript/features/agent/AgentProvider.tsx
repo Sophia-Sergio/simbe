@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 // Relative imports on purpose: `feature.ts` loads this module eagerly and is resolved by
 // `app/javascript/app/registry.test.ts` through a Vite server that has no `@` alias (see the comment
 // in `features/next-actions/feature.ts`). The `@` alias is used everywhere else.
@@ -50,6 +51,12 @@ function errorMessage(caught: unknown): string {
   return "Something went wrong. Try again."
 }
 
+/** `"<agency id>:<user id>"` from the auth cache, or `null` when signed out. */
+type AuthIdentity = { user?: { id?: string }; agency?: { id?: string } }
+function identityOf(me: AuthIdentity | undefined): string | null {
+  return me?.user?.id && me?.agency?.id ? `${me.agency.id}:${me.user.id}` : null
+}
+
 /**
  * Supplies the real `useAgent()` to the Wave-0 `AgentContext` (this lane replaces the no-op) and
  * owns the one conversation: `open(question?)` opens the panel and, when given a question, sends it
@@ -60,15 +67,43 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<AgentTurn[]>([])
   const [error, setError] = useState<string | null>(null)
   const conversationId = useRef<string | undefined>(undefined)
+  // Bumped on every reset so an in-flight reply from the previous session is discarded.
+  const generation = useRef(0)
+  const queryClient = useQueryClient()
   const sendMessage = useSendAgentMessage()
   const sendRef = useRef(sendMessage.mutateAsync)
   useEffect(() => {
     sendRef.current = sendMessage.mutateAsync
   })
 
+  // A sign-out (or a different user/agency) must not leave the previous session's conversation in
+  // memory: drop the thread, the conversation id and any open panel.
+  const reset = useCallback(() => {
+    generation.current += 1
+    conversationId.current = undefined
+    setMessages([])
+    setError(null)
+    setIsOpen(false)
+  }, [])
+
+  useEffect(() => {
+    const identity = { current: identityOf(queryClient.getQueryData<AuthIdentity>(["me"])) }
+    return queryClient.getQueryCache().subscribe((event) => {
+      if ((event.query.queryKey as readonly unknown[])[0] !== "me") return
+      const next = identityOf(queryClient.getQueryData<AuthIdentity>(["me"]))
+      const previous = identity.current
+      if (next === previous) return
+      identity.current = next
+      // Skip the initial null → signed-in transition (nothing to clear yet); reset on sign-out (→
+      // null) and on any switch between two signed-in identities.
+      if (previous !== null || next === null) reset()
+    })
+  }, [queryClient, reset])
+
   const { run: send, pending } = useAsyncAction<[string], boolean>(async (text) => {
     const question = text.trim()
     if (!question) return false
+    const session = generation.current
     setError(null)
     setMessages((prev) => {
       // Retrying the question whose send just failed reuses that bubble (cleared of its marker)
@@ -81,12 +116,14 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     })
     try {
       const reply = await sendRef.current({ conversationId: conversationId.current, text: question })
+      if (generation.current !== session) return false
       conversationId.current = reply.conversation_id
       setMessages((prev) => [...prev, toTurn(reply.message)])
       // Clears a "still answering" hint set while this turn was in flight.
       setError(null)
       return true
     } catch (caught) {
+      if (generation.current !== session) return false
       setMessages((prev) => {
         const last = prev[prev.length - 1]
         if (last?.role === "user" && last.body.text === question) {
