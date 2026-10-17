@@ -34,15 +34,20 @@ module Signup
         unless names.include?(coordinator_name.to_s)
           raise Error.new("unknown_coordinator", "Pick an existing coordinator", valid_names: names)
         end
-        unless email.to_s.strip.match?(URI::MailTo::EMAIL_REGEXP)
+        email = email.to_s.strip
+        unless email.match?(URI::MailTo::EMAIL_REGEXP)
           raise Error.new("invalid_email", "Enter a valid email address")
+        end
+        # An invite to an email that already has an account could never be accepted.
+        if User.exists?(email: email.downcase)
+          raise Error.new("email_taken", "That email already has an account")
         end
 
         raw_token = SecureRandom.urlsafe_base64(32)
         invitation = Invitation.create!(
           agency: agency,
           invited_by: invited_by,
-          email: email.to_s.strip,
+          email: email,
           role: "coordinator",
           coordinator_name: coordinator_name,
           token_digest: digest(raw_token),

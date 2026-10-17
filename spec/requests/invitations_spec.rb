@@ -112,6 +112,15 @@ RSpec.describe "Invitations", type: :request do
     expect(response.parsed_body.dig("error", "code")).to eq("email_taken")
   end
 
+  it "refuses to invite an email that already has an account" do
+    create(:user, agency: agency, email: "existing@alpha.test")
+    sign_in
+
+    expect { invite(email: "existing@alpha.test") }.not_to change(Invitation.unscoped, :count)
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("email_taken")
+  end
+
   it "rejects unknown coordinator names with the valid list" do
     sign_in
     invite(email: "x@alpha.test", coordinator_name: "Nobody")
