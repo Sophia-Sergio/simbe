@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { useState } from "react"
 import type { TaskItem } from "@/api/types"
 import { TaskCard } from "./TaskCard"
 
@@ -57,4 +58,29 @@ it("an open card reads Done and toggles on", async () => {
 it("disables Done while the toggle is in flight", () => {
   render(<TaskCard item={item} queue="text_back_now" onOpen={vi.fn()} onToggle={vi.fn()} pending />)
   expect(screen.getByRole("button", { name: "Done" })).toBeDisabled()
+})
+
+it("a double click fires the toggle once", async () => {
+  const onToggle = vi.fn()
+  // Mimics the page: the first click marks the card pending, so the second click of the double
+  // click must not start a second mutation.
+  function Harness() {
+    const [pending, setPending] = useState(false)
+    return (
+      <TaskCard
+        item={item}
+        queue="nudge_applications"
+        onOpen={vi.fn()}
+        pending={pending}
+        onToggle={(target, done) => {
+          onToggle(target, done)
+          setPending(true)
+        }}
+      />
+    )
+  }
+  render(<Harness />)
+
+  await userEvent.dblClick(screen.getByRole("button", { name: "Done" }))
+  expect(onToggle).toHaveBeenCalledTimes(1)
 })
