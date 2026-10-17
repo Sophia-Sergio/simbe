@@ -63,6 +63,19 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
             ? "empty"
             : "pending"
 
+  // One polite announcement for every phase, so a screen reader hears "Searching…", the result
+  // count, or "No matches" without the visual list being readable.
+  const announcement =
+    phase === "idle"
+      ? "Type at least two characters to search."
+      : phase === "pending"
+        ? "Searching…"
+        : phase === "error"
+          ? "Search failed"
+          : phase === "empty"
+            ? "No matches"
+            : `${leads.length} ${leads.length === 1 ? "result" : "results"}`
+
   // Results shrink as the query narrows. Deriving the row keeps the highlight valid without an
   // effect: a stale index is clamped instead of triggering a second render.
   const active = phase === "results" && leads.length > 0 ? Math.min(activeIndex, leads.length - 1) : -1
@@ -167,8 +180,14 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
       ) : (
-        <EmptyState className="border-0 bg-transparent py-6" title="No matches" body="Try a first or last name, or an email." />
+        <div data-testid="search-empty">
+          <EmptyState className="border-0 bg-transparent py-6" title="No matches" body="Try a first or last name, or an email." />
+        </div>
       )}
+
+      <p role="status" aria-live="polite" data-testid="search-status" className="sr-only">
+        {announcement}
+      </p>
 
       <p className="px-1 text-[11px] text-ink-faint">↑ ↓ to navigate · Enter to open · Esc to close</p>
     </div>

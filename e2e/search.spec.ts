@@ -60,7 +60,7 @@ test("treats % as a literal and closes on Escape", async ({ page }) => {
   // Appending "%" makes a two-character literal query: if % were a wildcard, "l4%" would match;
   // as a literal it matches nothing, so the palette shows its empty state.
   await input.type("%")
-  await expect(palette.getByText("No matches")).toBeVisible()
+  await expect(palette.getByTestId("search-empty")).toContainText("No matches")
 
   await page.keyboard.press("Escape")
   await expect(palette).toBeHidden()

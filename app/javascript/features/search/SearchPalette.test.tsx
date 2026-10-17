@@ -88,7 +88,7 @@ it("shows No matches for an empty result and treats % literally", async () => {
   // `l%` is two characters, so the search runs. If `%` were a wildcard like in SQL, `l%` would
   // match every "L…" name; as a literal it matches nothing, so the palette shows the empty state.
   await user.type(input, "l%")
-  expect(await screen.findByText("No matches")).toBeInTheDocument()
+  expect(await screen.findByTestId("search-empty")).toHaveTextContent("No matches")
   expect(screen.queryAllByRole("option")).toHaveLength(0)
 })
 
@@ -181,4 +181,26 @@ it("shows the error state for a network failure too", async () => {
   await user.type(input, "l4")
   expect(await screen.findByRole("alert")).toBeInTheDocument()
   expect(screen.queryByTestId("skeleton")).toBeNull()
+})
+
+it("keeps aria-expanded in sync and announces the results in a live region", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  // No listbox on screen yet.
+  expect(input).toHaveAttribute("aria-expanded", "false")
+  expect(screen.getByTestId("search-status")).toHaveTextContent("Type at least two characters")
+
+  await user.type(input, "l4")
+  await screen.findByRole("option", { name: /L4 Alpha/ })
+  expect(input).toHaveAttribute("aria-expanded", "true")
+  expect(screen.getByTestId("search-status")).toHaveAttribute("role", "status")
+  expect(screen.getByTestId("search-status")).toHaveTextContent("1 result")
+
+  // A new keystroke is pending, then settles with no rows.
+  fireEvent.change(input, { target: { value: "l%" } })
+  expect(screen.getByTestId("search-status")).toHaveTextContent("Searching")
+  expect(await screen.findByTestId("search-empty")).toHaveTextContent("No matches")
+  expect(screen.getByTestId("search-status")).toHaveTextContent("No matches")
+  expect(input).toHaveAttribute("aria-expanded", "false")
 })
