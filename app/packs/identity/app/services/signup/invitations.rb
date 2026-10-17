@@ -100,6 +100,10 @@ module Signup
         end
 
         raise Error.new("invalid_invitation", e.record.errors.full_messages.to_sentence)
+      rescue ActiveRecord::RecordNotUnique
+        # A concurrent accept (or a signup racing it) hits the users.email unique index
+        # instead of a validation error; it is the same outcome as a taken email.
+        raise Error.new("email_taken", "That email already has an account")
       end
 
       def accept_url(raw_token)

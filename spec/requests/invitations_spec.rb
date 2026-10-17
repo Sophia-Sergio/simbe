@@ -95,6 +95,23 @@ RSpec.describe "Invitations", type: :request do
     end
   end
 
+  it "maps a unique violation while accepting to email_taken instead of a 500" do
+    sign_in
+    invite
+    token = response.parsed_body["accept_url"].split("/").last
+    delete "/api/v1/session", headers: headers
+
+    # A concurrent accept, or a signup with the same email racing the accept, raises the
+    # database unique violation rather than a validation error.
+    allow(User).to receive(:create!).and_raise(ActiveRecord::RecordNotUnique.new("duplicate key"))
+
+    post "/api/v1/invitations/#{token}/accept",
+         params: { name: "Maya Chen", password: "long-enough-pass" }, headers: headers, as: :json
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("email_taken")
+  end
+
   it "rejects unknown coordinator names with the valid list" do
     sign_in
     invite(email: "x@alpha.test", coordinator_name: "Nobody")
