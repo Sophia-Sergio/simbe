@@ -53,6 +53,14 @@ RSpec.describe "real exports: next actions and coordinator stats vs golden.json"
 
         expect(total).to eq(owner_total)
       end
+
+      # The Done-when's headline numbers, asserted explicitly (Harbor only).
+      if slug == "harbor"
+        it "gives Dana Ortiz 2,252 leads, 63.8% of the agency and 19 overdue" do
+          dana = Leads::CoordinatorStats.call(agency: agency).find { _1[:name] == "Dana Ortiz" }
+          expect(dana).to include(leads: 2252, share_pct: 63.8, overdue: 19)
+        end
+      end
     end
   end
 end

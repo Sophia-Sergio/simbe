@@ -90,6 +90,36 @@ RSpec.describe "Next actions API", type: :request do
     expect(response).to have_http_status(:not_found)
   end
 
+  it "404s deleting another coordinator's completion" do
+    sign_in(dana)
+    lead = Lead.unscoped.find_by!(first_name: "L7") # Priya's
+
+    delete "/api/v1/next_actions/#{lead.external_id}/text_back_now/completion", headers: headers
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "404s a completion for a lead in another agency" do
+    other = create(:agency, slug: "beta")
+    Current.agency = other
+    AlphaScenario.load!(other, :other_leads)
+    foreign = Lead.unscoped.where(agency_id: other.id).find_by!(first_name: "L7")
+    Current.reset
+
+    sign_in(owner)
+    post "/api/v1/next_actions/#{foreign.external_id}/text_back_now/completion", headers: headers
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "returns empty queues when the owner filters by an unknown coordinator" do
+    sign_in(owner)
+    get "/api/v1/next_actions", params: { coordinator: "Nobody" }
+
+    body = response.parsed_body
+    expect(body["progress"]).to eq("done" => 0, "total" => 0)
+    expect(body["queues"].map { _1["count"] }).to eq([ 0, 0, 0, 0 ])
+    expect(body["queues"].flat_map { _1["items"] }).to eq([])
+  end
+
   it "422s an unknown queue" do
     sign_in(owner)
     # The queue comes from the QueueKey enum on a real client; this deliberately probes a value
@@ -104,6 +134,17 @@ RSpec.describe "Next actions API", type: :request do
 
   it "requires a session" do
     get "/api/v1/next_actions"
+    expect(response).to have_http_status(:unauthorized)
+  end
+
+  it "requires a session for the completion toggles" do
+    lead = Lead.unscoped.find_by!(first_name: "L7")
+    path = "/api/v1/next_actions/#{lead.external_id}/text_back_now/completion"
+
+    post path, headers: headers
+    expect(response).to have_http_status(:unauthorized)
+
+    delete path, headers: headers
     expect(response).to have_http_status(:unauthorized)
   end
 end

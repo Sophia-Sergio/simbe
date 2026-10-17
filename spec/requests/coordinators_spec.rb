@@ -63,4 +63,12 @@ RSpec.describe "Coordinators API", type: :request do
     get "/api/v1/coordinators/Nobody"
     expect(response).to have_http_status(:not_found)
   end
+
+  it "requires a session on both routes" do
+    get "/api/v1/coordinators"
+    expect(response).to have_http_status(:unauthorized)
+
+    get "/api/v1/coordinators/Dana%20Ortiz"
+    expect(response).to have_http_status(:unauthorized)
+  end
 end
