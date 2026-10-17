@@ -90,15 +90,37 @@ RSpec.describe "Metrics API", type: :request do
     expect(response).to have_http_status(:unauthorized)
   end
 
-  it "never counts another agency's loaded snapshot" do
-    other = create(:agency, slug: "beta")
-    Current.agency = other
-    AlphaScenario.load!(other, :v2) # 12 leads, so a leak would show up as 22
-    Current.reset
+  describe "agency isolation (no endpoint may count another agency's loaded snapshot)" do
+    before do
+      other = create(:agency, slug: "beta")
+      Current.agency = other
+      AlphaScenario.load!(other, :v2) # 12 leads, so a leak would show up as 22
+      Current.reset
+      sign_in(owner)
+    end
 
-    sign_in(owner)
-    get "/api/v1/metrics/channels", params: { range: "30d" }
-    expect(response.parsed_body["rows"].sum { _1["leads"] }).to eq(10)
-    expect(response.parsed_body.dig("insights", "unattributed", "count")).to eq(1)
+    it "keeps the summary to agency A" do
+      get "/api/v1/metrics/summary", params: { range: "30d" }
+      expect(response.parsed_body.dig("kpis", "leads", "value")).to eq(10)
+      expect(response.parsed_body.dig("kpis", "qualified", "value")).to eq(3)
+    end
+
+    it "keeps the funnel to agency A" do
+      get "/api/v1/metrics/funnel", params: { range: "30d" }
+      expect(response.parsed_body["total"]).to eq(10)
+      expect(response.parsed_body["stages"].map { _1["count"] }).to eq([ 10, 5, 4, 3, 2, 1 ])
+    end
+
+    it "keeps the channels table to agency A" do
+      get "/api/v1/metrics/channels", params: { range: "30d" }
+      expect(response.parsed_body["rows"].sum { _1["leads"] }).to eq(10)
+      expect(response.parsed_body.dig("insights", "unattributed", "count")).to eq(1)
+    end
+
+    it "keeps recommendations to agency A" do
+      get "/api/v1/recommendations", params: { range: "30d" }
+      expect(response.parsed_body.map { _1["id"] }).to eq(%w[funnel_leak no_shows])
+      expect(response.parsed_body.first["impact"]).to eq("5 leads stalled")
+    end
   end
 end
