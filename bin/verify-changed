@@ -8,7 +8,7 @@ export PATH="$HOME/.nvm/versions/node/v22.17.1/bin:$PATH"
 
 bin/affected-specs
 echo
-bin/lane check
+if [[ "$(git branch --show-current)" == lane/* ]]; then bin/lane check; else echo "(not a lane branch: ownership check skipped)"; fi
 bin/guard-no-health-data
 
 mapfile_compat() { while IFS= read -r line; do [ -n "$line" ] && printf '%s\n' "$line"; done; }
