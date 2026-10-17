@@ -204,3 +204,31 @@ it("keeps aria-expanded in sync and announces the results in a live region", asy
   expect(screen.getByTestId("search-status")).toHaveTextContent("No matches")
   expect(input).toHaveAttribute("aria-expanded", "false")
 })
+
+it("wraps the active option around with ArrowDown and ArrowUp", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  await user.type(input, "alpha")
+  const options = await screen.findAllByRole("option")
+
+  expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+  fireEvent.keyDown(input, { key: "ArrowUp" }) // from the first row, wraps to the last
+  expect(input).toHaveAttribute("aria-activedescendant", options[options.length - 1].id)
+  fireEvent.keyDown(input, { key: "ArrowDown" }) // from the last row, wraps to the first
+  expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+})
+
+it("leaves Home and End to the caret instead of moving the active option", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  await user.type(input, "alpha")
+  await screen.findAllByRole("option")
+  fireEvent.keyDown(input, { key: "ArrowDown" })
+  const active = input.getAttribute("aria-activedescendant")
+
+  fireEvent.keyDown(input, { key: "Home" })
+  fireEvent.keyDown(input, { key: "End" })
+  expect(input).toHaveAttribute("aria-activedescendant", active)
+})
