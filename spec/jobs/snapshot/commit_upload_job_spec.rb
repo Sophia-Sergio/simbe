@@ -37,14 +37,15 @@ RSpec.describe Snapshot::CommitUploadJob do
     expect(Current.agency).to be_nil
   end
 
-  it "reports a concurrent load as already_in_progress" do
+  it "does not touch the upload's status when it loses the advisory lock" do
     upload = upload_for
     allow(Snapshot::Importer).to receive(:call).and_raise(Snapshot::Importer::InProgress)
 
     described_class.perform_now(upload)
 
-    expect(upload.reload.error["code"]).to eq("already_in_progress")
-    expect(upload.status).to eq("failed")
+    upload.reload
+    expect(upload.status).to eq("committing") # another job for this agency owns it
+    expect(upload.error).to be_nil
   end
 
   it "does nothing for an upload that is no longer committing" do

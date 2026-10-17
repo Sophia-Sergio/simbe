@@ -30,15 +30,26 @@ module Api
       end
 
       # POST /api/v1/snapshot_uploads/:id/commit → 202 committing, 409, or 422 with the report.
+      # The validated → committing claim is atomic (row lock + status check), so two concurrent
+      # POSTs can never both enqueue a job.
       def commit
-        return render json: SnapshotUploadSerializer.call(upload), status: :accepted if upload.status == "committed"
-        return render_error("already_in_progress", "A load is already running", :conflict) if upload.status == "committing"
-        return render_error("not_validated", "Validation has not finished", :conflict) if upload.status == "validating"
-        return render_error("not_validated", "This upload can no longer be committed", :conflict) if expired?(upload)
+        upload.with_lock do
+          case upload.status
+          when "committed"
+            return render json: SnapshotUploadSerializer.call(upload), status: :accepted
+          when "committing"
+            return render_error("already_in_progress", "A load is already running", :conflict)
+          when "validating"
+            return render_error("not_validated", "Validation has not finished", :conflict)
+          when "cancelled", "expired"
+            return render_error("not_validated", "This upload can no longer be committed", :conflict)
+          end
 
-        return render_invalid(upload) unless upload.report&.dig("ok") == true
+          return render_invalid(upload) unless upload.report&.dig("ok") == true
 
-        upload.update!(status: "committing", progress: { phase: "importing", pct: 0 }, started_at: Time.current)
+          upload.update!(status: "committing", progress: { phase: "importing", pct: 0 }, started_at: Time.current)
+        end
+
         Snapshot::CommitUploadJob.perform_later(upload)
         render json: SnapshotUploadSerializer.call(upload), status: :accepted
       rescue ActiveRecord::RecordNotUnique
@@ -90,10 +101,6 @@ module Api
           error: { code: "invalid_snapshot", message: "The upload has validation errors" },
           report: upload.report
         }, status: 422
-      end
-
-      def expired?(upload)
-        %w[cancelled expired].include?(upload.status)
       end
 
       # A running commit job notices the flag between batches and aborts.

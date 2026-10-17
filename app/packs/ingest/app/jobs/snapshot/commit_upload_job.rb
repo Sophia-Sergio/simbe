@@ -24,7 +24,8 @@ class Snapshot::CommitUploadJob < ApplicationJob
     # The cancel action already set the status and removed the files.
     upload.update_column(:progress, nil)
   rescue Snapshot::Importer::InProgress
-    finish_with_error(upload, "already_in_progress", "A load is already running for this agency")
+    # Another load for this agency owns the upload; never overwrite its status.
+    Rails.logger.warn("snapshot commit skipped for upload #{upload.id}: another load is running")
   rescue Snapshot::Importer::Invalid
     finish_with_error(upload, "invalid_snapshot", "The upload has validation errors")
   rescue StandardError => e

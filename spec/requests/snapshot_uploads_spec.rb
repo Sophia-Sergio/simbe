@@ -179,6 +179,21 @@ RSpec.describe "Snapshot uploads", type: :request do
     expect(response).to have_http_status(:not_found)
   end
 
+  it "claims a commit atomically: the second POST is 409 and enqueues nothing" do
+    sign_in(owner)
+    id = create_upload
+
+    expect { post "/api/v1/snapshot_uploads/#{id}/commit", headers: headers }
+      .to have_enqueued_job(Snapshot::CommitUploadJob).exactly(:once)
+    expect(response).to have_http_status(:accepted)
+
+    expect { post "/api/v1/snapshot_uploads/#{id}/commit", headers: headers }
+      .not_to have_enqueued_job(Snapshot::CommitUploadJob)
+    expect(response).to have_http_status(:conflict)
+    expect(response.parsed_body.dig("error", "code")).to eq("already_in_progress")
+    expect(SnapshotUpload.find(id).status).to eq("committing") # never failed
+  end
+
   # --- create is robust: a failed store must not leave the agency blocked -------------------
   # The contract does not declare 422/500 for create (see the lane summary's CCR list), so these
   # two examples ignore unknown response statuses; conformance stays on for every declared status.
