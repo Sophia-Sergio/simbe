@@ -196,6 +196,20 @@ it("rolls the done state back and toasts when saving fails", async () => {
   expect(screen.getByTestId("mark-done")).toHaveAttribute("data-done", "false")
 })
 
+it("names the dialog after the lead so screen readers can announce it", async () => {
+  renderWithProviders(<LeadPanel />, { route: route() })
+
+  expect(await screen.findByRole("dialog", { name: "L4 Alpha" })).toBeInTheDocument()
+})
+
+it("renames the dialog when Prev/Next moves to another lead", async () => {
+  renderWithProviders(<PanelHarness ids={[L4, L3]} />, { route: route() })
+
+  await screen.findByRole("dialog", { name: "L4 Alpha" })
+  await userEvent.click(screen.getByRole("button", { name: "Next lead" }))
+  expect(await screen.findByRole("dialog", { name: "L3 Alpha" })).toBeInTheDocument()
+})
+
 it("is a full-screen sheet with icon-only controls on mobile", async () => {
   renderWithProviders(<LeadPanel />, { viewport: 390, route: route() })
 

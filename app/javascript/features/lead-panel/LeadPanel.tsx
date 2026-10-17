@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import {
   CalendarCheck,
   CalendarDays,
@@ -129,13 +129,25 @@ function PanelHeader({
   onClose: () => void
 }) {
   const isDesktop = useIsDesktop()
+  const nameId = useId()
+  const ref = useRef<HTMLDivElement>(null)
+
+  // `Sheet` only sets `aria-labelledby` when it renders its own `title`, and it takes no aria-* prop, so a
+  // custom header leaves `role="dialog"` unnamed. Label the dialog with the visible lead name instead.
+  useEffect(() => {
+    const dialog = ref.current?.closest('[role="dialog"]')
+    if (!dialog) return
+    dialog.setAttribute("aria-labelledby", nameId)
+    return () => dialog.removeAttribute("aria-labelledby")
+  }, [nameId])
+
   const navButton =
     "inline-flex h-8 items-center gap-1 rounded-full px-3 text-[13px] font-medium text-ink-secondary transition-colors hover:bg-subtle disabled:pointer-events-none disabled:opacity-40"
 
   return (
-    <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4">
+    <div ref={ref} className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4">
       <div className="min-w-0">
-        <h2 className="truncate font-display text-[17px] font-semibold text-ink">{detail?.name ?? "Lead"}</h2>
+        <h2 id={nameId} className="truncate font-display text-[17px] font-semibold text-ink">{detail?.name ?? "Lead"}</h2>
         {detail ? (
           <>
             <p className="mt-0.5 flex items-center gap-1 text-[12px] text-ink-muted">
