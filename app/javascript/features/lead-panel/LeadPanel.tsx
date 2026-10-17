@@ -389,8 +389,8 @@ function TopGrid({ detail }: { detail: LeadDetail }) {
   const { contact, screener, consult } = detail
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="flex flex-col gap-2">
+    <div data-testid="top-grid" className="grid gap-4 md:grid-cols-3">
+      <div data-testid="top-grid-cell" className="flex min-w-0 flex-col gap-2">
         <ul className="flex flex-col gap-1.5 text-[13px] text-ink-secondary">
           <li className="flex items-center gap-2">
             <MapPin aria-hidden className="h-4 w-4 shrink-0 text-ink-faint" />
@@ -398,7 +398,8 @@ function TopGrid({ detail }: { detail: LeadDetail }) {
           </li>
           <li className="flex items-center gap-2">
             <Mail aria-hidden className="h-4 w-4 shrink-0 text-ink-faint" />
-            <span className="truncate">{contact.email ?? "—"}</span>
+            {/* `min-w-0` (not just `truncate`) is what lets a long address shrink inside the flex row. */}
+            <span className="min-w-0 truncate">{contact.email ?? "—"}</span>
           </li>
           <li className="flex items-center gap-2">
             <Phone aria-hidden className="h-4 w-4 shrink-0 text-ink-faint" />
@@ -414,13 +415,15 @@ function TopGrid({ detail }: { detail: LeadDetail }) {
           {contact.campaign ? <span className="text-[12px] text-ink-muted">· {contact.campaign}</span> : null}
         </div>
       </div>
-      <Ring
-        met={screener.counts.met}
-        review={screener.counts.review}
-        notMet={screener.counts.not_met}
-        unanswered={screener.counts.unanswered}
-      />
-      <div className="flex flex-col items-start gap-2">
+      <div data-testid="top-grid-cell" className="min-w-0">
+        <Ring
+          met={screener.counts.met}
+          review={screener.counts.review}
+          notMet={screener.counts.not_met}
+          unanswered={screener.counts.unanswered}
+        />
+      </div>
+      <div data-testid="top-grid-cell" className="flex min-w-0 flex-col items-start gap-2">
         <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
           <CalendarCheck aria-hidden className="h-4 w-4 shrink-0 text-ink-faint" />
           {consultLabel(consult)}

@@ -82,3 +82,47 @@ test("coordinator: another coordinator's lead is not available", async ({ page }
   await expect(panel.getByText("This lead isn't available")).toBeVisible()
   await expect(panel.getByText("L7 Alpha")).toHaveCount(0)
 })
+
+test("mobile: a long email cannot widen the sheet", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mock-mobile", "390px layout only")
+  await signIn(page, OWNER)
+  await page.goto(`/?lead=${L4}`)
+
+  const panel = page.getByRole("dialog")
+  await expect(panel).toBeVisible()
+  await expect(panel).toHaveCSS("opacity", "1")
+
+  // Nothing inside the sheet may overflow sideways at 390px. An element that clips its own overflow
+  // (`overflow-x: hidden`, i.e. a deliberate `truncate`) is skipped: clipping is the fix, not the bug.
+  const worstOverflow = () =>
+    panel.evaluate((el) => {
+      const nodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))].filter(
+        (node) => node.clientWidth > 0 && getComputedStyle(node).overflowX !== "hidden",
+      )
+      return nodes
+        .map((node) => ({
+          tag: node.tagName.toLowerCase(),
+          cls: node.className.toString().slice(0, 60),
+          overflow: node.scrollWidth - node.clientWidth,
+        }))
+        .reduce((worst, node) => (node.overflow > worst.overflow ? node : worst), { tag: "", cls: "", overflow: 0 })
+    })
+  const withinPanel = async () => {
+    const worst = await worstOverflow()
+    expect(worst.overflow, `overflowing element: <${worst.tag} class="${worst.cls}">`).toBeLessThanOrEqual(0)
+  }
+
+  await withinPanel()
+
+  // Stress the grid columns with an address longer than any fixture carries (the DOM swap is the only way
+  // to reach this shape from the read-only contract fixtures; the assertion is still a real layout check).
+  const longEmail = "averyveryverylongaddress.thatcannotwrap@an-extremely-long-domain-name.example.com"
+  await panel.getByText("l4.alpha@example.com").evaluate((el, text) => {
+    el.textContent = text as string
+  }, longEmail)
+
+  await withinPanel()
+  const emailRight = await panel.getByText(longEmail).evaluate((el) => el.getBoundingClientRect().right)
+  const panelRight = await panel.evaluate((el) => el.getBoundingClientRect().right)
+  expect(emailRight).toBeLessThanOrEqual(panelRight)
+})

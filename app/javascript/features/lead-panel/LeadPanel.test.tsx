@@ -2,6 +2,7 @@ import { HttpResponse } from "msw"
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
+import detailOwner from "@contracts/examples/leads/detail-owner.json"
 import { useLeadPanel } from "@/app/leadPanel"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
@@ -217,4 +218,25 @@ it("is a full-screen sheet with icon-only controls on mobile", async () => {
   expect(screen.getByRole("dialog")).toHaveAttribute("data-variant", "full")
   expect(screen.getByRole("button", { name: "Previous lead" }).textContent).toBe("")
   expect(screen.getByRole("button", { name: "Close lead panel" })).toHaveClass("h-8")
+})
+
+// jsdom has no layout, so this pins the classes that keep a long value inside its column; the real
+// `scrollWidth <= clientWidth` check at 390px runs in e2e (lead-panel.spec.ts).
+it("keeps long contact values inside their grid column", async () => {
+  mockApi({
+    [`GET /api/v1/leads/${L4}`]: () =>
+      HttpResponse.json({
+        ...detailOwner,
+        contact: { ...detailOwner.contact, email: "averyveryverylongaddress.thatcannotwrap@an-extremely-long-domain-name.example.com" },
+      }),
+  })
+  renderWithProviders(<LeadPanel />, { route: route() })
+
+  const cells = within(await screen.findByTestId("top-grid")).getAllByTestId("top-grid-cell")
+  expect(cells).toHaveLength(3)
+  for (const cell of cells) expect(cell).toHaveClass("min-w-0")
+
+  expect(
+    screen.getByText("averyveryverylongaddress.thatcannotwrap@an-extremely-long-domain-name.example.com"),
+  ).toHaveClass("truncate", "min-w-0")
 })
