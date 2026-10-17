@@ -95,7 +95,7 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div role="log" aria-live="polite" aria-relevant="additions" className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div className="flex flex-col gap-3">
             <div>
@@ -113,7 +113,9 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
               <MessageBubble key={`${turn.id}-${index}`} turn={turn} />
             ))}
             {pending && (
-              <p className="animate-pulse text-[13px] text-ink-muted motion-reduce:animate-none">Reading your data…</p>
+              <p role="status" className="animate-pulse text-[13px] text-ink-muted motion-reduce:animate-none">
+                Reading your data…
+              </p>
             )}
             {followUps.length > 0 && <SuggestionChips suggestions={followUps} onSelect={send} />}
           </div>

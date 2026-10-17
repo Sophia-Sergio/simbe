@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import answerFixture from "@contracts/examples/agent/answer.json"
 import { useAgent } from "@/app/agent"
@@ -58,6 +58,22 @@ it("opens from the FAB with the empty state, four owner chips and a chart answer
   await userEvent.click(screen.getByRole("button", { name: OWNER_CHIPS[0] }))
   expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
   expect(screen.getByRole("img", { name: /Cost per qualified lead/ })).toBeInTheDocument()
+})
+
+it("exposes the conversation as a polite live log and the pending line as a status", async () => {
+  let release!: (response: Response) => void
+  mockApi({ "POST /api/v1/agent/messages": () => new Promise<Response>((resolve) => (release = resolve)) })
+  mount()
+  await openFab()
+
+  const log = await screen.findByRole("log")
+  expect(log).toHaveAttribute("aria-live", "polite")
+
+  await userEvent.click(screen.getByRole("button", { name: OWNER_CHIPS[0] }))
+  expect(within(log).getByRole("status")).toHaveTextContent("Reading your data…")
+
+  release(Response.json(answerFixture, { status: 201 }))
+  expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
 })
 
 it("shows the pulsing pending line and disables the composer while the answer is in flight", async () => {
