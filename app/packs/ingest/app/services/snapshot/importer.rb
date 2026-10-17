@@ -100,7 +100,12 @@ class Snapshot
 
     # Transaction-scoped advisory lock: released when the import transaction ends.
     def self.try_lock(agency)
-      connection.select_value("SELECT pg_try_advisory_xact_lock(#{lock_key(agency)})")
+      connection.select_value("SELECT pg_try_advisory_xact_lock($1)", "Snapshot::Importer Lock",
+                              [ bind("key", lock_key(agency)) ])
+    end
+
+    def self.bind(name, value)
+      ActiveRecord::Relation::QueryAttribute.new(name, value, ActiveRecord::Type::BigInteger.new)
     end
 
     def self.replace!(agency, rows, progress: nil, cancel: nil)
