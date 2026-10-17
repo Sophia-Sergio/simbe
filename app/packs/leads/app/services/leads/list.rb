@@ -1,0 +1,129 @@
+# The lead list and ⌘K search (spec 2008 decisions 5 and 10): role-scoped, filtered by status,
+# keyset-paged by (lead_created_at desc, id) and searched by a literal, wildcard-escaped
+# name/email contains. Membership + the next-action queue come from the shared
+# `Leads::Queues::SQL_CTE`; the page is then hydrated with the lead's card data.
+#
+# A `q` search shares the list's `status` filter and so defaults to `open` ("scoped like the
+# list", spec decision 10) — the ⌘K palette finds open leads unless it passes `status=all`.
+module Leads
+  module List
+    DEFAULT_PER = 50
+    MAX_PER = 50
+    SEARCH_LIMIT = 8
+
+    # Status filter -> SQL over the `queued` CTE's `q`. An unknown value falls back to "open":
+    # the contract documents this enum but declares no 4xx for an invalid value, and nothing
+    # validates requests at runtime, so returning 200 is the pinned behaviour. A 422 here would
+    # need a contract change (CCR) first.
+    STATUSES = {
+      "open" => "q.outcome = 'open'",
+      "paused" => "q.outcome = 'paused'",
+      "accepted" => "q.outcome = 'accepted'",
+      "closed" => "q.outcome IN ('not_eligible', 'withdrew', 'unresponsive')",
+      "all" => "true"
+    }.freeze
+
+    # `{{status}}` is replaced (from STATUSES, never from user input) before the binds are
+    # quoted, so the status filter cannot inject SQL.
+    SQL = <<~SQL.freeze
+      #{Leads::Queues::SQL_CTE}
+      SELECT q.id, q.queue, q.lead_created_at
+      FROM queued q
+      JOIN leads l ON l.id = q.id
+      WHERE ({{status}})
+        AND (:q::text IS NULL OR l.first_name ILIKE :q OR l.last_name ILIKE :q OR l.email ILIKE :q)
+        AND (:cursor_at::timestamptz IS NULL OR (q.lead_created_at, q.id) < (:cursor_at::timestamptz, :cursor_id::uuid))
+      ORDER BY q.lead_created_at DESC, q.id DESC
+      LIMIT :limit
+    SQL
+
+    # -> { leads: [LeadCard], next_cursor: }. `coordinator` filters for owners only. Every
+    # filter goes through `param`: a malformed query (`q[]=x`, `q[a]=b`) must never raise.
+    def self.call(user:, status: nil, coordinator: nil, q: nil, cursor: nil, per: nil)
+      status = param(status) || "open"
+      coordinator = user.owner? ? param(coordinator) : user.coordinator_name
+      search = param(q)
+      cursor = param(cursor)
+      limit = search && cursor.blank? ? SEARCH_LIMIT : normalize_per(param(per))
+
+      rows = query(coordinator: coordinator, status: status, q: search, cursor: cursor, limit: limit)
+      leads = load_leads(rows)
+      { leads: cards(rows, leads), next_cursor: next_cursor(search, rows, leads, limit) }
+    end
+
+    # A query param arrives as an Array (`q[]=x`) or a nested Hash (`q[a]=b`) just as easily as
+    # a String; only a real String is a filter (and `per` also accepts an Integer from direct
+    # callers). Anything else is treated as absent — the contract declares no 4xx for a
+    # malformed query, so a bad param must not turn into a 500.
+    def self.param(value)
+      case value
+      when String then value.presence
+      when Integer then value
+      end
+    end
+
+    def self.cards(rows, leads)
+      rows.filter_map do |row|
+        lead = leads[row["id"]]
+        LeadCardSerializer.call(lead: lead, queue: row["queue"]) if lead
+      end
+    end
+
+    def self.next_cursor(search, rows, leads, limit)
+      return nil if search
+
+      last = leads[rows.last["id"]] if rows.size == limit && rows.any?
+      last && "#{last.lead_created_at.utc.iso8601(6)}|#{last.id}"
+    end
+
+    def self.query(coordinator:, status:, q:, cursor:, limit:)
+      agency = Current.agency
+      as_of = Leads::Queues.latest_as_of(agency)
+      return [] if as_of.nil?
+
+      cursor_at, cursor_id = decode_cursor(cursor)
+      binds = {
+        agency_id: agency.id,
+        as_of: as_of,
+        as_of_date: as_of.in_time_zone(agency.timezone).to_date,
+        coordinator: coordinator,
+        q: q && "%#{ActiveRecord::Base.sanitize_sql_like(q)}%",
+        cursor_at: cursor_at,
+        cursor_id: cursor_id,
+        limit: limit
+      }
+      statement = SQL.sub("{{status}}", STATUSES.fetch(status, STATUSES.fetch("open")))
+      ActiveRecord::Base.connection.select_all(
+        ActiveRecord::Base.sanitize_sql_array([ statement, binds ]), "Leads::List"
+      ).to_a
+    end
+
+    def self.load_leads(rows)
+      ids = rows.map { |row| row["id"] }
+      return {} if ids.empty?
+
+      Lead.where(id: ids).includes(:lead_fact, :screener_answers).index_by(&:id)
+    end
+
+    def self.normalize_per(per)
+      value = per.to_i
+      value.positive? ? [ value, MAX_PER ].min : DEFAULT_PER
+    end
+
+    # A cursor is `"<iso8601>|<lead uuid>"`; anything else (a bad timestamp, an id that is not
+    # a uuid) is treated as absent, so a hand-edited cursor can never reach the `::uuid` cast
+    # in the page query.
+    UUID = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+
+    def self.decode_cursor(cursor)
+      return [ nil, nil ] unless cursor.is_a?(String) && cursor.present?
+
+      at, id = cursor.split("|", 2)
+      return [ nil, nil ] if at.blank? || !UUID.match?(id.to_s)
+
+      [ Time.iso8601(at).utc, id ]
+    rescue ArgumentError
+      [ nil, nil ]
+    end
+  end
+end
