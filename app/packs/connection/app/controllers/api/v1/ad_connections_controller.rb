@@ -21,13 +21,10 @@ module Api
         render_error("invalid_platform", "Platform must be meta or google", :unprocessable_entity)
       end
 
+      # Idempotent and within the declared contract (204/403): an unknown platform is simply
+      # nothing to disconnect. The 422 invalid_platform response was undocumented.
       def destroy
-        platform = params[:platform].to_s
-        unless AdConnections::Connect::PLATFORMS.include?(platform)
-          return render_error("invalid_platform", "Platform must be meta or google", :unprocessable_entity)
-        end
-
-        Current.agency.ad_connections.find_by(platform: platform)&.destroy
+        Current.agency.ad_connections.find_by(platform: params[:platform].to_s)&.destroy
         head :no_content
       end
 

@@ -52,7 +52,10 @@ RSpec.describe "Agency", type: :request do
          headers: headers.merge("X-Simbe-Contract-Probe" => "1"), as: :json
 
     expect(response).to have_http_status(:unprocessable_entity)
+    # The 422 contract is the Error envelope only: no extra top-level keys.
+    expect(response.parsed_body.keys).to eq([ "error" ])
     expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to be_present
     expect(agency.reload.qualified_milestone).to eq("consult_attended")
   end
 

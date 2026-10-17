@@ -13,9 +13,9 @@ module Api
         Current.agency.update!(agency_params)
         render json: agency_json
       rescue ActiveRecord::RecordInvalid => e
+        # The 422 contract is the Error envelope only (no extra `errors` key).
         render json: {
-          error: { code: "invalid_agency", message: e.record.errors.full_messages.to_sentence },
-          errors: e.record.errors.to_hash
+          error: { code: "invalid_agency", message: e.record.errors.full_messages.to_sentence }
         }, status: :unprocessable_entity
       end
 

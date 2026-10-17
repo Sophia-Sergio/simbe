@@ -95,6 +95,17 @@ RSpec.describe "Ad connections", type: :request do
     expect(response).to have_http_status(:no_content)
   end
 
+  it "treats an unknown platform on delete as a contract-fitting no-op" do
+    sign_in
+
+    # DELETE only declares 204/403; an unknown platform is simply nothing to disconnect.
+    # The path enum rejects it at the contract layer, so this deliberate probe opts out of
+    # request validation to prove the controller still answers 204 (never an undocumented 422).
+    delete "/api/v1/ad_connections/tiktok", headers: headers.merge("X-Simbe-Contract-Probe" => "1")
+    expect(response).to have_http_status(:no_content)
+    expect(AdConnection.unscoped.where(agency_id: agency.id)).to be_empty
+  end
+
   it "forbids coordinators" do
     sign_in(coordinator)
 
