@@ -4,7 +4,11 @@ import { defineConfig, devices } from "@playwright/test"
 const real = process.env.E2E_API === "real"
 const desktop = { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } }
 const mobile = { ...devices["Pixel 5"], viewport: { width: 390, height: 844 } }
-const mockURL = "http://127.0.0.1:5173"
+// Every worktree gets its own mock dev-server port (5173 + a stable hash of the checkout path), so two lanes running Playwright at the
+// same time never reuse each other's server (and test each other's code). CI and an explicit E2E_MOCK_PORT keep a fixed port.
+const hash = [...process.cwd()].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7)
+const mockPort = Number(process.env.E2E_MOCK_PORT) || (process.env.CI ? 5173 : 5173 + (hash % 400))
+const mockURL = `http://127.0.0.1:${mockPort}`
 
 export default defineConfig({
   testDir: "e2e",
@@ -16,7 +20,7 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   expect: { timeout: process.env.CI ? 10_000 : 5_000 },
   use: { trace: "retain-on-failure" },
-  webServer: real ? undefined : { command: "npm run dev:mock", url: mockURL, reuseExistingServer: true },
+  webServer: real ? undefined : { command: "npm run dev:mock", url: mockURL, reuseExistingServer: true, env: { E2E_MOCK_PORT: String(mockPort) } },
   projects: real
     ? [
         { name: "real-desktop", use: { ...desktop, baseURL: process.env.E2E_BASE_URL } },

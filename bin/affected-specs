@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""Print the specs related to what this branch changed, so a lane can run them after every task instead of the whole suite.
+
+  bin/affected-specs            human-readable
+  bin/affected-specs --rspec    only the RSpec files, one per line
+  bin/affected-specs --vitest   only the changed frontend source/test files (for `vitest related`)
+  bin/affected-specs --full     exit 0 and print FULL when a change is too broad to select specs for (Gemfile, config, db, contracts, Makefile)
+
+Changed = committed on this branch since origin/main, plus uncommitted and untracked files.
+RSpec selection: changed *_spec.rb files, the spec at the conventional path of a changed app file, every spec that mentions the
+changed class, plus the guard specs that protect shared rules (boundaries, isolation, routing, contract, tenant FKs).
+"""
+import os, re, subprocess, sys
+
+ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip() or os.getcwd()
+os.chdir(ROOT)
+
+def sh(*cmd):
+    return subprocess.run(cmd, capture_output=True, text=True).stdout.splitlines()
+
+def changed_files():
+    base = next((b for b in ("origin/main", "main") if subprocess.run(["git", "rev-parse", "--verify", "-q", b], capture_output=True).returncode == 0), "HEAD")
+    files = set(sh("git", "diff", "--name-only", f"{base}...HEAD"))
+    files |= set(sh("git", "diff", "--name-only", "HEAD"))
+    files |= set(sh("git", "ls-files", "--others", "--exclude-standard"))
+    return sorted(f for f in files if os.path.exists(f))
+
+BROAD = re.compile(r"^(Gemfile(\.lock)?|Makefile|config/|db/(migrate|schema)|contracts/|spec/(rails_helper|spec_helper)\.rb|spec/support/|\.github/|Dockerfile)")
+GUARDS = ["spec/packs/boundaries_spec.rb", "spec/isolation", "spec/routing", "spec/support_specs", "spec/requests/spa_spec.rb"]
+
+def camel(s):
+    return "".join(p.capitalize() for p in s.split("_"))
+
+def constant_names(path):
+    """app/packs/leads/app/services/leads/queues.rb -> Leads::Queues (and the bare class name)."""
+    m = re.match(r"app/(?:packs/[^/]+/app/)?(?:models|controllers|services|serializers|jobs|mailers|channels)/(.+)\.rb$", path) or re.match(r"app/(?:packs/[^/]+/)?(.+)\.rb$", path)
+    if not m:
+        return []
+    parts = [camel(p) for p in m.group(1).split("/")]
+    full = "::".join(parts)
+    return [full] + ([parts[-1]] if len(parts) > 1 else [])
+
+def spec_candidates(path):
+    base = re.sub(r"^app/(?:packs/[^/]+/app/)?", "", path)
+    base = re.sub(r"^(models|controllers|services|serializers|jobs|mailers)/", r"\1/", base)
+    stem = base[:-3] if base.endswith(".rb") else base
+    return [f"spec/{stem}_spec.rb", f"spec/requests/{os.path.basename(stem)}_spec.rb", f"spec/requests/{os.path.basename(stem).removesuffix('_controller')}_spec.rb"]
+
+def related_rspec(files):
+    out = set()
+    all_specs = None
+    for f in files:
+        if f.startswith("spec/") and f.endswith("_spec.rb"):
+            out.add(f)
+        elif f.startswith("app/") and f.endswith(".rb"):
+            out.update(c for c in spec_candidates(f) if os.path.exists(c))
+            names = constant_names(f)
+            if names:
+                if all_specs is None:
+                    all_specs = sh("git", "ls-files", "spec", "--others", "--cached", "--exclude-standard")
+                    all_specs = [s for s in all_specs if s.endswith("_spec.rb")]
+                pat = re.compile(r"\b" + re.escape(names[0]) + r"\b")
+                for s in all_specs:
+                    try:
+                        if pat.search(open(s).read()):
+                            out.add(s)
+                    except OSError:
+                        pass
+        elif f.startswith("lib/tasks/") and f.endswith(".rake"):
+            name = os.path.basename(f)[:-5]
+            out.update(s for s in sh("git", "ls-files", "spec") if name in s and s.endswith("_spec.rb"))
+    out.update(g for g in GUARDS if os.path.exists(g))
+    return sorted(out)
+
+def main():
+    files = changed_files()
+    mode = sys.argv[1] if len(sys.argv) > 1 else ""
+    broad = [f for f in files if BROAD.match(f)]
+    ruby_changed = any(f.endswith((".rb", ".rake")) for f in files)
+    js = [f for f in files if re.match(r"^(app/javascript|e2e)/.+\.(ts|tsx|js|jsx)$", f) and not f.startswith("app/javascript/api/generated")]
+    rspec = related_rspec(files) if ruby_changed or any(f.startswith("spec/") for f in files) else []
+    if mode == "--full":
+        print("FULL" if broad else "SELECTIVE")
+        return
+    if mode == "--rspec":
+        print("\n".join(rspec)); return
+    if mode == "--vitest":
+        print("\n".join(f for f in js if f.startswith("app/javascript/"))); return
+    print(f"changed files: {len(files)}")
+    if broad:
+        print("broad change (run the full suite once, at the end): " + ", ".join(broad[:6]))
+    print(f"rspec ({len(rspec)}):\n  " + "\n  ".join(rspec) if rspec else "rspec: none")
+    print(f"frontend files ({len(js)}):\n  " + "\n  ".join(js) if js else "frontend: none")
+
+main()

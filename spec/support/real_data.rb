@@ -39,9 +39,15 @@ end
 # Skip :real_data specs (and say so visibly) when the exports are not on this machine.
 if defined?(RSpec) && RSpec.respond_to?(:configure)
   RSpec.configure do |config|
-    unless RealData.available?
+    explicit = ENV["REAL_DATA"] == "1" || ARGV.any? { |arg| arg.include?("real_data") }
+    if !RealData.available?
       config.filter_run_excluding :real_data
       puts "real_data specs skipped: exports not found"
+    elsif !explicit
+      # The exports are on this machine, but loading ~625k rows per example makes every lane's full run take tens of minutes.
+      # Related specs run by default; the golden oracles run when asked (REAL_DATA=1, or a spec/real_data path / --tag real_data).
+      config.filter_run_excluding :real_data
+      puts "real_data specs skipped: set REAL_DATA=1 or run a spec/real_data path to include them"
     end
   end
 end
