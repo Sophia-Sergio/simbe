@@ -58,6 +58,17 @@ RSpec.describe Leads::List do
     expect(described_class.call(user: owner, cursor: "2026-99-99T00:00:00Z|aaaaaaaa-0000-4000-8000-000000000007")).to eq(first_page)
   end
 
+  it "treats non-scalar filter values as absent" do
+    open_names = names
+    expect(names(described_class.call(user: owner, q: [ "l4" ]))).to eq(open_names)
+    expect(names(described_class.call(user: owner, q: { "a" => "b" }))).to eq(open_names)
+    expect(names(described_class.call(user: owner, status: [ "closed" ]))).to eq(open_names)
+    expect(names(described_class.call(user: owner, coordinator: [ "Priya Shah" ]))).to eq(open_names)
+    expect(names(described_class.call(user: owner, coordinator: { "a" => "b" }))).to eq(open_names)
+    expect(names(described_class.call(user: owner, cursor: [ "x" ]))).to eq(open_names)
+    expect(described_class.call(user: owner, per: [ "3" ])[:leads].size).to eq(open_names.size)
+  end
+
   it "returns an empty list without a snapshot" do
     empty = create(:agency)
     Current.agency = empty

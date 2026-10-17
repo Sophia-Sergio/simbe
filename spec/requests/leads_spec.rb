@@ -52,6 +52,16 @@ RSpec.describe "Leads API", type: :request do
     expect(response.parsed_body["leads"].map { |card| card["name"] }).to eq([ "L3 Alpha", "L2 Alpha" ])
   end
 
+  it "answers 200 when a filter arrives as a non-scalar" do
+    sign_in(owner)
+    probe = headers.merge("X-Simbe-Contract-Probe" => "1")
+    shapes = [ [ :q, [ "x" ] ], [ :q, { "a" => "b" } ], [ :coordinator, [ "X" ] ], [ :status, [ "closed" ] ], [ :per, [ "3" ] ], [ :cursor, [ "x" ] ] ]
+    shapes.each do |name, value|
+      get "/api/v1/leads", params: { name => value }, headers: probe
+      expect(response).to have_http_status(:ok), "#{name}=#{value.inspect} returned #{response.status}"
+    end
+  end
+
   it "ignores a malformed cursor" do
     sign_in(owner)
     get "/api/v1/leads", params: { cursor: "2026-01-01T00:00:00Z|abc" }, headers: headers

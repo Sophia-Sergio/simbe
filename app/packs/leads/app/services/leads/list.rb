@@ -32,15 +32,29 @@ module Leads
       LIMIT :limit
     SQL
 
-    # -> { leads: [LeadCard], next_cursor: }. `coordinator` filters for owners only.
-    def self.call(user:, status: "open", coordinator: nil, q: nil, cursor: nil, per: DEFAULT_PER)
-      coordinator = user.owner? ? coordinator.presence : user.coordinator_name
-      search = q.presence
-      limit = search && cursor.blank? ? SEARCH_LIMIT : normalize_per(per)
+    # -> { leads: [LeadCard], next_cursor: }. `coordinator` filters for owners only. Every
+    # filter goes through `param`: a malformed query (`q[]=x`, `q[a]=b`) must never raise.
+    def self.call(user:, status: nil, coordinator: nil, q: nil, cursor: nil, per: nil)
+      status = param(status) || "open"
+      coordinator = user.owner? ? param(coordinator) : user.coordinator_name
+      search = param(q)
+      cursor = param(cursor)
+      limit = search && cursor.blank? ? SEARCH_LIMIT : normalize_per(param(per))
 
       rows = query(coordinator: coordinator, status: status, q: search, cursor: cursor, limit: limit)
       leads = load_leads(rows)
       { leads: cards(rows, leads), next_cursor: next_cursor(search, rows, leads, limit) }
+    end
+
+    # A query param arrives as an Array (`q[]=x`) or a nested Hash (`q[a]=b`) just as easily as
+    # a String; only a real String is a filter (and `per` also accepts an Integer from direct
+    # callers). Anything else is treated as absent — the contract declares no 4xx for a
+    # malformed query, so a bad param must not turn into a 500.
+    def self.param(value)
+      case value
+      when String then value.presence
+      when Integer then value
+      end
     end
 
     def self.cards(rows, leads)

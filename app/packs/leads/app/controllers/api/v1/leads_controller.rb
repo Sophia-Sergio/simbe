@@ -6,9 +6,11 @@ module Api
   module V1
     class LeadsController < Api::BaseController
       # GET /api/v1/leads?status=&coordinator=&q=&cursor=&per=
+      # Params are passed raw: Leads::List owns the strict scalar coercion and the `status`
+      # default (a malformed param is ignored, never a 500).
       def index
         render json: Leads::List.call(
-          user: Current.user, status: params[:status].presence || "open", coordinator: params[:coordinator],
+          user: Current.user, status: params[:status], coordinator: params[:coordinator],
           q: params[:q], cursor: params[:cursor], per: params[:per]
         )
       end

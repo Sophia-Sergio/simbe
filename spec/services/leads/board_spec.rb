@@ -58,6 +58,11 @@ RSpec.describe Leads::Board do
     expect(card[:age]).to eq(29)
   end
 
+  it "treats a non-scalar coordinator filter as absent" do
+    expect(described_class.call(user: owner, coordinator: [ "Priya Shah" ])[:columns][:qualified][:count]).to eq(3)
+    expect(described_class.call(user: owner, coordinator: { "a" => "b" })[:columns][:qualified][:count]).to eq(3)
+  end
+
   it "returns empty columns without a snapshot" do
     empty = create(:agency)
     Current.agency = empty

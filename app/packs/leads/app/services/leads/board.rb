@@ -20,9 +20,10 @@ module Leads
     }.freeze
 
     # -> { columns: { action_needed: { count:, leads: [LeadCard] }, … } }. `coordinator`
-    # filters for owners only; a coordinator is always scoped to their own leads.
+    # filters for owners only; a coordinator is always scoped to their own leads. The param is
+    # coerced, so `coordinator[]=x` is ignored instead of raising (see `param`).
     def self.call(user:, coordinator: nil)
-      rows = query(coordinator_for(user, coordinator))
+      rows = query(coordinator_for(user, param(coordinator)))
       leads = leads_by_id(rows.map { |row| row["id"] })
       grouped = rows.group_by { |row| row["col"] }
 
@@ -30,7 +31,13 @@ module Leads
     end
 
     def self.coordinator_for(user, coordinator)
-      user.owner? ? coordinator.presence : user.coordinator_name
+      user.owner? ? coordinator : user.coordinator_name
+    end
+
+    # Only a String is a coordinator filter; an Array (`coordinator[]=x`) or a nested Hash
+    # (`coordinator[a]=b`) is treated as absent so it can never reach a SQL bind or a 500.
+    def self.param(value)
+      value.presence if value.is_a?(String)
     end
 
     def self.column(rows, leads)
