@@ -52,6 +52,13 @@ RSpec.describe "Leads API", type: :request do
     expect(response.parsed_body["leads"].map { |card| card["name"] }).to eq([ "L3 Alpha", "L2 Alpha" ])
   end
 
+  it "ignores a malformed cursor" do
+    sign_in(owner)
+    get "/api/v1/leads", params: { cursor: "2026-01-01T00:00:00Z|abc" }, headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["leads"].map { |card| card["name"] }).to eq([ "L7 Alpha", "L8 Alpha", "L4 Alpha", "L3 Alpha", "L2 Alpha" ])
+  end
+
   it "searches with literal wildcards" do
     sign_in(owner)
     get "/api/v1/leads", params: { q: "%" }, headers: headers

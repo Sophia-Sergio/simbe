@@ -91,11 +91,16 @@ module Leads
       value.positive? ? [ value, MAX_PER ].min : DEFAULT_PER
     end
 
+    # A cursor is `"<iso8601>|<lead uuid>"`; anything else (a bad timestamp, an id that is not
+    # a uuid) is treated as absent, so a hand-edited cursor can never reach the `::uuid` cast
+    # in the page query.
+    UUID = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
+
     def self.decode_cursor(cursor)
-      return [ nil, nil ] if cursor.blank?
+      return [ nil, nil ] unless cursor.is_a?(String) && cursor.present?
 
       at, id = cursor.split("|", 2)
-      return [ nil, nil ] if at.blank? || id.blank?
+      return [ nil, nil ] if at.blank? || !UUID.match?(id.to_s)
 
       [ Time.iso8601(at).utc, id ]
     rescue ArgumentError

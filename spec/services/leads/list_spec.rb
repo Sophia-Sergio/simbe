@@ -51,6 +51,13 @@ RSpec.describe Leads::List do
     expect(first[:leads].map { _1[:id] } & second[:leads].map { _1[:id] }).to be_empty
   end
 
+  it "treats a malformed cursor as absent instead of raising" do
+    first_page = described_class.call(user: owner)
+    expect(described_class.call(user: owner, cursor: "2026-01-01T00:00:00Z|not-a-uuid")).to eq(first_page)
+    expect(described_class.call(user: owner, cursor: "not-a-cursor")).to eq(first_page)
+    expect(described_class.call(user: owner, cursor: "2026-99-99T00:00:00Z|aaaaaaaa-0000-4000-8000-000000000007")).to eq(first_page)
+  end
+
   it "returns an empty list without a snapshot" do
     empty = create(:agency)
     Current.agency = empty
