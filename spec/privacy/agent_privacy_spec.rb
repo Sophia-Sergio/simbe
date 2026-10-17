@@ -55,4 +55,31 @@ RSpec.describe "Agent privacy", type: :request do
     expect(prompt).not_to match(/555-0183-\d{4}/)
     expect(prompt).not_to include("Alpha")
   end
+
+  it "never writes the question text to the log" do
+    stub_anthropic(anthropic_message(content: [ tool_use("respond", { "text" => "ok" }, id: "t") ], stop_reason: "tool_use"))
+    sign_in(owner)
+    logs = capture_request_log do
+      post "/api/v1/agent/messages", params: { text: "SECRET-QUESTION-42 about my health" }, headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+    end
+    expect(logs).to include("Parameters") # the request log line really was captured
+    expect(logs).not_to include("SECRET-QUESTION-42")
+  end
+
+  # Capture the request log by broadcasting it to an in-memory logger. ActiveRecord's SQL log
+  # is silenced: it runs at DEBUG only (so it is absent from production logs, which are INFO)
+  # and it echoes persisted jsonb bodies, not the request parameters this spec is about.
+  def capture_request_log
+    io = StringIO.new
+    logger = ActiveSupport::TaggedLogging.new(Logger.new(io))
+    Rails.logger.broadcast_to(logger)
+    previous_ar = ActiveRecord::Base.logger
+    ActiveRecord::Base.logger = nil
+    yield
+    io.string
+  ensure
+    Rails.logger.stop_broadcasting_to(logger)
+    ActiveRecord::Base.logger = previous_ar
+  end
 end

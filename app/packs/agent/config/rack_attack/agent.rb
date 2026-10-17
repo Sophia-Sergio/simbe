@@ -10,3 +10,10 @@ throttle("agent/messages", limit: 20, period: 1.minute) do |req|
 
   req.cookies["simbe_session"].presence || req.ip
 end
+
+# A user's question can contain health details, so the `text` parameter must never reach the
+# logs (docs/conventions/sensitive-data.md). config/initializers/filter_parameter_logging.rb
+# is not this lane's file, so the filter is added from this pack's own boot hook — its only
+# one, loaded via `Rack::Attack.instance_eval`. Rails computes `env_config` lazily on the
+# first request (after initializers), so the appended filter is picked up.
+Rails.application.config.filter_parameters << :text
