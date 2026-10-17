@@ -20,4 +20,10 @@ namespace :snapshot do
   rescue Snapshot::InProgress
     abort "#{args[:slug]}: a load is already running for this agency"
   end
+
+  desc "Fail stuck uploads and expire uploads older than 24h (run hourly)"
+  task expire_uploads: :environment do
+    Snapshot::ExpireUploadsJob.perform_now
+    puts "snapshot:expire_uploads done"
+  end
 end
