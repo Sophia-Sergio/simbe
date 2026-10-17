@@ -71,8 +71,8 @@ module Metrics
       previous_cost = previous_leads.zero? ? nil : cost_per_qualified(previous_spend, previous_qualified)
 
       {
-        leads: kpi(leads, previous_leads),
-        qualified: kpi(qualified, previous_qualified),
+        leads: kpi(leads, previous_leads, previous_leads),
+        qualified: kpi(qualified, previous_qualified, previous_leads),
         qualified_rate: { value: rate, previous: previous_rate,
                           delta: previous_rate.nil? ? nil : (rate - previous_rate).round(1),
                           low_sample: leads < LOW_SAMPLE_LEADS },
@@ -81,9 +81,13 @@ module Metrics
       }
     end
 
-    def self.kpi(value, previous)
-      previous = nil if previous.to_i.zero?
-      { value: value, previous: previous, delta: previous.nil? ? nil : value - previous }
+    # `previous` is the previous window's count; it is null only when that window had no
+    # leads at all (`previous_leads` zero), not merely when the count is zero — otherwise a
+    # real drop to zero qualified would lose its delta.
+    def self.kpi(value, previous, previous_leads)
+      return { value: value, previous: nil, delta: nil } if previous_leads.to_i.zero?
+
+      { value: value, previous: previous.to_i, delta: value - previous.to_i }
     end
 
     def self.cost_per_qualified(spend, qualified)

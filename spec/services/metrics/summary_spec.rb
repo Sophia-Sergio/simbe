@@ -36,6 +36,25 @@ RSpec.describe Metrics::Summary do
     expect(described_class.call(agency: agency, range: "30d")[:kpis][:qualified][:value]).to eq(1)
   end
 
+  it "keeps a numeric delta when the previous window had leads but zero qualified" do
+    earlier = Lead.create!(external_id: SecureRandom.uuid, lead_created_at: Time.utc(2026, 8, 15, 12),
+                           channel: "Unknown", current_stage: "inquiry", outcome: "open")
+    LeadFact.create!(lead: earlier, furthest_stage: "inquiry")
+
+    r = described_class.call(agency: agency, range: "30d")
+    expect(r[:kpis][:leads][:previous]).to eq(1)
+    expect(r[:kpis][:leads][:delta]).to eq(9)
+    expect(r[:kpis][:qualified][:previous]).to eq(0)
+    expect(r[:kpis][:qualified][:delta]).to eq(3)
+    expect(r[:kpis][:qualified_rate][:previous]).to eq(0.0)
+    expect(r[:kpis][:qualified_rate][:delta]).to eq(30.0)
+  end
+
+  it "nulls every delta only when the previous window has no leads" do
+    r = described_class.call(agency: agency, range: "30d")
+    expect(r[:kpis].values.map { _1[:delta] }).to all(be_nil)
+  end
+
   it "returns the snapshot and range" do
     snapshot = Snapshot.for_agency(agency).order(created_at: :desc).first
     expect(s[:snapshot]).to eq(id: snapshot.id, as_of: snapshot.as_of.utc)
