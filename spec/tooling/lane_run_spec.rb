@@ -45,6 +45,20 @@ RSpec.describe "bin/lane run" do
     expect(sent).not_to include("Implement `@")
   end
 
+  it "tells the agent to run commands in the foreground and to commit before it stops" do
+    args = File.join(sandbox.root, "..", "args-rules.txt")
+    sandbox.lane("run", "F-WEEK", "--model", "p/m", env: { "FAKE_OPENCODE_ARGS" => args })
+    expect(File.read(args)).to include("FOREGROUND", "never start a command in the background", "everything you changed must be committed")
+  end
+
+  it "does not call a run finished when it ended with uncommitted changes: exit 6, phase fixing, resume hint" do
+    File.write(File.join(sandbox.worktree("F-WEEK"), "left_behind.txt"), "work in progress")
+    res = sandbox.lane("run", "F-WEEK", "--model", "p/m")
+    expect(res.exitstatus).to eq(6)
+    expect(res.out).to include("UNCOMMITTED", "left_behind.txt", "--session")
+    expect(record).to include("phase" => "fixing")
+  end
+
   it "starts OpenCode with stdin closed even when the caller's stdin is an open pipe (otherwise it waits for EOF forever)" do
     seen = File.join(sandbox.root, "..", "stdin.txt")
     cmd = [ "python3", File.join(sandbox.root, "bin/lane"), "run", "F-WEEK", "--model", "p/m" ]

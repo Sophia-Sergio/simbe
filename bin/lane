@@ -366,7 +366,9 @@ def cmd_run(a):
              "Commit locally after every plan task with the plan's message pattern. When finished, stop and print a short summary: tasks done, "
              "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it. "
              "Your shell is allowlisted (git add/commit/status/diff/log, make, bin/rails, bundle, npm/npx/node, docker compose, ...); anything else, "
-             "including shell redirection to write files, is denied: create and change files with your edit tool.")
+             "including shell redirection to write files, is denied: create and change files with your edit tool. "
+             "Run every command in the FOREGROUND and wait for it to finish: never start a command in the background and never end your turn while one is still running (the run ends when you stop, and a background job dies with it). "
+             "Before you stop, everything you changed must be committed (`git status` clean) or you must say exactly what is uncommitted and why.")
     extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
     # A fix round (--session) sends the reviewer's findings instead of the lane prompt; the gated-run rules always follow.
     prompt = (open(a.prompt_file).read().strip() if a.prompt_file else prompt_for(l)) + extra
@@ -386,6 +388,13 @@ def cmd_run(a):
         print(f"TRIPWIRE: the main checkout changed during the run (HEAD/branch/status {before} -> {after}). The agent worked outside its worktree. STOP and inspect before anything else.")
         safe_update(l["id"], phase="blocked", session=sid, blocked_reason=f"tripwire: the main checkout changed during the run {before} -> {after}")
         sys.exit(3)
+    # A run that stops with uncommitted work (a backgrounded command killed with it, an early stop) must not look finished: the next
+    # step is to resume the session, not to review.
+    dirty = sh_in(wt, "git", "status", "--porcelain")
+    if dirty and not timed_out:
+        print(f"UNCOMMITTED: the run ended with changes that are not committed in {wt}:\n{dirty[:600]}\nResume the session (bin/lane run {l['id']} --session {sid or '<id>'} --prompt-file <note>) and have it finish, verify in the foreground and commit before any review.")
+        safe_update(l["id"], phase="fixing", session=sid, blocked_reason="run ended with uncommitted changes")
+        sys.exit(6)
     safe_update(l["id"], phase="verifying", session=sid)
     if timed_out:
         print(f"opencode timed out after {a.timeout} min; partial commits stay in the worktree; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
