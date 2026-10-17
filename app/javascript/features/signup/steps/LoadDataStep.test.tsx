@@ -185,6 +185,16 @@ function stubStuckValidating(): void {
   )
 }
 
+it("announces the load progress in a polite live region", async () => {
+  stubStuckValidating()
+  renderWithProviders(<LoadDataStep agencyName="Harbor Surrogacy" onSkip={vi.fn()} />)
+
+  await userEvent.upload(screen.getByLabelText(/csv files/i), csvFiles(EXPORT_FILES))
+  const bar = await screen.findByRole("progressbar")
+
+  expect(bar.closest('[aria-live="polite"]')).not.toBeNull()
+})
+
 it("cancels a validating upload from the step and returns to the dropzone", async () => {
   stubStuckValidating()
   const deletes = trackDeletes()

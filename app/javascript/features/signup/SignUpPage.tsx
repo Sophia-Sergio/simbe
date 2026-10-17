@@ -38,6 +38,7 @@ function accountMessages(account: AccountDraft): FieldErrors {
 }
 
 const AGENCY_NAME_REQUIRED = "Enter your agency name"
+const ERROR_SUMMARY = "Check the highlighted fields below."
 
 /** Step 1 is complete when the name, a valid email and a ≥10-character password are there. */
 export function isAccountValid(account: AccountDraft): boolean {
@@ -98,6 +99,7 @@ function Wizard({
   const [serverErrors, setServerErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Partial<Record<AccountField | "agency", boolean>>>({})
   const [serverAgencyError, setServerAgencyError] = useState<string | null>(null)
+  const [focusRequest, setFocusRequest] = useState<{ field: AccountField } | null>(null)
 
   const created = signup.data ?? null
   const agencyName = created?.agency.name ?? createdAgencyName ?? agency.name.trim()
@@ -112,6 +114,8 @@ function Wizard({
     ...serverErrors,
   }
   const agencyError = serverAgencyError ?? (touched.agency && agency.name.trim() === "" ? AGENCY_NAME_REQUIRED : null)
+  // A rejected submit gets one live region above the fields; blur messages speak for themselves.
+  const alert = Object.values(serverErrors).some(Boolean) || serverAgencyError ? ERROR_SUMMARY : null
 
   const patchAccount = (patch: Partial<AccountDraft>) => {
     setAccount((previous) => ({ ...previous, ...patch }))
@@ -141,11 +145,13 @@ function Wizard({
       if (caught.code === "email_taken") {
         setServerErrors({ email: caught.message || "That email already has an account" })
         setStep(1)
+        setFocusRequest({ field: "email" })
         return
       }
       if (caught.code === "weak_password") {
         setServerErrors({ password: caught.message || `Use at least ${MIN_PASSWORD} characters` })
         setStep(1)
+        setFocusRequest({ field: "password" })
         return
       }
       setServerAgencyError(caught.code === "invalid_agency" ? caught.message : "Something went wrong. Try again.")
@@ -182,13 +188,14 @@ function Wizard({
   }
 
   return (
-    <WizardShell step={step} title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} footer={<>{back}{next}</>}>
+    <WizardShell step={step} title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} alert={alert} footer={<>{back}{next}</>}>
       {step === 1 ? (
         <AccountStep
           value={account}
           onChange={patchAccount}
           onBlur={(field) => setTouched((previous) => ({ ...previous, [field]: true }))}
           errors={accountErrors}
+          focusRequest={focusRequest}
         />
       ) : null}
       {step === 2 ? (

@@ -26,14 +26,19 @@ export function Stepper({ step }: { step: number }) {
           const status = statusOf(step, index)
           return (
             <li key={label} className="flex items-center gap-2" aria-current={status === "current" ? "step" : undefined}>
+              {/* The name lives on the item, so the dot-only mobile row still announces label + status. */}
+              <span className="sr-only">{`${label}: ${status}`}</span>
               <span
                 data-status={status}
-                aria-label={`${label}: ${status}`}
+                aria-hidden="true"
                 className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[12px] font-semibold ${DOT[status]}`}
               >
                 {status === "done" ? <Check aria-hidden className="h-3 w-3" /> : index + 1}
               </span>
-              <span className={`hidden text-[13px] md:inline ${status === "current" ? "font-semibold text-ink" : "text-ink-muted"}`}>
+              <span
+                aria-hidden="true"
+                className={`hidden text-[13px] md:inline ${status === "current" ? "font-semibold text-ink" : "text-ink-muted"}`}
+              >
                 {label}
               </span>
             </li>

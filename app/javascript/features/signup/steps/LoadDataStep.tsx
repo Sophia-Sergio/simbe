@@ -74,9 +74,21 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
         />
       ) : null}
 
-      {upload.state === "uploading" || upload.state === "validating" ? (
-        <UploadProgress status={upload.state === "uploading" ? "storing" : "validating"} progress={upload.progress} />
-      ) : null}
+      {/* One polite live region: phase and outcome changes are announced as the async load advances. */}
+      <div aria-live="polite" className="flex flex-col gap-4">
+        {upload.state === "uploading" || upload.state === "validating" ? (
+          <UploadProgress status={upload.state === "uploading" ? "storing" : "validating"} progress={upload.progress} />
+        ) : null}
+
+        {upload.state === "committing" ? <UploadProgress status="committing" progress={upload.progress} /> : null}
+
+        {upload.state === "done" ? (
+          <p className="flex items-center gap-2 text-[14px] font-medium text-ink">
+            <CircleCheck aria-hidden className="h-5 w-5 text-success-text" />
+            Your data is loaded
+          </p>
+        ) : null}
+      </div>
 
       {upload.state === "review" ? (
         <div className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
@@ -97,15 +109,6 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
         <Button variant="ghost" className="self-start" onClick={() => void discard()}>
           Cancel
         </Button>
-      ) : null}
-
-      {upload.state === "committing" ? <UploadProgress status="committing" progress={upload.progress} /> : null}
-
-      {upload.state === "done" ? (
-        <p className="flex items-center gap-2 text-[14px] font-medium text-ink">
-          <CircleCheck aria-hidden className="h-5 w-5 text-success-text" />
-          Your data is loaded
-        </p>
       ) : null}
 
       {upload.state === "error" ? (

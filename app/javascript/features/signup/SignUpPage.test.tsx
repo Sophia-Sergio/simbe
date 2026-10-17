@@ -172,6 +172,24 @@ it("returns to step 1 with the weak_password message the server sends", async ()
   expect(screen.getByRole("heading", { name: "Create your account" })).toBeInTheDocument()
 })
 
+it("moves focus to the step heading when the step changes", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep()
+  expect(await screen.findByRole("heading", { name: "Set up your agency" })).toHaveFocus()
+})
+
+it("summarises the problem and focuses the offending field after a rejected submit", async () => {
+  renderWithProviders(<SignUpPage />, { role: null })
+
+  await reachAgencyStep("taken@x.test")
+  await userEvent.type(screen.getByLabelText("Agency name"), "Harbor")
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+
+  expect(await screen.findByText("Check the highlighted fields below.")).toBeInTheDocument()
+  await waitFor(() => expect(screen.getByLabelText("Work email")).toHaveFocus())
+})
+
 it("shows email_taken and returns the user to step 1 with the message", async () => {
   renderWithProviders(<SignUpPage />, { role: null })
 

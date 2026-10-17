@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react"
 import type { ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { BrandMark } from "@/components/ui/BrandMark"
@@ -6,20 +7,33 @@ import { Stepper } from "./Stepper"
 /**
  * The sign-up card: a public page (no app shell), centered at max 600px, with the mark above the
  * stepper, a `28px 24px` body and a footer bar that sticks to the bottom on mobile.
+ *
+ * Moving forward focuses the step heading so the new step is announced; moving back (a rejected
+ * submit) leaves focus alone, so the step can put it on the field that needs fixing.
  */
 export function WizardShell({
   step,
   title,
   subtitle,
+  alert,
   children,
   footer,
 }: {
   step: number
   title: string
   subtitle: string
+  alert?: string | null
   children: ReactNode
   footer: ReactNode
 }) {
+  const heading = useRef<HTMLHeadingElement>(null)
+  const previousStep = useRef(step)
+
+  useEffect(() => {
+    if (step > previousStep.current) heading.current?.focus()
+    previousStep.current = step
+  }, [step])
+
   return (
     <div className="flex min-h-screen flex-col bg-app">
       <header className="flex items-center justify-between border-b border-line bg-surface px-4 py-3">
@@ -40,8 +54,15 @@ export function WizardShell({
           <div className="rounded-none border-y border-line bg-surface shadow-modal md:rounded-modal md:border">
             <Stepper step={step} />
             <div className="px-6 py-7">
-              <h1 className="font-display text-[21px] font-semibold text-ink">{title}</h1>
+              <h1 ref={heading} tabIndex={-1} className="font-display text-[21px] font-semibold text-ink focus:outline-none">
+                {title}
+              </h1>
               <p className="mt-1 text-[14px] text-ink-muted">{subtitle}</p>
+              {alert ? (
+                <p role="alert" className="mt-3 rounded-input border border-danger-border bg-danger-bg px-3 py-2 text-[13px] font-medium text-danger-text">
+                  {alert}
+                </p>
+              ) : null}
               <div className="mt-5">{children}</div>
             </div>
             <footer className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-surface px-6 py-4 md:static">
