@@ -14,7 +14,7 @@ module Metrics
     PREVIOUS_SQL = <<~SQL.freeze
       SELECT count(*) AS leads, count(f.%<qcol>s) AS qualified
       FROM leads l JOIN lead_facts f ON f.lead_id = l.id
-      WHERE l.agency_id = :agency_id AND l.lead_created_at >= :prev_from AND l.lead_created_at <= :prev_to
+      WHERE l.agency_id = :agency_id AND l.lead_created_at >= :prev_from AND l.lead_created_at < :prev_to
     SQL
 
     SPEND_SQL = <<~SQL.freeze
@@ -28,7 +28,7 @@ module Metrics
     PREV_SPEND_SQL = <<~SQL.freeze
       SELECT s.source, sum(s.spend_cents) AS cents
       FROM ad_spend_daily s
-      WHERE s.agency_id = :agency_id AND s.date >= :prev_from_date AND s.date <= :prev_to_date
+      WHERE s.agency_id = :agency_id AND s.date >= :prev_from_date AND s.date < :from_date
         AND #{Metrics::Base::PREFER_REAL_SPEND}
       GROUP BY s.source
     SQL
@@ -47,7 +47,7 @@ module Metrics
       current = totals(base, TOTALS_SQL)
       previous = totals(base, PREVIOUS_SQL)
       spend, source = spend_for(base, SPEND_SQL)
-      previous_spend, = spend_for(base, PREV_SPEND_SQL)
+      previous_spend, = spend_for(base, PREV_SPEND_SQL, only_previous_spend(base))
 
       leads = current[:leads].to_i
       qualified = current[:qualified].to_i
@@ -113,6 +113,12 @@ module Metrics
       total = rows.sum { |row| row[:cents].to_i }
       source = rows.max_by { |row| row[:cents].to_i }&.fetch(:source, nil) || "none"
       [ total, source ]
+    end
+
+    # The previous spend window is date-based: the agency-local dates from the previous
+    # window's first instant up to (but excluding) the current window's first local date.
+    def self.only_previous_spend(base)
+      { prev_from_date: base.window[:prev_from].in_time_zone(base.agency.timezone).to_date }
     end
 
     def self.empty(range)

@@ -6,20 +6,17 @@ RSpec.describe Metrics::Base do
   subject(:base) { described_class.new(agency: agency, range: "30d") }
 
   def current_snapshot = Snapshot.for_agency(agency).order(created_at: :desc).first
-  def agency_zone = ActiveSupport::TimeZone[agency.timezone]
 
   it "rejects a range outside RANGES" do
     expect { described_class.new(agency: agency, range: "7d") }.to raise_error(Metrics::BadRange)
   end
 
-  it "windows whole calendar days in the agency time zone, ending on the as_of's local day" do
-    window = base.window
-    expect(window[:to_date]).to eq(Date.new(2026, 10, 1))
-    expect(window[:from_date]).to eq(Date.new(2026, 9, 2))
-    expect(window[:prev_to_date]).to eq(Date.new(2026, 9, 1))
-    expect(window[:prev_from_date]).to eq(Date.new(2026, 8, 3))
-    expect(window[:to]).to eq(agency_zone.local(2026, 10, 1).end_of_day)
-    expect(window[:from]).to eq(agency_zone.local(2026, 9, 2).beginning_of_day)
+  it "windows the rolling as_of range of spec 2004 decision 1, not calendar days" do
+    snapshot = current_snapshot
+    expect(base.window[:to]).to eq(snapshot.as_of)
+    expect(base.window[:from]).to eq(snapshot.as_of - 30.days)
+    expect(base.window[:prev_to]).to eq(base.window[:from])
+    expect(base.window[:prev_from]).to eq(snapshot.as_of - 60.days)
   end
 
   it "exposes the snapshot id and as_of" do
@@ -48,9 +45,9 @@ RSpec.describe Metrics::Base do
     expect(described_class.rate(2, 3)).to eq(66.7)
   end
 
-  describe "calendar-day boundaries near local midnight" do
+  describe "rolling window edges for a non-UTC agency" do
     let(:agency) { create(:agency, slug: "pacific", timezone: "America/Los_Angeles") }
-    let(:as_of) { Time.utc(2026, 10, 1, 5, 26, 42) } # 2026-09-30 22:26 Pacific
+    let(:as_of) { Time.utc(2026, 10, 1, 5, 26, 42) } # 2026-09-30 22:26 Pacific — mid local day
 
     before do
       Current.agency = agency
@@ -58,14 +55,15 @@ RSpec.describe Metrics::Base do
       current_snapshot.update!(as_of: as_of)
     end
 
-    it "excludes a lead before the first local day even though it is after the rolling instant" do
-      create_lead(Time.utc(2026, 9, 1, 6, 30)) # 2026-08-31 23:30 Pacific — before the window
-      create_lead(Time.utc(2026, 9, 1, 7, 30)) # 2026-09-01 00:30 Pacific — inside
+    it "includes a lead exactly at the window start and drops one a second earlier" do
+      create_lead(as_of - 30.days)             # exactly `from` — inside (inclusive start)
+      create_lead(as_of - 30.days - 1.second)  # one second before `from` — outside
       expect(leads_value).to eq(1)
     end
 
-    it "includes a lead on the as_of's local day even though it is after the as_of instant" do
-      create_lead(Time.utc(2026, 10, 1, 6, 30)) # 2026-09-30 23:30 Pacific — the as_of's own day
+    it "includes a lead at the as_of instant and drops one a second later" do
+      create_lead(as_of)             # the as_of itself — inside (inclusive end)
+      create_lead(as_of + 1.second)  # one second after the as_of — outside
       expect(leads_value).to eq(1)
     end
 
