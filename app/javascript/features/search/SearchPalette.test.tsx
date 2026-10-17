@@ -1,12 +1,20 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { HttpResponse } from "msw"
+import listFixture from "@contracts/examples/leads/list.json"
+import type { LeadCard as LeadCardData } from "@/api/types"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { SearchPalette } from "./SearchPalette"
 
 const L4 = "aaaaaaaa-0000-4000-8000-000000000004" // Dana Ortiz's lead
 const L8 = "aaaaaaaa-0000-4000-8000-000000000008" // Priya Shah's lead, second owner-wide match
+
+/** A contract-shaped lead card, overridable per test. */
+const card = (over: Partial<LeadCardData> = {}): LeadCardData => ({
+  ...(listFixture.leads.find((lead) => lead.id === L4) as LeadCardData),
+  ...over,
+})
 
 /** Mounts the palette overlay and opens it the way the shell does: Ctrl+K. */
 async function openPalette(role: "owner" | "coordinator" = "owner", route = "/") {
@@ -145,4 +153,32 @@ it("does not show or open a stale row inside the debounce window", async () => {
   } finally {
     vi.useRealTimers()
   }
+})
+
+it("shows an error with Retry when the request fails, and retry recovers", async () => {
+  const user = userEvent.setup()
+  mockApi({
+    "GET /api/v1/leads": () => HttpResponse.json({ error: { code: "server_error", message: "boom" } }, { status: 500 }),
+  })
+  const { input } = await openPalette()
+  await user.type(input, "l4")
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't/i)
+  expect(screen.queryByTestId("skeleton")).toBeNull()
+
+  // Retry re-runs the settled query; this time the API answers.
+  mockApi({ "GET /api/v1/leads": { leads: [card()], next_cursor: null } })
+  await user.click(screen.getByRole("button", { name: "Retry" }))
+  expect(await screen.findByRole("option", { name: /L4 Alpha/ })).toBeInTheDocument()
+  expect(screen.queryByRole("alert")).toBeNull()
+})
+
+it("shows the error state for a network failure too", async () => {
+  const user = userEvent.setup()
+  mockApi({ "GET /api/v1/leads": () => HttpResponse.error() })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  expect(await screen.findByRole("alert")).toBeInTheDocument()
+  expect(screen.queryByTestId("skeleton")).toBeNull()
 })

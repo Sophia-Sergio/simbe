@@ -6,6 +6,7 @@ import type { LeadCard } from "@/api/types"
 import { useLeadPanel } from "@/app/leadPanel"
 import { useSearchPalette } from "@/app/searchPalette"
 import { EmptyState } from "@/components/ui/EmptyState"
+import { ErrorState } from "@/components/ui/ErrorState"
 import { Input } from "@/components/ui/Input"
 import { Modal } from "@/components/ui/Modal"
 import { Skeleton } from "@/components/ui/Skeleton"
@@ -32,8 +33,8 @@ function useDebouncedValue<T>(value: T, delay: number): T {
 }
 
 // idle: fewer than two characters. pending: debouncing or fetching. results: current rows.
-// empty: the current query settled with no rows.
-type Phase = "idle" | "pending" | "results" | "empty"
+// empty: the current query settled with no rows. error: the current query failed.
+type Phase = "idle" | "pending" | "results" | "empty" | "error"
 
 /** Body of the palette. `Modal` renders children only while open, so mounting resets the search. */
 function PaletteSearch({ onClose }: { onClose: () => void }) {
@@ -54,11 +55,13 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
     ? "idle"
     : !settled || search.isFetching
       ? "pending"
-      : leads.length > 0
-        ? "results"
-        : search.isSuccess
-          ? "empty"
-          : "pending"
+      : search.isError
+        ? "error"
+        : leads.length > 0
+          ? "results"
+          : search.isSuccess
+            ? "empty"
+            : "pending"
 
   // Results shrink as the query narrows. Deriving the row keeps the highlight valid without an
   // effect: a stale index is clamped instead of triggering a second render.
@@ -129,6 +132,13 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
             <Skeleton key={row} className="h-10 w-full" />
           ))}
         </div>
+      ) : phase === "error" ? (
+        <ErrorState
+          className="py-6"
+          title="Search failed"
+          message="We couldn't run that search. Try again."
+          onRetry={() => void search.refetch()}
+        />
       ) : phase === "results" ? (
         <ul
           id={listId}
