@@ -247,7 +247,12 @@ function ActionRow({ detail }: { detail: LeadDetail }) {
       <a className={LINK_SECONDARY} href={`tel:${number}`}>
         Call
       </a>
-      {detail.queue ? <DoneButton leadId={detail.id} queue={detail.queue} initialDone={detail.done} /> : null}
+      {/* Keyed on the server value: a refetch that changes `done` (another session, a new snapshot)
+          resets the button to it, while a refetch that agrees with the click leaves the label alone.
+          An effect would do the same but trips react-hooks/set-state-in-effect. */}
+      {detail.queue ? (
+        <DoneButton key={`${detail.id}:${detail.done}`} leadId={detail.id} queue={detail.queue} initialDone={detail.done} />
+      ) : null}
       <ActionsMenu number={number} />
     </div>
   )

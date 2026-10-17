@@ -1,7 +1,8 @@
 import { HttpResponse } from "msw"
-import { screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
+import detailCoordinator from "@contracts/examples/leads/detail-coordinator.json"
 import detailOwner from "@contracts/examples/leads/detail-owner.json"
 import { useLeadPanel } from "@/app/leadPanel"
 import { mockApi } from "@/test/mockApi"
@@ -209,6 +210,41 @@ it("renames the dialog when Prev/Next moves to another lead", async () => {
   await screen.findByRole("dialog", { name: "L4 Alpha" })
   await userEvent.click(screen.getByRole("button", { name: "Next lead" }))
   expect(await screen.findByRole("dialog", { name: "L3 Alpha" })).toBeInTheDocument()
+})
+
+it("a double click triggers one completion mutation", async () => {
+  let posts = 0
+  mockApi({
+    [`POST /api/v1/next_actions/${L4}/nudge_applications/completion`]: async () => {
+      posts += 1
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      return HttpResponse.json({ done: true })
+    },
+  })
+  renderWithProviders(<LeadPanel />, { role: "coordinator", route: route() })
+
+  const done = await screen.findByTestId("mark-done")
+  fireEvent.click(done)
+  fireEvent.click(done)
+
+  await waitFor(() => expect(posts).toBe(1))
+})
+
+it("resyncs the Done label with the server value after a refetch", async () => {
+  let serverDone = false
+  mockApi({ [`GET /api/v1/leads/${L4}`]: () => HttpResponse.json({ ...detailCoordinator, done: serverDone }) })
+  const view = renderWithProviders(<LeadPanel />, { role: "coordinator", route: route() })
+
+  expect(await screen.findByTestId("mark-done")).toHaveTextContent("Mark done")
+
+  // Another session marked the lead done: the next server value is the source of truth.
+  serverDone = true
+  await act(async () => {
+    await view.queryClient.invalidateQueries({ queryKey: ["leads", "detail"] })
+  })
+
+  await waitFor(() => expect(screen.getByTestId("mark-done")).toHaveTextContent("Done"))
+  expect(screen.getByTestId("mark-done")).toHaveAttribute("data-done", "true")
 })
 
 it("is a full-screen sheet with icon-only controls on mobile", async () => {
