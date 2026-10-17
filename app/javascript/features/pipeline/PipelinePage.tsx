@@ -103,7 +103,14 @@ export function PipelinePage() {
   const q = params.get("q") ?? ""
   // The filter box owns its text between keystrokes; the URL (and so the query key) updates a debounced beat later.
   const [query, setQuery] = useState(q)
+  const [syncedQ, setSyncedQ] = useState(q)
   const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The URL stays the source of truth: reset the box when `q` changes from elsewhere (Back/Forward) using
+  // React's "adjust state when a source changes" pattern (a guarded, converging update during render).
+  if (q !== syncedQ) {
+    setSyncedQ(q)
+    setQuery(q)
+  }
   // Drop any debounced write still pending when the URL q changes underneath us, or on unmount.
   useEffect(
     () => () => {

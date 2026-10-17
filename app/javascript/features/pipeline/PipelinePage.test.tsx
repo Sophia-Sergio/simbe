@@ -75,6 +75,15 @@ it("debounces the filter so typing l4 quickly issues one request", async () => {
   }
 })
 
+it("re-syncs the filter box when the URL changes externally", async () => {
+  const { navigate } = renderWithProviders(<PipelinePage />, { route: "/pipeline?view=list&q=l4", role: "owner" })
+  expect(await screen.findByLabelText("Filter leads")).toHaveValue("l4")
+
+  // Back/Forward drops ?q: the URL is the source of truth, so the stale text must clear.
+  navigate("/pipeline?view=list")
+  await waitFor(() => expect(screen.getByLabelText("Filter leads")).toHaveValue(""))
+})
+
 it("shows the coordinator dropdown only for owners", async () => {
   const first = renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
   expect(await screen.findByRole("combobox", { name: "All coordinators" })).toBeInTheDocument()
