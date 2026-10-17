@@ -71,3 +71,15 @@ What you will see at G4: the verdict line, the commit list (one per plan task), 
 - **Which model?** DeepSeek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`) for every OpenCode lane; no per-tier choice. The gate is model-independent: the review decides, not the model's confidence.
 - **Does this slow things down?** The first lanes yes (that is the point); the ladder removes manual steps as trust is earned, but never the independent verification or your approval of what gets pushed.
 - **What can still go wrong?** Plans themselves are untested until a lane runs them; the first lane may expose plan defects. Those are fixed in the plan (separate docs PR), not worked around.
+
+## Pre-go quality checklist (conductor, every batch)
+
+Before asking the human for a batch "go", the conductor has done all of these and the go request reports them (lane by lane, with the findings count and what was fixed):
+
+1. A fresh-subagent review of the lane, fixes applied (max 2 rounds) and re-checked by the conductor.
+2. The plan's **Done when** commands re-run in the lane worktree by the conductor, not the builder.
+3. tsc, eslint, Vitest and Playwright (desktop and mobile) / RSpec green, run sequentially per worktree.
+4. UI lanes: the desktop and mobile e2e screenshots viewed and compared with `handoff/design/screenshots/` and `docs/design/brand.md`.
+5. A rebase onto `origin/main` and `bin/lane check` clean.
+
+A go request that cannot report all five says which is missing and why.
