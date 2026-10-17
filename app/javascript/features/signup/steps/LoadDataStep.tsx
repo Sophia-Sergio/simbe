@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { CircleCheck, ShieldCheck } from "lucide-react"
 import type { ApiError } from "@/api/client"
 import { useCurrentSnapshot, useSnapshotUpload } from "@/api/hooks/snapshots"
@@ -15,19 +15,48 @@ function errorMessage(error: ApiError | null): string {
   return error.message
 }
 
+/** Upload states that still hold a server-side upload nobody committed. */
+const UNCOMMITTED: ReadonlyArray<string> = ["uploading", "validating", "review", "error"]
+
 /**
  * Step 4: load the seven CSV exports. The upload is asynchronous (Lakeside is 69 MB / ~625k rows):
  * dropzone → validating → review → commit → done. The wizard may move on at any time; the load keeps
  * running in the background and a reload resumes it through `useCurrentSnapshot().pending`.
+ *
+ * An upload this step started but nobody committed is cancelled when the step goes away (leaving it
+ * pending would block the agency's next load with `409 already_in_progress`).
  */
 export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSkip: () => void }) {
   const upload = useSnapshotUpload()
   const snapshot = useCurrentSnapshot()
   const [rejected, setRejected] = useState<File[]>([])
   const load = useAsyncAction(() => upload.commit())
+  // Only an upload *this* mount started may be cancelled on unmount; a resumed server-side upload is not ours.
+  const startedHere = useRef(false)
+  // The unmount cleanup runs once and must see the latest state/cancel, so they live in a ref written by an effect.
+  const latest = useRef({ state: upload.state, cancel: upload.cancel })
+  useEffect(() => {
+    latest.current = { state: upload.state, cancel: upload.cancel }
+  })
+
+  useEffect(
+    () => () => {
+      const { state, cancel } = latest.current
+      if (startedHere.current && UNCOMMITTED.includes(state)) void cancel()
+    },
+    [],
+  )
 
   const statuses = Object.fromEntries((snapshot.data?.files ?? []).map((file) => [file.name, file.rows]))
   const ignored = [...(upload.report?.ignored ?? []), ...rejected.map((file) => file.name)]
+  const cancellable = upload.state === "uploading" || upload.state === "validating" || upload.state === "review"
+
+  /** Cancel the server-side upload, then clear the step back to the dropzone. */
+  const discard = async () => {
+    startedHere.current = false
+    await upload.cancel()
+    upload.reset()
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,7 +66,10 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
           label={`Drop your ${EXPORT_FILES.length} CSV exports`}
           multiple
           accept=".csv"
-          onFiles={(files) => void upload.upload(files)}
+          onFiles={(files) => {
+            startedHere.current = true
+            void upload.upload(files)
+          }}
           onRejected={(files) => setRejected((previous) => [...previous, ...files])}
         />
       ) : null}
@@ -61,6 +93,12 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
         </div>
       ) : null}
 
+      {cancellable ? (
+        <Button variant="ghost" className="self-start" onClick={() => void discard()}>
+          Cancel
+        </Button>
+      ) : null}
+
       {upload.state === "committing" ? <UploadProgress status="committing" progress={upload.progress} /> : null}
 
       {upload.state === "done" ? (
@@ -75,7 +113,7 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
           <p role="alert" className="text-[13px] font-medium text-danger-text">
             {errorMessage(upload.error)}
           </p>
-          <Button variant="secondary" onClick={() => upload.reset()}>
+          <Button variant="secondary" onClick={() => void discard()}>
             Try again
           </Button>
         </div>

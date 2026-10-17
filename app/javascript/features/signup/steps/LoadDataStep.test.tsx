@@ -157,3 +157,86 @@ it("lists uploaded files with a Loaded pill before the load finishes", async () 
   await userEvent.upload(screen.getByLabelText(/csv files/i), csvFiles(EXPORT_FILES))
   await waitFor(() => expect(screen.getAllByText("Loaded")).toHaveLength(7))
 })
+
+/** Counts DELETE calls so the step's cancel behaviour is assertable. */
+function trackDeletes(): () => number {
+  let deletes = 0
+  server.use(
+    http.delete("/api/v1/snapshot_uploads/:id", () => {
+      deletes += 1
+      return new HttpResponse(null, { status: 204 })
+    }),
+  )
+  return () => deletes
+}
+
+/** An upload that stays validating, so the step is cancellable for as long as the test needs. */
+function stubStuckValidating(): void {
+  server.use(
+    http.post("/api/v1/snapshot_uploads", () =>
+      HttpResponse.json(
+        { id: "u-test", status: "validating", progress: { phase: "storing", pct: 0 }, report: null, snapshot: null, error: null },
+        { status: 201 },
+      ),
+    ),
+    http.get("/api/v1/snapshot_uploads/:id", () =>
+      HttpResponse.json({ id: "u-test", status: "validating", progress: { phase: "parsing", pct: 40 }, report: null, snapshot: null, error: null }),
+    ),
+  )
+}
+
+it("cancels a validating upload from the step and returns to the dropzone", async () => {
+  stubStuckValidating()
+  const deletes = trackDeletes()
+  renderWithProviders(<LoadDataStep agencyName="Harbor Surrogacy" onSkip={vi.fn()} />)
+
+  await userEvent.upload(screen.getByLabelText(/csv files/i), csvFiles(EXPORT_FILES))
+  await userEvent.click(await screen.findByRole("button", { name: "Cancel" }))
+
+  await waitFor(() => expect(deletes()).toBe(1))
+  expect(await screen.findByLabelText(/csv files/i)).toBeInTheDocument()
+})
+
+it("cancels an upload it started when the step unmounts before commit", async () => {
+  stubStuckValidating()
+  const deletes = trackDeletes()
+  const { unmount } = renderWithProviders(<LoadDataStep agencyName="Harbor Surrogacy" onSkip={vi.fn()} />)
+
+  await userEvent.upload(screen.getByLabelText(/csv files/i), csvFiles(EXPORT_FILES))
+  await screen.findByRole("button", { name: "Cancel" })
+  unmount()
+
+  await waitFor(() => expect(deletes()).toBe(1))
+})
+
+it("leaves a committed load alone when the step unmounts", async () => {
+  stubLoadJourney(okReport)
+  const deletes = trackDeletes()
+  const { unmount } = renderWithProviders(<LoadDataStep agencyName="Harbor Surrogacy" onSkip={vi.fn()} />)
+
+  await userEvent.upload(screen.getByLabelText(/csv files/i), csvFiles(EXPORT_FILES))
+  await screen.findByText("Review changes")
+  await userEvent.click(screen.getByRole("button", { name: "Load data" }))
+  await screen.findByText("Your data is loaded", {}, { timeout: 10000 })
+  unmount()
+
+  expect(deletes()).toBe(0)
+}, 30000)
+
+it("Try again cancels the failed upload instead of leaving it pending", async () => {
+  stubValidated(okReport)
+  const deletes = trackDeletes()
+  server.use(
+    http.post("/api/v1/snapshot_uploads/:id/commit", () =>
+      HttpResponse.json({ error: { code: "already_in_progress", message: "A load is already running" } }, { status: 409 }),
+    ),
+  )
+  renderWithProviders(<LoadDataStep agencyName="Harbor Surrogacy" onSkip={vi.fn()} />)
+
+  await userEvent.upload(screen.getByLabelText(/csv files/i), csvFiles(EXPORT_FILES))
+  await userEvent.click(await screen.findByRole("button", { name: "Load data" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Try again" }))
+
+  await waitFor(() => expect(deletes()).toBe(1))
+  expect(await screen.findByLabelText(/csv files/i)).toBeInTheDocument()
+})
