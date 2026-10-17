@@ -122,9 +122,14 @@ RSpec.describe "Next actions API", type: :request do
 
   it "422s an unknown queue" do
     sign_in(owner)
-    # The queue comes from the QueueKey enum on a real client; this deliberately probes a value
-    # outside it, so it opts out of request conformance (HTTP_X_SIMBE_CONTRACT_PROBE) while still
-    # asserting the documented 422 error envelope.
+    # A real client only ever sends the QueueKey enum, so this deliberately probes a value outside
+    # it. The probe header opts the *request* out of conformance: an out-of-enum path segment is
+    # itself an invalid request (OpenapiFirst::RequestInvalidError), so the documented 422 could
+    # never be reached under strict request validation. The response IS still validated (422 is
+    # declared for completeNextAction), so the bad_queue body is checked.
+    # Contract gap: next-actions.yaml declares 422/bad_queue for completeNextAction but not for
+    # undoNextAction (OpenapiFirst::ResponseNotFoundError on DELETE) -> follow-up CCR;
+    # contracts/ is not this lane's to edit.
     post "/api/v1/next_actions/#{SecureRandom.uuid}/nope/completion",
          headers: headers.merge("X-Simbe-Contract-Probe" => "1")
 
