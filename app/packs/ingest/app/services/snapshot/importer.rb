@@ -1,3 +1,5 @@
+require "csv"
+
 class Snapshot
   # Raised when another load for the same agency holds the advisory lock.
   class InProgress < StandardError; end
@@ -17,8 +19,13 @@ class Snapshot
 
   # Replaces an agency's data with an export directory in ONE transaction (docs/conventions/
   # database.md, spec 2002 decision 8): advisory lock per agency → delete the agency's leads
-  # (children cascade) → 5,000-row batches → Snapshot::Facts → snapshots row. A failure rolls
+  # (children cascade) → stream every table in → Snapshot::Facts → snapshots row. A failure rolls
   # back to the previous snapshot and a reload never double counts.
+  #
+  # Rows are streamed table by table with Postgres `COPY` (lane override 6): a 69 MB Lakeside
+  # export must load in under 120 s, and `insert_all` costs roughly 0.5 ms per row here, which
+  # would not fit. Screener answers are encrypted per row before they reach the COPY stream
+  # (docs/conventions/sensitive-data.md) and are the only per-row cost.
   #
   # `unscoped` is used deliberately (this and the Validator are the only places) to replace THIS
   # agency's rows; every statement is bound to the agency id. `cancel:` is polled between batches
@@ -31,10 +38,30 @@ class Snapshot
     Cancelled = Snapshot::Cancelled
 
     BATCH = 5_000
+    # put_copy_data is flushed in bounded chunks: a single ~1 MB buffer trips the driver
+    # ("no COPY in progress"), so the stream is flushed well under that.
+    FLUSH_BYTES = 256 * 1024
 
     TABLES = %i[
       leads stage_events contacts screener_answers web_sessions appointments applications
     ].freeze
+    CHILD_TABLES = TABLES.drop(1).freeze
+
+    # COPY column order per table (ids use the DB default). created_at/updated_at are NOT NULL
+    # with no DB default, so they are written explicitly.
+    COPY_COLUMNS = {
+      leads: %w[
+        agency_id external_id lead_created_at first_name last_name email phone state source_raw
+        channel campaign ad coordinator_name current_stage outcome outcome_reason
+        outcome_updated_at paused_until created_at updated_at
+      ],
+      stage_events: %w[agency_id lead_id stage entered_at created_at updated_at],
+      contacts: %w[agency_id lead_id contacted_at direction channel contacted_by created_at updated_at],
+      screener_answers: %w[agency_id lead_id submitted_at question answer meets_requirement created_at updated_at],
+      web_sessions: %w[agency_id lead_id started_at landing_url pages_viewed referrer device created_at updated_at],
+      appointments: %w[agency_id lead_id booked_at scheduled_for status created_at updated_at],
+      applications: %w[agency_id lead_id started_at submitted_at percent_complete last_section_completed created_at updated_at]
+    }.freeze
 
     # -> Snapshot. Raises InProgress, Invalid(report) or Cancelled.
     def self.call(agency:, dir:, user: nil, progress: nil, cancel: nil)
@@ -78,77 +105,82 @@ class Snapshot
 
     def self.replace!(agency, rows, progress: nil, cancel: nil)
       Lead.unscoped.where(agency_id: agency.id).delete_all
+      now = Time.current
       step = tracker(progress, TABLES.sum { |table| rows[table].size })
-      ids = insert_leads(agency, rows[:leads], step, cancel)
-      insert_children(StageEvent, rows[:stage_events], ids, agency, step, cancel) do |row|
-        { stage: row[:stage], entered_at: row[:entered_at] }
-      end
-      insert_children(Contact, rows[:contacts], ids, agency, step, cancel) do |row|
-        { contacted_at: row[:contacted_at], direction: row[:direction], channel: row[:channel],
-          contacted_by: row[:contacted_by] }
-      end
-      insert_children(WebSession, rows[:web_sessions], ids, agency, step, cancel) do |row|
-        { started_at: row[:started_at], landing_url: row[:landing_url], pages_viewed: row[:pages_viewed],
-          referrer: row[:referrer], device: row[:device] }
-      end
-      insert_children(Appointment, rows[:appointments], ids, agency, step, cancel) do |row|
-        { booked_at: row[:booked_at], scheduled_for: row[:scheduled_for], status: row[:status] }
-      end
-      insert_children(Application, rows[:applications], ids, agency, step, cancel) do |row|
-        { started_at: row[:started_at], submitted_at: row[:submitted_at],
-          percent_complete: row[:percent_complete], last_section_completed: row[:last_section_completed] }
-      end
-      insert_screener(rows[:screener_answers], ids, agency, step, cancel)
+
+      copy_table(:leads, rows[:leads], agency, {}, now, step, cancel)
+      lead_ids = Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h
+      CHILD_TABLES.each { |table| copy_table(table, rows[table], agency, lead_ids, now, step, cancel) }
     end
 
-    def self.insert_leads(agency, rows, step, cancel)
-      each_batch(rows, step, cancel) do |batch|
-        Lead.unscoped.insert_all!(batch.map { |row| lead_attributes(agency, row) })
-      end
-      Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h
-    end
+    # Streams one table into Postgres with COPY, checking `cancel` between 5,000-row batches and
+    # flushing the COPY buffer in bounded chunks. An exception inside the COPY (a cancel, a
+    # constraint) aborts the stream cleanly, so the surrounding transaction can roll back.
+    def self.copy_table(table, rows, agency, lead_ids, now, step, cancel)
+      return if rows.empty?
 
-    def self.lead_attributes(agency, row)
-      {
-        agency_id: agency.id,
-        external_id: row[:external_id],
-        lead_created_at: row[:created_at],
-        first_name: row[:first_name], last_name: row[:last_name],
-        email: row[:email], phone: row[:phone], state: row[:state],
-        source_raw: row[:source],
-        channel: Channels::Normalizer.call(row[:source]).first,
-        campaign: row[:campaign], ad: row[:ad], coordinator_name: row[:coordinator],
-        current_stage: row[:current_stage], outcome: row[:outcome], outcome_reason: row[:outcome_reason],
-        outcome_updated_at: row[:outcome_updated_at], paused_until: row[:paused_until]
-      }
-    end
+      raw = connection.raw_connection
+      sql = "COPY #{table} (#{COPY_COLUMNS.fetch(table).join(', ')}) FROM STDIN WITH (FORMAT csv)"
+      raw.copy_data(sql) do
+        buffer = +""
+        each_batch(rows, step, cancel) do |batch|
+          batch.each do |row|
+            buffer << CSV.generate_line(row_values(table, row, agency, lead_ids, now))
+            next if buffer.bytesize < FLUSH_BYTES
 
-    def self.insert_children(model, rows, ids, agency, step, cancel)
-      each_batch(rows, step, cancel) do |batch|
-        attributes = batch.map do |row|
-          yield(row).merge(agency_id: agency.id, lead_id: ids.fetch(row[:external_id]))
+            raw.put_copy_data(buffer)
+            buffer.clear
+          end
         end
-        model.unscoped.insert_all!(attributes)
+        raw.put_copy_data(buffer) unless buffer.empty?
       end
     end
 
-    # Screener answers go through the encrypted attribute type so the plaintext never reaches the
-    # answer column (docs/conventions/sensitive-data.md); `insert_all` casts it, exactly like the
-    # spec-only RowsLoader.
-    def self.insert_screener(rows, ids, agency, step, cancel)
-      each_batch(rows, step, cancel) do |batch|
-        attributes = batch.map do |row|
-          { agency_id: agency.id, lead_id: ids.fetch(row[:external_id]),
-            submitted_at: row[:submitted_at], question: row[:question], answer: row[:answer],
-            meets_requirement: row[:meets_requirement] }
-        end
-        ScreenerAnswer.unscoped.insert_all!(attributes)
+    # Values aligned with COPY_COLUMNS. nil is written as an empty field → NULL; Time/Date are
+    # ISO-8601 so Postgres parses them without a cast.
+    def self.row_values(table, row, agency, lead_ids, now)
+      case table
+      when :leads
+        [ agency.id, row[:external_id], stamp(row[:created_at]), row[:first_name], row[:last_name],
+          row[:email], row[:phone], row[:state], row[:source],
+          Channels::Normalizer.call(row[:source]).first,
+          row[:campaign], row[:ad], row[:coordinator], row[:current_stage], row[:outcome],
+          row[:outcome_reason], stamp(row[:outcome_updated_at]), row[:paused_until]&.iso8601,
+          stamp(now), stamp(now) ]
+      when :stage_events
+        [ agency.id, lead_ids.fetch(row[:external_id]), row[:stage], stamp(row[:entered_at]),
+          stamp(now), stamp(now) ]
+      when :contacts
+        [ agency.id, lead_ids.fetch(row[:external_id]), stamp(row[:contacted_at]), row[:direction],
+          row[:channel], row[:contacted_by], stamp(now), stamp(now) ]
+      when :screener_answers
+        [ agency.id, lead_ids.fetch(row[:external_id]), stamp(row[:submitted_at]), row[:question],
+          encrypted_answer(row[:answer]), row[:meets_requirement], stamp(now), stamp(now) ]
+      when :web_sessions
+        [ agency.id, lead_ids.fetch(row[:external_id]), stamp(row[:started_at]), row[:landing_url],
+          row[:pages_viewed], row[:referrer], row[:device], stamp(now), stamp(now) ]
+      when :appointments
+        [ agency.id, lead_ids.fetch(row[:external_id]), stamp(row[:booked_at]), stamp(row[:scheduled_for]),
+          row[:status], stamp(now), stamp(now) ]
+      when :applications
+        [ agency.id, lead_ids.fetch(row[:external_id]), stamp(row[:started_at]), stamp(row[:submitted_at]),
+          row[:percent_complete], row[:last_section_completed], stamp(now), stamp(now) ]
       end
+    end
+
+    def self.stamp(time)
+      time&.utc&.iso8601(6)
+    end
+
+    # The attribute type serializes the plaintext into the same envelope `encrypts :answer` reads,
+    # so health data is never stored in the clear (verified by the schema spec).
+    def self.encrypted_answer(value)
+      return nil if value.nil?
+
+      ScreenerAnswer.type_for_attribute("answer").serialize(value)
     end
 
     def self.each_batch(rows, step, cancel)
-      return if rows.empty?
-
       rows.each_slice(BATCH) do |batch|
         raise Cancelled if cancel&.call
 
