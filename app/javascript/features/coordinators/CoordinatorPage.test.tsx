@@ -104,3 +104,12 @@ it("desktop: every needs-action row is a control named by its lead and reason", 
   })
   expect(row).toBeInTheDocument()
 })
+
+it("renders the needs-action reason verbatim as text, never as HTML", async () => {
+  const reason = "<b>Application 40%</b> quiet 8d"
+  mockApi({ "/api/v1/coordinators/:name": { ...detail, needs_action: [{ ...detail.needs_action[0], reason }] } })
+  renderWithProviders(<CoordinatorPage />, { route, path })
+
+  expect(await screen.findByText(reason)).toBeInTheDocument()
+  expect(document.querySelector("b")).toBeNull()
+})

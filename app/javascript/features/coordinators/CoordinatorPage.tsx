@@ -41,6 +41,8 @@ function NeedsActionRow({ item, onOpen }: { item: NeedsAction; onOpen: (leadId: 
     >
       <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{item.name}</span>
       <span className="text-[12px] text-ink-muted md:w-[150px] md:shrink-0">{QUEUE_LABEL[item.queue]}</span>
+      {/* `reason` is a server-generated queue/state label (spec decision 2), never a screener answer:
+          render the string verbatim as text — no HTML, no interpretation. */}
       <span className="text-[12px] text-ink-muted md:min-w-0 md:flex-[2] md:truncate">{item.reason}</span>
       <span className="text-[12px] tabular-nums text-ink-muted md:w-[44px] md:shrink-0 md:text-right">
         {formatDuration(item.age_minutes)}
