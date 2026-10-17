@@ -17,3 +17,8 @@ it("does not divide by zero and keeps a title for long labels", () => {
   expect(fill).toHaveStyle({ width: "0%" })
   expect(fill).toHaveClass("bg-line-strong")
 })
+
+it("supports a warning tone (the highest form drop-off)", () => {
+  const { container } = render(<BarRow label="Pregnancy history" value="1" pct={100} tone="warning" />)
+  expect(container.querySelector(".bg-warning")).not.toBeNull()
+})
