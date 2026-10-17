@@ -6,7 +6,8 @@
 # whitelist, never from input. Child classes own one question each and take `agency:`.
 module Metrics
   class Base
-    RANGES = { "30d" => 30.days, "90d" => 90.days, "12m" => 365.days }.freeze
+    # Day counts, not Durations: the window is built from calendar dates in the agency's zone.
+    RANGES = { "30d" => 30, "90d" => 90, "12m" => 365 }.freeze
     # Aliased from W0-3 (agencies.qualified_milestone -> lead_facts column), so the
     # whitelist lives in one place (lane override 2).
     QUALIFIED_COLUMNS = AgencyMilestones::COLUMNS
@@ -58,15 +59,23 @@ module Metrics
       @snapshot = row && { id: row["id"], as_of: row["as_of"].utc }
     end
 
-    # The cohort window as UTC times, or nil without a snapshot: the current window is
-    # `>= from AND <= to`; the previous equal-length window is `>= prev_from AND < from`.
+    # The cohort window as UTC times, or nil without a snapshot: it spans whole calendar
+    # days in the agency's time zone, ending on the as_of's local day, so the lead cohort
+    # and the (date-based) ad spend cover exactly the same days. The previous window is the
+    # equal-length run of local days immediately before it.
     def window
       return nil unless snapshot
 
+      zone = ActiveSupport::TimeZone[agency.timezone]
       length = RANGES.fetch(range)
-      to = snapshot[:as_of]
-      from = to - length
-      { from: from, to: to, prev_from: from - length, prev_to: from }
+      to_date = snapshot[:as_of].in_time_zone(zone).to_date
+      from_date = to_date - (length - 1)
+      {
+        from: local_day(zone, from_date), to: local_day(zone, to_date).end_of_day,
+        prev_from: local_day(zone, from_date - length), prev_to: local_day(zone, from_date - 1).end_of_day,
+        from_date: from_date, to_date: to_date,
+        prev_from_date: from_date - length, prev_to_date: from_date - 1
+      }
     end
 
     # The lead_facts column that records the agency's qualified milestone (whitelist only).
@@ -77,11 +86,13 @@ module Metrics
     # Runs `sql` with the window binds (plus any `extra`) and returns symbolized rows.
     # Unused binds are harmless; `sanitize_sql_array` only substitutes the names it finds.
     def rows(sql, extra = {})
+      bounds = window
       bind = {
         agency_id: agency.id,
-        from: window[:from], to: window[:to],
-        prev_from: window[:prev_from], prev_to: window[:prev_to],
-        from_date: local_date(window[:from]), to_date: local_date(window[:to])
+        from: bounds[:from], to: bounds[:to],
+        prev_from: bounds[:prev_from], prev_to: bounds[:prev_to],
+        from_date: bounds[:from_date], to_date: bounds[:to_date],
+        prev_from_date: bounds[:prev_from_date], prev_to_date: bounds[:prev_to_date]
       }.merge(extra)
       connection.select_all(sanitize(sql, bind), "Metrics").to_a.map(&:symbolize_keys)
     end
@@ -111,9 +122,9 @@ module Metrics
       "#{row['count'].to_i}:#{row['updated_at']&.utc&.iso8601(6)}"
     end
 
-    # A date in the agency's time zone, for the `date` column of ad_spend_daily.
-    def local_date(time)
-      time.in_time_zone(agency.timezone).to_date
+    # A whole calendar day in the agency's time zone (midnight local), as a UTC instant.
+    def local_day(zone, date)
+      zone.local(date.year, date.month, date.day)
     end
 
     def sanitize(sql, binds)
