@@ -1,0 +1,80 @@
+import { screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { setScenario } from "@/mocks/scenarios"
+import { renderWithProviders } from "@/test/renderWithProviders"
+import { PipelinePage } from "./PipelinePage"
+
+const L7 = "aaaaaaaa-0000-4000-8000-000000000007"
+
+it("renders the four board columns with their counts", async () => {
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  for (const [name, count] of [
+    ["Action needed", "4"],
+    ["In application", "0"],
+    ["Consult", "0"],
+    ["Qualified", "3"],
+  ]) {
+    const region = await screen.findByRole("region", { name })
+    expect(within(region).getByTestId("column-count")).toHaveTextContent(count)
+  }
+  expect(await screen.findByText("L4 Alpha")).toBeInTheDocument()
+})
+
+it("shows an empty column hint", async () => {
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  expect(await screen.findAllByText("Nothing here")).toHaveLength(2)
+})
+
+it("opens the lead panel from a card via ?lead=", async () => {
+  const user = userEvent.setup()
+  const { location } = renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  await user.click(await screen.findByRole("button", { name: /L7 Alpha/ }))
+  await waitFor(() => expect(location().search).toContain(`lead=${L7}`))
+})
+
+it("switches to list view and filters", async () => {
+  const user = userEvent.setup()
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  await user.click(screen.getByRole("button", { name: "List" }))
+  expect(await screen.findByText("L7 Alpha")).toBeInTheDocument()
+  await user.type(screen.getByLabelText("Filter leads"), "l4")
+  expect(await screen.findByText("L4 Alpha")).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByText("L7 Alpha")).toBeNull())
+})
+
+it("shows the coordinator dropdown only for owners", async () => {
+  const first = renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  expect(await screen.findByRole("combobox", { name: "All coordinators" })).toBeInTheDocument()
+  first.unmount()
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "coordinator" })
+  await screen.findByRole("region", { name: "Action needed" })
+  expect(screen.queryByRole("combobox", { name: "All coordinators" })).toBeNull()
+})
+
+it("shows column chips and one column at a time on mobile", async () => {
+  const user = userEvent.setup()
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner", viewport: 390 })
+  const chips = await screen.findByRole("group", { name: "Pipeline columns" })
+  expect(screen.getAllByRole("region")).toHaveLength(1)
+  await user.click(within(chips).getByRole("button", { name: /Qualified/ }))
+  expect(screen.getByRole("region", { name: "Qualified" })).toBeInTheDocument()
+  expect(screen.queryByRole("region", { name: "Action needed" })).toBeNull()
+})
+
+it("shows the loading state while a snapshot load is pending", async () => {
+  setScenario("loading")
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  expect(await screen.findByText("Loading your data…")).toBeInTheDocument()
+})
+
+it("asks the owner to load data when there is no snapshot", async () => {
+  setScenario("empty")
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
+  expect(await screen.findByRole("link", { name: "Load your data" })).toHaveAttribute("href", "/data")
+})
+
+it("tells a coordinator to ask the owner for data", async () => {
+  setScenario("empty")
+  renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "coordinator" })
+  expect(await screen.findByText("Ask your agency owner to load data.")).toBeInTheDocument()
+})
