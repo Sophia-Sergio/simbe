@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { useSearchParams } from "react-router-dom"
 import { useCoordinatorNames } from "@/api/hooks/account"
@@ -101,8 +101,19 @@ export function PipelinePage() {
   const status: StatusFilter = isStatus(rawStatus) ? rawStatus : "open"
   const coordinator = params.get("coordinator") ?? ""
   const q = params.get("q") ?? ""
-  // The filter box owns its text: the URL (and the query key) updates a render later, which must not drop a keystroke.
+  // The filter box owns its text between keystrokes; the URL (and so the query key) updates a debounced beat later.
   const [query, setQuery] = useState(q)
+  const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Drop any debounced write still pending when the URL q changes underneath us, or on unmount.
+  useEffect(
+    () => () => {
+      if (filterTimer.current) {
+        clearTimeout(filterTimer.current)
+        filterTimer.current = null
+      }
+    },
+    [q],
+  )
   const rawColumn = params.get("column")
   const column: ColumnKey = isColumn(rawColumn) ? rawColumn : "action_needed"
   const timezone = agency?.timezone ?? "UTC"
@@ -255,8 +266,13 @@ export function PipelinePage() {
             placeholder="Filter leads"
             value={query}
             onChange={(event) => {
-              setQuery(event.target.value)
-              setParam("q", event.target.value || null)
+              const value = event.target.value
+              setQuery(value)
+              // Debounce the URL write so a burst of keystrokes issues one list request, not one per character.
+              if (filterTimer.current) clearTimeout(filterTimer.current)
+              filterTimer.current = setTimeout(() => {
+                setParam("q", value || null)
+              }, 300)
             }}
             className="max-w-[260px]"
           />

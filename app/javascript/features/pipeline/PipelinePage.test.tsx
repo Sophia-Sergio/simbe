@@ -1,10 +1,15 @@
-import { screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { HttpResponse } from "msw"
 import { setScenario } from "@/mocks/scenarios"
+import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { PipelinePage } from "./PipelinePage"
 
 const L7 = "aaaaaaaa-0000-4000-8000-000000000007"
+
+// A fake-timer test that hangs must never leave fake timers on for the rest of the file.
+afterEach(() => vi.useRealTimers())
 
 it("renders the four board columns with their counts", async () => {
   renderWithProviders(<PipelinePage />, { route: "/pipeline", role: "owner" })
@@ -40,6 +45,34 @@ it("switches to list view and filters", async () => {
   await user.type(screen.getByLabelText("Filter leads"), "l4")
   expect(await screen.findByText("L4 Alpha")).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByText("L7 Alpha")).toBeNull())
+})
+
+it("debounces the filter so typing l4 quickly issues one request", async () => {
+  let listRequests = 0
+  mockApi({
+    "GET /api/v1/leads": () => {
+      listRequests += 1
+      return HttpResponse.json({ leads: [], next_cursor: null })
+    },
+  })
+  renderWithProviders(<PipelinePage />, { route: "/pipeline?view=list", role: "owner" })
+  await waitFor(() => expect(listRequests).toBe(1)) // the initial, unfiltered list load
+
+  vi.useFakeTimers()
+  try {
+    // Two strokes inside the debounce window (fireEvent: no keystroke delay): only one request may reach the API.
+    const input = screen.getByLabelText("Filter leads")
+    fireEvent.change(input, { target: { value: "l" } })
+    fireEvent.change(input, { target: { value: "l4" } })
+    expect(listRequests).toBe(1)
+    await act(async () => {
+      vi.advanceTimersByTime(300)
+    })
+    await vi.waitFor(() => expect(listRequests).toBe(2))
+    expect(listRequests).toBe(2)
+  } finally {
+    vi.useRealTimers()
+  }
 })
 
 it("shows the coordinator dropdown only for owners", async () => {
