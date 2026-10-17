@@ -113,17 +113,19 @@ class Snapshot
       CHILD_TABLES.each { |table| copy_table(table, rows[table], agency, lead_ids, now, step, cancel) }
     end
 
-    # Streams one table into Postgres with COPY, checking `cancel` between 5,000-row batches and
-    # flushing the COPY buffer in bounded chunks. An exception inside the COPY (a cancel, a
-    # constraint) aborts the stream cleanly, so the surrounding transaction can roll back.
+    # Streams one table into Postgres with COPY, one COPY per 5,000-row batch. Keeping the COPY
+    # statements short lets the cancel check and the progress write run between them (a progress
+    # write during an open COPY is not possible on the same connection), while the COPY buffer is
+    # still flushed in bounded chunks. An exception inside a COPY (a cancel, a constraint) aborts
+    # that stream cleanly, so the surrounding transaction can roll back.
     def self.copy_table(table, rows, agency, lead_ids, now, step, cancel)
       return if rows.empty?
 
       raw = connection.raw_connection
       sql = "COPY #{table} (#{COPY_COLUMNS.fetch(table).join(', ')}) FROM STDIN WITH (FORMAT csv)"
-      raw.copy_data(sql) do
-        buffer = +""
-        each_batch(rows, step, cancel) do |batch|
+      each_batch(rows, step, cancel) do |batch|
+        raw.copy_data(sql) do
+          buffer = +""
           batch.each do |row|
             buffer << CSV.generate_line(row_values(table, row, agency, lead_ids, now))
             next if buffer.bytesize < FLUSH_BYTES
@@ -131,8 +133,8 @@ class Snapshot
             raw.put_copy_data(buffer)
             buffer.clear
           end
+          raw.put_copy_data(buffer) unless buffer.empty?
         end
-        raw.put_copy_data(buffer) unless buffer.empty?
       end
     end
 
