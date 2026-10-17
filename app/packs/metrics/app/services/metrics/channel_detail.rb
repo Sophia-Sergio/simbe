@@ -20,9 +20,10 @@ module Metrics
         GROUP BY c.campaign
       ),
       spend AS (
-        SELECT coalesce(nullif(campaign, ''), :untagged) AS campaign, sum(spend_cents) AS cents
-        FROM ad_spend_daily
-        WHERE agency_id = :agency_id AND date >= :from_date AND date <= :to_date AND channel = :channel
+        SELECT coalesce(nullif(s.campaign, ''), :untagged) AS campaign, sum(s.spend_cents) AS cents
+        FROM ad_spend_daily s
+        WHERE s.agency_id = :agency_id AND s.date >= :from_date AND s.date <= :to_date AND s.channel = :channel
+          AND #{Metrics::Base::PREFER_REAL_SPEND}
         GROUP BY 1
       )
       SELECT p.campaign, p.ads, p.leads, p.qualified, s.cents AS spend_cents

@@ -18,17 +18,19 @@ module Metrics
     SQL
 
     SPEND_SQL = <<~SQL.freeze
-      SELECT source, sum(spend_cents) AS cents
-      FROM ad_spend_daily
-      WHERE agency_id = :agency_id AND date >= :from_date AND date <= :to_date
-      GROUP BY source
+      SELECT s.source, sum(s.spend_cents) AS cents
+      FROM ad_spend_daily s
+      WHERE s.agency_id = :agency_id AND s.date >= :from_date AND s.date <= :to_date
+        AND #{Metrics::Base::PREFER_REAL_SPEND}
+      GROUP BY s.source
     SQL
 
     PREV_SPEND_SQL = <<~SQL.freeze
-      SELECT source, sum(spend_cents) AS cents
-      FROM ad_spend_daily
-      WHERE agency_id = :agency_id AND date >= :prev_from_date AND date < :from_date
-      GROUP BY source
+      SELECT s.source, sum(s.spend_cents) AS cents
+      FROM ad_spend_daily s
+      WHERE s.agency_id = :agency_id AND s.date >= :prev_from_date AND s.date < :from_date
+        AND #{Metrics::Base::PREFER_REAL_SPEND}
+      GROUP BY s.source
     SQL
 
     LOW_SAMPLE_LEADS = 30

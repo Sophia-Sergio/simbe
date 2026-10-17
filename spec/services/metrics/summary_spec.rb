@@ -54,4 +54,13 @@ RSpec.describe Metrics::Summary do
     AdSpendDay.create!(agency: agency, date: "2025-01-01", platform: "meta", channel: "Facebook", campaign: "c-a", spend_cents: 999_999, source: "import")
     expect(s[:kpis][:cost_per_qualified][:value_cents]).to eq(28_333)
   end
+
+  it "does not double count a sample row beside real spend for the same day" do
+    AdSpendDay.create!(agency: agency, date: "2026-09-23", platform: "meta", channel: "Instagram",
+                       campaign: "c-b", spend_cents: 20_000, source: "import")
+    AdSpendDay.create!(agency: agency, date: "2026-09-23", platform: "meta", channel: "Instagram",
+                       campaign: "c-z", spend_cents: 5_000, source: "sample")
+    # 85_000 AlphaSpend + 20_000 real, ignoring the shadowed 5_000 sample; ÷ 3 qualified.
+    expect(described_class.call(agency: agency, range: "30d")[:kpis][:cost_per_qualified][:value_cents]).to eq(35_000)
+  end
 end

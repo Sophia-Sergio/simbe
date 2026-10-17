@@ -25,11 +25,19 @@ module Spend
       GROUP BY 1, 2, 3
     SQL
 
+    # Real (import/connected) spend, keyed by channel/campaign/day, so a placeholder day is
+    # never generated beside a real one.
+    REAL_SPEND_SQL = <<~SQL.freeze
+      SELECT DISTINCT channel, coalesce(nullif(campaign, ''), :untagged) AS campaign, date
+      FROM ad_spend_daily
+      WHERE agency_id = :agency_id AND source <> 'sample'
+    SQL
+
     # -> Integer number of sample rows written.
     def self.call(agency:)
       previous = Current.agency
       Current.agency = agency
-      groups = groups_for(agency)
+      groups = uncovered_groups(agency)
       ActiveRecord::Base.transaction do
         AdSpendDay.where(source: "sample").delete_all
         groups.each { |group| AdSpendDay.create!(attributes(agency, group)) }
@@ -39,12 +47,31 @@ module Spend
       Current.agency = previous
     end
 
+    # The paid (channel, campaign, day) combos with leads but no real spend yet: a day an
+    # owner imported (or a connector filled) keeps its real row and gets no placeholder
+    # beside it — which the unique index would reject regardless, and the SUMs would double
+    # count.
+    def self.uncovered_groups(agency)
+      covered = covered_keys(agency)
+      groups_for(agency).reject do |group|
+        covered.include?([ group["channel"], group["campaign"], group["date"].to_date ])
+      end
+    end
+
+    def self.covered_keys(agency)
+      rows(REAL_SPEND_SQL, agency_id: agency.id, untagged: UNTAGGED).each_with_object({}) do |row, index|
+        index[[ row["channel"], row["campaign"], row["date"].to_date ]] = true
+      end
+    end
+
     def self.groups_for(agency)
-      sql = ActiveRecord::Base.sanitize_sql_array(
-        [ LEADS_SQL, { agency_id: agency.id, timezone: agency.timezone,
-                       untagged: UNTAGGED, channels: COST_PER_LEAD_CENTS.keys } ]
-      )
-      ActiveRecord::Base.connection.select_all(sql, "Spend::SampleGenerator").to_a
+      rows(LEADS_SQL, agency_id: agency.id, timezone: agency.timezone,
+                    untagged: UNTAGGED, channels: COST_PER_LEAD_CENTS.keys)
+    end
+
+    def self.rows(sql, **binds)
+      statement = ActiveRecord::Base.sanitize_sql_array([ sql, binds ])
+      ActiveRecord::Base.connection.select_all(statement, "Spend::SampleGenerator").to_a
     end
 
     def self.attributes(agency, group)

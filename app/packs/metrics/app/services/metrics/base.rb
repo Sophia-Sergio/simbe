@@ -29,6 +29,17 @@ module Metrics
       WHERE agency_id = :agency_id
     SQL
 
+    # Predicate that drops a `sample` placeholder when a real (import/connected) row exists
+    # for the same agency/channel/day, so the placeholder never double counts real spend in
+    # the SUMs. The outer ad_spend_daily relation must be aliased `s`.
+    PREFER_REAL_SPEND = <<~SQL.squish.freeze
+      (s.source <> 'sample' OR NOT EXISTS (
+        SELECT 1 FROM ad_spend_daily r
+        WHERE r.agency_id = s.agency_id AND r.channel = s.channel
+          AND r.date = s.date AND r.source <> 'sample'
+      ))
+    SQL
+
     attr_reader :agency, :range
 
     def initialize(agency:, range: "30d")

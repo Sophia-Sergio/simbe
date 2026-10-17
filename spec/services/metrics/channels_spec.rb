@@ -36,6 +36,15 @@ RSpec.describe Metrics::Channels do
     expect(result[:rows]).to all(include(low_sample: true))
   end
 
+  it "prefers real spend over a sample row for the same channel and day" do
+    AdSpendDay.create!(agency: agency, date: "2026-09-23", platform: "meta", channel: "Instagram",
+                       campaign: "c-b", spend_cents: 20_000, source: "import")
+    AdSpendDay.create!(agency: agency, date: "2026-09-23", platform: "meta", channel: "Instagram",
+                       campaign: "c-z", spend_cents: 5_000, source: "sample")
+    rows = described_class.call(agency: agency, range: "30d")[:rows].index_by { _1[:channel] }
+    expect(rows["Instagram"][:spend_cents]).to eq(30_000) # 10_000 AlphaSpend + 20_000 real, not + 5_000 sample
+  end
+
   it "returns an empty table and zero insights without a snapshot" do
     r = described_class.call(agency: create(:agency), range: "30d")
     expect(r[:rows]).to eq([])

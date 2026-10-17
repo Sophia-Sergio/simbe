@@ -19,4 +19,13 @@ RSpec.describe Metrics::ChannelDetail do
   it "404s an unknown channel" do
     expect { described_class.call(agency: agency, range: "30d", channel: "Podcast") }.to raise_error(ActiveRecord::RecordNotFound)
   end
+
+  it "prefers real spend over a sample row for the same channel and day" do
+    AdSpendDay.create!(agency: agency, date: "2026-09-20", platform: "meta", channel: "Facebook",
+                       campaign: "c-z", spend_cents: 9_000, source: "import")
+    AdSpendDay.create!(agency: agency, date: "2026-09-20", platform: "meta", channel: "Facebook",
+                       campaign: "c-a", spend_cents: 5_000, source: "sample")
+    campaigns = described_class.call(agency: agency, range: "30d", channel: "Facebook")[:campaigns]
+    expect(campaigns.find { _1[:campaign] == "c-a" }[:spend_cents]).to eq(30_000) # not + 5_000 sample
+  end
 end

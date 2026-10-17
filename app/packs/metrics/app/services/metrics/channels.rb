@@ -19,10 +19,11 @@ module Metrics
         GROUP BY c.channel
       ),
       spend AS (
-        SELECT channel, sum(spend_cents) AS cents
-        FROM ad_spend_daily
-        WHERE agency_id = :agency_id AND date >= :from_date AND date <= :to_date
-        GROUP BY channel
+        SELECT s.channel, sum(s.spend_cents) AS cents
+        FROM ad_spend_daily s
+        WHERE s.agency_id = :agency_id AND s.date >= :from_date AND s.date <= :to_date
+          AND #{Metrics::Base::PREFER_REAL_SPEND}
+        GROUP BY s.channel
       )
       SELECT p.channel, p.leads, p.qualified, s.cents AS spend_cents
       FROM per_channel p LEFT JOIN spend s ON s.channel = p.channel

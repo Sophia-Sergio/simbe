@@ -34,6 +34,15 @@ RSpec.describe Spend::SampleGenerator do
     expect(AdSpendDay.where(source: "sample").count).to eq(7)
   end
 
+  it "skips a channel/campaign/day that already has real spend, so it is never double counted" do
+    AdSpendDay.create!(agency: agency, date: "2026-09-20", platform: "meta", channel: "Facebook",
+                       campaign: "c-a", spend_cents: 12_345, source: "import")
+    described_class.call(agency: agency)
+    expect(AdSpendDay.where(source: "sample", channel: "Facebook", campaign: "c-a", date: "2026-09-20")).to be_empty
+    expect(AdSpendDay.where(source: "import").sum(:spend_cents)).to eq(12_345)
+    expect(AdSpendDay.where(source: "sample").count).to eq(6) # 7 paid groups minus the covered one
+  end
+
   it "never writes another agency's spend" do
     other = create(:agency, slug: "beta")
     Current.agency = other
