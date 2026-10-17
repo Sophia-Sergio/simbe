@@ -369,6 +369,7 @@ def cmd_run(a):
              "Your shell is allowlisted (git add/commit/status/diff/log, make, bin/rails, bundle, npm/npx/node, docker compose, ...); anything else, "
              "including shell redirection to write files, is denied: create and change files with your edit tool. "
              "Run every command in the FOREGROUND and wait for it to finish: never start a command in the background and never end your turn while one is still running (the run ends when you stop, and a background job dies with it). "
+             "After EVERY plan task run `make verify-changed` (fast: lint, boundaries and only the specs related to your changes) and fix what it reports before the next task; run the full `make verify` once, at the very end, and the plan's real-data commands only when the plan says so (they take minutes and gigabytes; REAL_DATA=1 or an explicit spec/real_data path runs them). "
              "Before you stop, everything you changed must be committed (`git status` clean) or you must say exactly what is uncommitted and why.")
     extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
     # A fix round (--session) sends the reviewer's findings instead of the lane prompt; the gated-run rules always follow.

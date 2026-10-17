@@ -1,6 +1,8 @@
 # Development seeds (docs/conventions/real-data.md): the two documented agencies and
 # their owners/coordinators. Idempotent — safe to run on every `make setup`.
-abort("seeds are dev only") unless Rails.env.development?
+abort("seeds are dev only") if Rails.env.production?
+# `db:prepare` seeds a freshly created database in every environment: stay quiet (and succeed) in test instead of failing `make spec` on a fresh stack.
+return unless Rails.env.development?
 
 harbor = Agency.find_or_create_by!(slug: "harbor") do |a|
   a.name = "Harbor Surrogacy"

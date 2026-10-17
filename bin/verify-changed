@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Fast check for the work in this worktree: lint, boundaries and the specs RELATED to what changed (bin/affected-specs).
+# Run it after every plan task. The full `make verify` (everything, once) is for the end of a lane; CI runs it all on the PR.
+# Real-data specs are not included (REAL_DATA=1 or an explicit spec/real_data path runs them).
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+export PATH="$HOME/.nvm/versions/node/v22.17.1/bin:$PATH"
+
+bin/affected-specs
+echo
+bin/lane check
+bin/guard-no-health-data
+
+mapfile_compat() { while IFS= read -r line; do [ -n "$line" ] && printf '%s\n' "$line"; done; }
+changed_ruby=$( { git diff --name-only origin/main...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u | grep -E '\.(rb|rake)$' | while read -r f; do [ -f "$f" ] && echo "$f"; done || true)
+rspec_files=$(bin/affected-specs --rspec | mapfile_compat || true)
+vitest_files=$(bin/affected-specs --vitest | mapfile_compat || true)
+changed_js=$( { git diff --name-only origin/main...HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u | grep -E '^(app/javascript|e2e)/.*\.(ts|tsx)$' | grep -v 'api/generated' | while read -r f; do [ -f "$f" ] && echo "$f"; done || true)
+
+if [ -n "$changed_ruby" ]; then
+  echo "== rubocop (changed Ruby files)"
+  docker compose exec -T web bundle exec rubocop $changed_ruby
+  echo "== boundaries:check"
+  docker compose exec -T web bundle exec rails boundaries:check
+  echo "== rspec (related specs)"
+  docker compose exec -T -e RAILS_ENV=test web bundle exec rails db:prepare
+  docker compose exec -T -e RAILS_ENV=test web bundle exec rspec $rspec_files
+else
+  echo "== boundaries:check (no Ruby changed, still guards every source file)"
+  docker compose exec -T web bundle exec rails boundaries:check
+fi
+
+if [ -n "$changed_js" ]; then
+  echo "== typecheck"; npm run -s typecheck
+  echo "== eslint (changed files)"; npx eslint $changed_js
+  if [ -n "$vitest_files" ]; then echo "== vitest related"; npx vitest related --run $vitest_files; fi
+fi
+echo "verify-changed: ok"
