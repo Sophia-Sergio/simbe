@@ -140,7 +140,9 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
       </div>
 
       {phase === "idle" ? (
-        <p className="px-1 py-3 text-[13px] text-ink-muted">Type at least two characters to search.</p>
+        <p data-testid="search-hint" className="px-1 py-3 text-[13px] text-ink-muted">
+          Type at least two characters to search.
+        </p>
       ) : phase === "pending" ? (
         <div aria-busy="true" aria-label="Searching" className="flex flex-col gap-2 py-1">
           {[0, 1, 2].map((row) => (

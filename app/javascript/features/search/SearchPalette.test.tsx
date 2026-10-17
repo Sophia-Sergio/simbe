@@ -232,3 +232,77 @@ it("leaves Home and End to the caret instead of moving the active option", async
   fireEvent.keyDown(input, { key: "End" })
   expect(input).toHaveAttribute("aria-activedescendant", active)
 })
+
+it("a slow older response never overwrites the newer query's results", async () => {
+  const user = userEvent.setup()
+  mockApi({
+    "GET /api/v1/leads": (req: Request) => {
+      const q = new URL(req.url).searchParams.get("q")
+      // "l4" answers late with a row; "l5" answers at once with none.
+      if (q === "l4") {
+        return new Promise<Response>((resolve) =>
+          setTimeout(() => resolve(HttpResponse.json({ leads: [card()], next_cursor: null })), 300),
+        )
+      }
+      return HttpResponse.json({ leads: [], next_cursor: null })
+    },
+  })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  // Let the debounce fire so the slow l4 request is in flight, then move on to "l5".
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 240))
+  })
+  fireEvent.change(input, { target: { value: "l5" } })
+
+  expect(await screen.findByTestId("search-empty")).toHaveTextContent("No matches")
+  // Let the older l4 response land; it must not replace the newer query's empty state.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350))
+  })
+  expect(screen.queryByRole("option", { name: /L4 Alpha/ })).toBeNull()
+  expect(screen.getByTestId("search-empty")).toHaveTextContent("No matches")
+})
+
+it("aborts the in-flight request's signal when the palette closes", async () => {
+  const signals: AbortSignal[] = []
+  const original = AbortController.prototype.abort
+  const spy = vi.spyOn(AbortController.prototype, "abort").mockImplementation(function (this: AbortController) {
+    signals.push(this.signal)
+    original.call(this)
+  })
+  try {
+    mockApi({ "GET /api/v1/leads": () => new Promise<Response>(() => {}) })
+    const user = userEvent.setup()
+    const { input } = await openPalette()
+
+    await user.type(input, "l4")
+    await waitFor(() => expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0))
+
+    fireEvent.keyDown(input, { key: "Escape" })
+    // Closing unmounts the query, so the signal handed to the request is aborted.
+    await waitFor(() => expect(signals.some((signal) => signal.aborted)).toBe(true))
+  } finally {
+    spy.mockRestore()
+  }
+})
+
+it("Ctrl+K toggles an open palette closed", async () => {
+  await openPalette()
+  fireEvent.keyDown(window, { key: "k", ctrlKey: true })
+  await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull())
+})
+
+it("renders HTML in a lead name as text, never as markup", async () => {
+  const user = userEvent.setup()
+  const name = '<img src=x onerror="window.__xss = true">'
+  mockApi({ "GET /api/v1/leads": { leads: [card({ name })], next_cursor: null } })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  const option = await screen.findByRole("option")
+  expect(option).toHaveTextContent("<img")
+  expect(within(option).queryByRole("img")).toBeNull()
+  expect((window as unknown as { __xss?: boolean }).__xss).toBeUndefined()
+})

@@ -77,3 +77,15 @@ test("opening search closes an open lead panel first", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "L4 Alpha" })).toBeHidden()
   await expect(page).not.toHaveURL(/lead=/)
 })
+
+test("a lone % stays below the two-character gate and is never a wildcard", async ({ page }) => {
+  await signIn(page, OWNER)
+  const palette = await openPalette(page)
+  const input = palette.getByRole("combobox", { name: "Search candidates" })
+
+  // One character is below the search gate, so `%` can never act as a wildcard that lists every
+  // lead; the palette stays on its prompt with no rows.
+  await input.fill("%")
+  await expect(palette.getByTestId("search-hint")).toContainText("Type at least two characters")
+  await expect(palette.getByRole("option")).toHaveCount(0)
+})
