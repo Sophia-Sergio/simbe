@@ -17,16 +17,23 @@ module AdConnections
     end
 
     # Returns [connection, created?]; a repeated connect is idempotent (200, no new sample run).
+    # Concurrent connects (a double click) are resolved by the (agency_id, platform) unique
+    # index: the loser re-reads the winner's row and answers 200 instead of a 500.
     def call
       raise InvalidPlatform unless PLATFORMS.include?(@platform)
 
-      connection = @agency.ad_connections.find_or_initialize_by(platform: @platform)
-      created = connection.new_record?
-      return [ connection, false ] unless created
+      existing = @agency.ad_connections.find_by(platform: @platform)
+      return [ existing, false ] if existing
 
-      connection.update!(status: "connected", connected_at: Time.current)
+      connection = @agency.ad_connections.new(platform: @platform, status: "connected", connected_at: Time.current)
+      connection.save!
       RefreshSampleSpend.call(agency: @agency)
       [ connection, true ]
+    rescue ActiveRecord::RecordNotUnique
+      existing = @agency.ad_connections.find_by(platform: @platform)
+      raise unless existing
+
+      [ existing, false ]
     end
   end
 

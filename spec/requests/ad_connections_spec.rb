@@ -38,6 +38,27 @@ RSpec.describe "Ad connections", type: :request do
     expect(AdConnection.unscoped.where(agency_id: agency.id).count).to eq(1)
   end
 
+  it "stays idempotent when two connects race on the unique index" do
+    sign_in
+
+    # Simulate the loser of a double click: the winner inserts the row just before this
+    # connection persists, so the unique index rejects the second insert.
+    allow_any_instance_of(AdConnection).to receive(:save!) do |connection|
+      AdConnection.unscoped.insert_all!([ {
+        agency_id: agency.id, platform: connection.platform, status: "connected",
+        connected_at: Time.current, created_at: Time.current, updated_at: Time.current
+      } ])
+      raise ActiveRecord::RecordNotUnique, "duplicate key value violates unique constraint"
+    end
+
+    connect(platform: "meta")
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body).to include("platform" => "meta", "status" => "connected")
+    expect(AdConnection.unscoped.where(agency_id: agency.id).count).to eq(1)
+    expect(sample_generator).not_to have_received(:call)
+  end
+
   it "lists only the signed-in agency's connections" do
     sign_in
     connect(platform: "meta")
