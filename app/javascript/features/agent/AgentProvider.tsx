@@ -16,7 +16,7 @@ let localTurn = 0
 const nextTurnId = () => `agent-turn-${(localTurn += 1)}`
 
 /** Maps the API's stored assistant message onto the panel's turn shape, dropping anything unexpected. */
-export function toTurn(message: AgentMessage): AgentTurn {
+function toTurn(message: AgentMessage): AgentTurn {
   const { body } = message
   return {
     id: message.id,
@@ -34,7 +34,7 @@ export function toTurn(message: AgentMessage): AgentTurn {
 }
 
 /** The user-facing copy for each documented failure (see the lane plan's override 4). */
-export function errorMessage(caught: unknown): string {
+function errorMessage(caught: unknown): string {
   if (caught instanceof ApiError) {
     if (caught.status === 409) return "Still working on your last question."
     if (caught.status === 502) return "I couldn't reach the model. Try again."

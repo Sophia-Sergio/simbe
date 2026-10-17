@@ -2,10 +2,10 @@ import { createContext, useContext } from "react"
 import type { ReactNode } from "react"
 
 /** One bar of the agent's inline chart; `display` is the model's pre-formatted label. */
-export type AgentBar = { label: string; value: number; display: string }
-export type AgentChart = { title: string; bars: AgentBar[] }
+type AgentBar = { label: string; value: number; display: string }
+type AgentChart = { title: string; bars: AgentBar[] }
 /** A whitelisted in-app route with the label to show for it. */
-export type AgentLink = { label: string; route: string }
+type AgentLink = { label: string; route: string }
 
 /** One turn in the thread, exactly as the panel renders it (never raw HTML). */
 export type AgentTurn = {

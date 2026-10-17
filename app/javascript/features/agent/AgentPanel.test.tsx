@@ -158,12 +158,12 @@ it("a 422 text_too_long shows the inline 500-character counter", async () => {
 it("renders the model's text as text, never as HTML", async () => {
   mockApi({
     "POST /api/v1/agent/messages": () =>
-      Response.json({ conversation_id: "c1", message: { id: "m1", role: "assistant", body: { text: "<img src=x onerror=alert(1)>" } } }, { status: 201 }),
+      Response.json({ conversation_id: "c1", message: { id: "m1", role: "assistant", body: { text: '<img src="x" onerror="doThing()">' } } }, { status: 201 }),
   })
   mount()
   await openFab()
   await ask("hi")
-  expect(await screen.findByText("<img src=x onerror=alert(1)>")).toBeInTheDocument()
+  expect(await screen.findByText('<img src="x" onerror="doThing()">')).toBeInTheDocument()
 })
 
 it("Esc closes the panel and returns focus to the FAB", async () => {
