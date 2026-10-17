@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { useParams } from "react-router-dom"
 import { ApiError } from "@/api/client"
@@ -13,6 +13,9 @@ import { useAsyncAction } from "@/hooks/useAsyncAction"
 
 const EXPIRED = "This invitation has expired. Ask your agency owner for a new one."
 const MIN_PASSWORD = 10
+const NAME_REQUIRED = "Enter your name."
+const PASSWORD_TOO_SHORT = `Use at least ${MIN_PASSWORD} characters.`
+const FAILED = "We could not create your account. Try again."
 /** A newly accepted coordinator lands on their own home, never the owner dashboard. */
 const COORDINATOR_HOME = "/next-actions"
 
@@ -47,20 +50,41 @@ export function AcceptInvitePage() {
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [gone, setGone] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
+  const passwordRef = useRef<HTMLInputElement>(null)
 
   const submit = useAsyncAction(async () => {
-    setError(null)
+    setNameError(null)
+    setPasswordError(null)
+    setFormError(null)
+    const who = name.trim()
+    // The button only waits for the fields to be filled in, so both checks below are real: the error lands
+    // on the field that failed and focus goes with it.
+    if (who === "") {
+      setNameError(NAME_REQUIRED)
+      nameRef.current?.focus()
+      return
+    }
+    if (password.length < MIN_PASSWORD) {
+      setPasswordError(PASSWORD_TOO_SHORT)
+      passwordRef.current?.focus()
+      return
+    }
     try {
-      await accept.mutateAsync({ name: name.trim(), password })
+      await accept.mutateAsync({ name: who, password })
       // A full load, not a router push: this screen is public (no session) and AuthProvider has already
       // marked the signed-out `/me` 401 as an expired session, so only a fresh boot picks up the new
       // coordinator cookie. Nothing is stored client-side here — the session comes from the response.
       window.location.assign(COORDINATOR_HOME)
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 410) setGone(true)
-      else if (caught instanceof ApiError && caught.code === "weak_password") setError(`Use at least ${MIN_PASSWORD} characters.`)
-      else setError("We could not create your account. Try again.")
+      else if (caught instanceof ApiError && caught.code === "weak_password") {
+        setPasswordError(PASSWORD_TOO_SHORT)
+        passwordRef.current?.focus()
+      } else setFormError(FAILED)
     }
   })
 
@@ -85,7 +109,8 @@ export function AcceptInvitePage() {
     )
   }
 
-  const valid = name.trim().length > 0 && password.length >= MIN_PASSWORD
+  // Only the empty form is blocked: the format rules below report themselves per field, with focus.
+  const ready = name !== "" && password !== ""
 
   return (
     <Card>
@@ -105,23 +130,35 @@ export function AcceptInvitePage() {
         <Field label="Email">
           <Input type="email" readOnly className="bg-subtle" value={preview.data.email} />
         </Field>
-        <Field label="Your name">
-          <Input autoComplete="name" value={name} onChange={(event) => setName(event.target.value)} />
-        </Field>
-        <Field label="Password" hint={`At least ${MIN_PASSWORD} characters`}>
+        <Field label="Your name" error={nameError ?? undefined}>
           <Input
+            ref={nameRef}
+            autoComplete="name"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value)
+              if (nameError) setNameError(null)
+            }}
+          />
+        </Field>
+        <Field label="Password" error={passwordError ?? undefined} hint={`At least ${MIN_PASSWORD} characters`}>
+          <Input
+            ref={passwordRef}
             type="password"
             autoComplete="new-password"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={(event) => {
+              setPassword(event.target.value)
+              if (passwordError) setPasswordError(null)
+            }}
           />
         </Field>
-        {error && (
+        {formError && (
           <p role="alert" className="text-[13px] font-medium text-danger-text">
-            {error}
+            {formError}
           </p>
         )}
-        <Button type="submit" className="w-full" pending={submit.pending} disabled={!valid}>
+        <Button type="submit" className="w-full" pending={submit.pending} disabled={!ready}>
           Create account
         </Button>
       </form>

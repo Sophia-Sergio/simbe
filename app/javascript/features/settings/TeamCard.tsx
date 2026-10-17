@@ -1,4 +1,4 @@
-import { useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { Copy } from "lucide-react"
 import { ApiError } from "@/api/client"
 import { useCoordinatorNames, useDeleteInvitation, useInviteCoordinator, useTeam } from "@/api/hooks/account"
@@ -20,6 +20,9 @@ type Invitation = Team["invitations"][number]
 const INVITED = "Invitation sent"
 const REVOKE_FAILED = "We could not revoke that invitation. Try again."
 const SEND_FAILED = "We could not send the invitation. Try again."
+const INVALID_EMAIL = "Enter a valid email address."
+/** Deliberately loose: the API stays the source of truth, this only catches obvious typos before a request. */
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 const ROLE_PILL: Record<TeamUser["role"], { tone: "brand" | "neutral"; label: string }> = {
   owner: { tone: "brand", label: "Owner" },
@@ -57,37 +60,70 @@ export function TeamCard() {
   const [coordinator, setCoordinator] = useState("")
   const [sent, setSent] = useState<Invitation | null>(null)
   const [revoking, setRevoking] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [coordinatorError, setCoordinatorError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const emailRef = useRef<HTMLInputElement>(null)
+  const coordinatorRef = useRef<HTMLInputElement>(null)
+  /** Each pending-invitation row, so focus can return to its Revoke trigger after an inline confirmation. */
+  const rows = useRef(new Map<string, HTMLLIElement>())
+  const focusAfterConfirm = useRef<{ kind: "trigger"; id: string } | { kind: "email" } | null>(null)
+
+  // The Revoke trigger unmounts while confirming (only the confirmation's buttons remain), so focus is
+  // restored after the state settles: to that row's trigger (cancel / failure) or to the invite email input
+  // once the row is gone.
+  useEffect(() => {
+    if (revoking !== null) return
+    const target = focusAfterConfirm.current
+    if (!target) return
+    focusAfterConfirm.current = null
+    if (target.kind === "email") emailRef.current?.focus()
+    else rows.current.get(target.id)?.querySelector<HTMLButtonElement>("[data-revoke-trigger]")?.focus()
+  }, [revoking])
 
   const invite = useAsyncAction(async () => {
-    setError(null)
+    setEmailError(null)
+    setCoordinatorError(null)
+    setFormError(null)
+    const address = email.trim()
+    if (!EMAIL_RE.test(address)) {
+      setEmailError(INVALID_EMAIL)
+      emailRef.current?.focus()
+      return
+    }
     try {
-      const created = await send.mutateAsync({ email: email.trim(), coordinator_name: coordinator.trim() })
+      const created = await send.mutateAsync({ email: address, coordinator_name: coordinator.trim() })
       setSent(created)
       setEmail("")
       setCoordinator("")
       toast.show(INVITED, { tone: "success" })
+      emailRef.current?.focus()
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === "unknown_coordinator") {
         const valid = Array.isArray(caught.extra.valid_names) ? (caught.extra.valid_names as string[]) : []
-        setError(valid.length > 0 ? `Pick one of: ${valid.join(", ")}` : "Pick a coordinator from your data.")
+        setCoordinatorError(valid.length > 0 ? `Pick one of: ${valid.join(", ")}` : "Pick a coordinator from your data.")
+        coordinatorRef.current?.focus()
       } else if (caught instanceof ApiError && caught.code === "invalid_email") {
-        setError("Enter a valid email address.")
+        setEmailError(INVALID_EMAIL)
+        emailRef.current?.focus()
       } else {
-        setError(SEND_FAILED)
+        setFormError(SEND_FAILED)
       }
     }
   })
 
   const revoke = useAsyncAction(async (id: string) => {
-    setError(null)
+    setFormError(null)
     try {
       await remove.mutateAsync(id)
-      setRevoking(null)
+      focusAfterConfirm.current = { kind: "email" }
       if (sent?.id === id) setSent(null)
     } catch {
+      focusAfterConfirm.current = { kind: "trigger", id }
+      setFormError(REVOKE_FAILED)
+    } finally {
       setRevoking(null)
-      setError(REVOKE_FAILED)
     }
   })
 
@@ -114,20 +150,34 @@ export function TeamCard() {
     <div className="border-t border-line bg-app p-5">
       <form
         className="flex flex-col gap-3 md:flex-row md:items-end"
+        noValidate
         onSubmit={(event) => {
           event.preventDefault()
           void invite.run()
         }}
       >
-        <Field label="Email" className="md:flex-1">
-          <Input type="email" autoComplete="off" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </Field>
-        <Field label="Coordinator" className="md:flex-1">
+        <Field label="Email" className="md:flex-1" error={emailError ?? undefined}>
           <Input
+            ref={emailRef}
+            type="email"
+            autoComplete="off"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value)
+              if (emailError) setEmailError(null)
+            }}
+          />
+        </Field>
+        <Field label="Coordinator" className="md:flex-1" error={coordinatorError ?? undefined}>
+          <Input
+            ref={coordinatorRef}
             list={listId}
             autoComplete="off"
             value={coordinator}
-            onChange={(event) => setCoordinator(event.target.value)}
+            onChange={(event) => {
+              setCoordinator(event.target.value)
+              if (coordinatorError) setCoordinatorError(null)
+            }}
           />
           <datalist id={listId}>
             {(names.data?.names ?? []).map((name) => (
@@ -139,9 +189,9 @@ export function TeamCard() {
           Invite
         </Button>
       </form>
-      {error && (
+      {formError && (
         <p role="alert" className="mt-3 text-[13px] font-medium text-danger-text">
-          {error}
+          {formError}
         </p>
       )}
     </div>
@@ -174,7 +224,14 @@ export function TeamCard() {
               <PersonRow key={user.id} user={user} />
             ))}
             {invitations.map((invitation) => (
-              <li key={invitation.id} className="flex flex-col gap-2 border-b border-line-subtle py-2.5 last:border-0">
+              <li
+                key={invitation.id}
+                ref={(node) => {
+                  if (node) rows.current.set(invitation.id, node)
+                  else rows.current.delete(invitation.id)
+                }}
+                className="flex flex-col gap-2 border-b border-line-subtle py-2.5 last:border-0"
+              >
                 <div className="flex flex-wrap items-center gap-3">
                   <Avatar name={invitation.coordinator_name || invitation.email} size={36} tone="warning" />
                   <span className="min-w-0 flex-1">
@@ -194,7 +251,12 @@ export function TeamCard() {
                   ) : null}
                   {/* Independent of the copy button: a mistyped email must be revocable right away. */}
                   {revoking === invitation.id ? null : (
-                    <Button variant="ghost" size="sm" onClick={() => setRevoking(invitation.id)}>
+                    <Button
+                      data-revoke-trigger
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRevoking(invitation.id)}
+                    >
                       Revoke
                     </Button>
                   )}
@@ -204,7 +266,10 @@ export function TeamCard() {
                     message={`Revoke the invitation for ${invitation.email}?`}
                     confirmLabel="Revoke"
                     pending={revoke.pending}
-                    onCancel={() => setRevoking(null)}
+                    onCancel={() => {
+                      focusAfterConfirm.current = { kind: "trigger", id: invitation.id }
+                      setRevoking(null)
+                    }}
                     onConfirm={() => void revoke.run(invitation.id)}
                   />
                 )}

@@ -10,6 +10,13 @@ const invite = async (email: string, coordinator: string) => {
   await userEvent.click(screen.getByRole("button", { name: "Invite" }))
 }
 
+/** `aria-describedby` is a list, so resolve every id it points at. */
+const describedText = (element: HTMLElement) =>
+  (element.getAttribute("aria-describedby") ?? "")
+    .split(/\s+/)
+    .map((id) => document.getElementById(id)?.textContent ?? "")
+    .join(" ")
+
 it("lists the team with role pills and the invite footer", async () => {
   renderWithProviders(<TeamCard />)
 
@@ -52,6 +59,73 @@ it("shows the valid names when the coordinator is unknown", async () => {
   await invite("nobody@harbor.test", "Nobody")
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Pick one of: Dana Ortiz, Jess Kim, Priya Shah")
+})
+
+it("checks the email format locally, links the error to the field and focuses it", async () => {
+  let calls = 0
+  mockApi({
+    "POST /api/v1/invitations": () => {
+      calls += 1
+      return Response.json({ error: { code: "invalid_email", message: "A valid email is required" } }, { status: 422 })
+    },
+  })
+  renderWithProviders(<TeamCard />)
+
+  await invite("not-an-email", "Jess Kim")
+
+  const email = await screen.findByLabelText("Email")
+  await waitFor(() => expect(email).toHaveFocus())
+  expect(email).toHaveAttribute("aria-invalid", "true")
+  expect(describedText(email)).toContain("Enter a valid email address.")
+  expect(calls).toBe(0) // rejected before the request
+})
+
+it("puts an unknown coordinator on the coordinator field and focuses it", async () => {
+  mockApi({
+    "POST /api/v1/invitations": () =>
+      Response.json(
+        { error: { code: "unknown_coordinator", message: "Pick an existing coordinator" }, valid_names: ["Dana Ortiz", "Jess Kim"] },
+        { status: 422 },
+      ),
+  })
+  renderWithProviders(<TeamCard />)
+
+  await invite("nobody@harbor.test", "Nobody")
+
+  const coordinator = await screen.findByLabelText("Coordinator")
+  await waitFor(() => expect(coordinator).toHaveFocus())
+  expect(coordinator).toHaveAttribute("aria-invalid", "true")
+  expect(describedText(coordinator)).toContain("Pick one of: Dana Ortiz, Jess Kim")
+})
+
+it("returns focus to the email field after a successful invite", async () => {
+  renderWithProviders(<TeamCard />)
+
+  await invite("jess@harbor.test", "Jess Kim")
+
+  await screen.findByText("Invitation sent")
+  await waitFor(() => expect(screen.getByLabelText("Email")).toHaveFocus())
+})
+
+it("returns focus to the Revoke trigger when the confirmation is cancelled", async () => {
+  renderWithProviders(<TeamCard />)
+
+  await screen.findByText("maya@harbor.test")
+  await userEvent.click(screen.getByRole("button", { name: "Revoke" }))
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+
+  await waitFor(() => expect(screen.getByRole("button", { name: "Revoke" })).toHaveFocus())
+})
+
+it("moves focus somewhere useful after a revoke removes the row", async () => {
+  renderWithProviders(<TeamCard />)
+
+  await screen.findByText("maya@harbor.test")
+  await userEvent.click(screen.getByRole("button", { name: "Revoke" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Revoke" }))
+
+  await waitFor(() => expect(screen.queryByText("maya@harbor.test")).toBeNull())
+  await waitFor(() => expect(screen.getByLabelText("Email")).toHaveFocus())
 })
 
 it("revokes a pending invitation through an inline confirmation", async () => {
