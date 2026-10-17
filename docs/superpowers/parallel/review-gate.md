@@ -83,3 +83,7 @@ Before asking the human for a batch "go", the conductor has done all of these an
 5. A rebase onto `origin/main` and `bin/lane check` clean.
 
 A go request that cannot report all five says which is missing and why.
+
+## Do not defer work on an unchecked assumption
+
+Before holding, delaying or queueing a step "to avoid load or a clash", the conductor names the specific shared resource (a lane slot, a Docker stack, the Playwright dev-server port, a database, a CI quota) and checks whether the step really uses it. A read-only review (a subagent reading a diff, Vitest only) uses none of them and starts immediately. The lane caps limit builder runs, not reviews. If the claim cannot be verified in one command, run the step. Delaying needs a named resource, not a feeling.
