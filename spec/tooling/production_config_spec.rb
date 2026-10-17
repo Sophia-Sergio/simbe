@@ -37,7 +37,10 @@ RSpec.describe "production environment config" do
   end
 
   it "skips the checks for the image build (SECRET_KEY_BASE_DUMMY)" do
-    env = { "RAILS_ENV" => "production", "SECRET_KEY_BASE_DUMMY" => "1", "DATABASE_URL" => "postgres://b:b@127.0.0.1/b" }
+    # Same environment as the Dockerfile's assets:precompile step (dummy secrets, dummy encryption keys): the spec must not depend
+    # on whether the encryption keys happen to be set in the shell that runs it (they are in CI, not in a lane's container).
+    env = { "RAILS_ENV" => "production", "SECRET_KEY_BASE_DUMMY" => "1", "DATABASE_URL" => "postgres://b:b@127.0.0.1/b",
+            "AR_ENCRYPTION_PRIMARY_KEY" => "build", "AR_ENCRYPTION_DETERMINISTIC_KEY" => "build", "AR_ENCRYPTION_KEY_DERIVATION_SALT" => "build" }
     _out, err, status = boot(env, "puts :ok")
     expect(status).to be_success, err
   end
