@@ -50,6 +50,17 @@ it("URL-encodes the coordinator name in the detail link", async () => {
   expect(dana).toHaveAttribute("href", "/coordinators/Dana%20Ortiz")
 })
 
+const TRICKY_NAMES = ["Dana Ortiz Jr.", "J. Smith", "A/B", "50%", "José"]
+
+it.each(TRICKY_NAMES)("URL-encodes %s in the detail link", async (name) => {
+  const row = (listFixture as CoordinatorRow[])[0]
+  mockApi({ "/api/v1/coordinators": [{ ...row, name }] })
+  renderWithProviders(<CoordinatorsPage />)
+
+  const link = (await screen.findByText(name, { exact: true })).closest("a")
+  expect(link).toHaveAttribute("href", `/coordinators/${encodeURIComponent(name)}`)
+})
+
 it("shows Loading your data while a snapshot import is in flight", async () => {
   setScenario("loading")
   renderWithProviders(<CoordinatorsPage />)

@@ -1,5 +1,6 @@
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { HttpResponse } from "msw"
 import detailDana from "@contracts/examples/coordinators/detail-dana.json"
 import type { CoordinatorDetail } from "@/api/types"
 import { mockApi } from "@/test/mockApi"
@@ -77,4 +78,20 @@ it("shows a retryable error when the snapshot call fails while the detail loads"
   expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your data.")
   expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
   expect(screen.queryByText("Load your data")).toBeNull()
+})
+
+const TRICKY_NAMES = ["Dana Ortiz Jr.", "J. Smith", "A/B", "50%", "José"]
+
+it.each(TRICKY_NAMES)("decodes %s from the route and matches the mock API", async (name) => {
+  // Echo the decoded path segment, so a pass proves the encoded route matched the mock handler.
+  mockApi({
+    "/api/v1/coordinators/:name": (request) =>
+      HttpResponse.json({
+        ...detail,
+        name: decodeURIComponent(new URL(request.url).pathname.split("/").pop() ?? ""),
+      }),
+  })
+  renderWithProviders(<CoordinatorPage />, { route: `/coordinators/${encodeURIComponent(name)}`, path })
+
+  expect(await screen.findByRole("heading", { name })).toBeInTheDocument()
 })
