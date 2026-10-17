@@ -6,6 +6,7 @@
   bin/lane check [--lane ID]            ownership check (files changed vs base must be inside the lane's Owns)
   bin/lane pr [--draft|--no-auto-merge]  check, push, open the PR, post the claude-review status, enable auto-merge
   bin/lane run F-WEEK [--model m]       hand the lane to OpenCode headlessly (locked-down permissions, no push)
+  bin/lane watchdog [--minutes 15]      flag running lanes whose OpenCode run is stalled (log quiet) or dead (no process); exit 7 if any
   bin/lane canary                       prove OpenCode's gated permissions are enforced (scratch repo, local bare remote)
   bin/lane review F-WEEK                independent evidence report for the lane branch (the review gate)
   bin/lane approve F-WEEK               reviewer records approval for the exact HEAD after verification + review (required by `pr`)
@@ -366,7 +367,9 @@ def cmd_run(a):
              "Commit locally after every plan task with the plan's message pattern. When finished, stop and print a short summary: tasks done, "
              "commands you ran with their results, anything you could not do, and any plan deviations. Do not claim a command passed unless you ran it. "
              "Your shell is allowlisted (git add/commit/status/diff/log, make, bin/rails, bundle, npm/npx/node, docker compose, ...); anything else, "
-             "including shell redirection to write files, is denied: create and change files with your edit tool.")
+             "including shell redirection to write files, is denied: create and change files with your edit tool. "
+             "Run every command in the FOREGROUND and wait for it to finish: never start a command in the background and never end your turn while one is still running (the run ends when you stop, and a background job dies with it). "
+             "Before you stop, everything you changed must be committed (`git status` clean) or you must say exactly what is uncommitted and why.")
     extra += f"\nFIRST ACTION: run `git rev-parse --show-toplevel`; it must print exactly {wt}. If it prints anything else, STOP immediately and report it (do not edit or commit anything)."
     # A fix round (--session) sends the reviewer's findings instead of the lane prompt; the gated-run rules always follow.
     prompt = (open(a.prompt_file).read().strip() if a.prompt_file else prompt_for(l)) + extra
@@ -386,12 +389,49 @@ def cmd_run(a):
         print(f"TRIPWIRE: the main checkout changed during the run (HEAD/branch/status {before} -> {after}). The agent worked outside its worktree. STOP and inspect before anything else.")
         safe_update(l["id"], phase="blocked", session=sid, blocked_reason=f"tripwire: the main checkout changed during the run {before} -> {after}")
         sys.exit(3)
+    # A run that stops with uncommitted work (a backgrounded command killed with it, an early stop) must not look finished: the next
+    # step is to resume the session, not to review.
+    dirty = sh_in(wt, "git", "status", "--porcelain")
+    if dirty and not timed_out:
+        print(f"UNCOMMITTED: the run ended with changes that are not committed in {wt}:\n{dirty[:600]}\nResume the session (bin/lane run {l['id']} --session {sid or '<id>'} --prompt-file <note>) and have it finish, verify in the foreground and commit before any review.")
+        safe_update(l["id"], phase="fixing", session=sid, blocked_reason="run ended with uncommitted changes")
+        sys.exit(6)
     safe_update(l["id"], phase="verifying", session=sid)
     if timed_out:
         print(f"opencode timed out after {a.timeout} min; partial commits stay in the worktree; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
         sys.exit(4)
     print(f"opencode exited {code}; session {sid or '?'}; event log: {log}\nNext: bin/lane review {l['id']}")
     if code: sys.exit(5)  # OpenCode itself failed (bad model, auth, crash): the lane stays reviewable but the caller must not treat the run as a success
+
+def live_run_commands():
+    """Command lines of the processes now running (LANE_WATCHDOG_PS_FILE replaces `ps` in specs)."""
+    f = os.environ.get("LANE_WATCHDOG_PS_FILE")
+    if f: return open(f).read().splitlines()
+    return subprocess.run(["ps", "-axo", "command"], text=True, capture_output=True).stdout.splitlines()
+
+def cmd_watchdog(a):
+    """Flag lanes whose OpenCode run looks stuck or dead: phase `running` with a quiet event log (STALLED) or with no live `bin/lane run` process (DEAD)."""
+    st = load_state()["lanes"]; procs = live_run_commands(); now = time.time(); rows = []
+    for lane_id, rec in sorted(st.items()):
+        if rec.get("phase") != "running": continue
+        logs = sorted(glob.glob(os.path.join(GATE_ROOT, lane_id, "opencode.*.jsonl")), key=os.path.getmtime)
+        log = logs[-1] if logs else rec.get("log")
+        age = (now - os.path.getmtime(log)) / 60 if log and os.path.exists(log) else None
+        alive = any(re.search(rf"lane run {re.escape(lane_id)}(\s|$)", c) for c in procs)
+        if not alive: verdict = "DEAD"
+        elif age is None or age > a.minutes: verdict = "STALLED"
+        else: verdict = "ok"
+        rows.append({"lane": lane_id, "verdict": verdict, "quiet_minutes": None if age is None else round(age, 1), "session": rec.get("session"), "log": log})
+    if a.json: print(json.dumps(rows, indent=2))
+    else:
+        for r in rows:
+            q = "no log" if r["quiet_minutes"] is None else f"log quiet {r['quiet_minutes']} min"
+            print(f"{r['lane']:<14}{r['verdict']:<9}{q}")
+            if r["verdict"] != "ok":
+                print(f"  -> look at {r['log']}; resume with: bin/lane run {r['lane']} --session {r['session'] or '<id from the first line of the log>'} --prompt-file <note>")
+        if not rows: print("no lane is in phase running")
+    bad = [r for r in rows if r["verdict"] != "ok"]
+    sys.exit(7 if bad else 0)
 
 def sh_in(wt, *cmd, check=False):
     r = subprocess.run(cmd, cwd=wt, text=True, capture_output=True)
@@ -754,6 +794,7 @@ def main():
     w = sub.add_parser("approve"); w.add_argument("lane"); w.add_argument("--by", default="claude-code", help="the REVIEWER recording the approval (default claude-code); this is not a per-push human approval"); w.add_argument("--note"); w.set_defaults(f=cmd_approve)
     st = sub.add_parser("state"); st.add_argument("action", choices=["show", "set", "set-caps", "set-models"]); st.add_argument("args", nargs="*"); st.set_defaults(f=cmd_state)
     n = sub.add_parser("next"); n.add_argument("--json", action="store_true"); n.add_argument("--assume-merged"); n.add_argument("--limit", type=int); n.set_defaults(f=cmd_next)
+    w = sub.add_parser("watchdog"); w.add_argument("--minutes", type=float, default=15, help="quiet time after which a live run counts as stalled"); w.add_argument("--json", action="store_true"); w.set_defaults(f=cmd_watchdog)
     ci = sub.add_parser("ci"); ci.add_argument("lane"); ci.add_argument("--dry-run", action="store_true"); ci.add_argument("--timeout", type=float, default=60, help="minutes"); ci.add_argument("--tail", type=int, default=80); ci.set_defaults(f=cmd_ci)
     rb = sub.add_parser("rebase"); rb.add_argument("lane"); rb.add_argument("--base", default="origin/main"); rb.set_defaults(f=cmd_rebase)
     t = sub.add_parser("stop"); t.add_argument("lane"); t.add_argument("--force", action="store_true"); t.set_defaults(f=cmd_stop)
