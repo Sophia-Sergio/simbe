@@ -293,3 +293,46 @@ it("keeps long contact values inside their grid column", async () => {
     screen.getByText("averyveryverylongaddress.thatcannotwrap@an-extremely-long-domain-name.example.com"),
   ).toHaveClass("truncate", "min-w-0")
 })
+
+it("shows a skeleton while the lead is loading", async () => {
+  mockApi({
+    [`GET /api/v1/leads/${L4}`]: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      return HttpResponse.json(detailOwner)
+    },
+  })
+  renderWithProviders(<LeadPanel />, { route: route() })
+
+  expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0)
+  expect(screen.getByRole("heading", { name: "Lead" })).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "L4 Alpha" })).toBeInTheDocument()
+  expect(screen.queryByTestId("skeleton")).toBeNull()
+})
+
+it("Retry refetches the lead after a failure", async () => {
+  let calls = 0
+  mockApi({
+    [`GET /api/v1/leads/${L4}`]: () => {
+      calls += 1
+      return calls === 1
+        ? HttpResponse.json({ error: { code: "server_error", message: "boom" } }, { status: 500 })
+        : HttpResponse.json(detailOwner)
+    },
+  })
+  renderWithProviders(<LeadPanel />, { route: route() })
+
+  await userEvent.click(await screen.findByRole("button", { name: "Retry" }))
+
+  expect(await screen.findByRole("heading", { name: "L4 Alpha" })).toBeInTheDocument()
+  expect(calls).toBe(2)
+})
+
+it("hides Mark done when the lead is in no queue", async () => {
+  mockApi({ [`GET /api/v1/leads/${L4}`]: () => HttpResponse.json({ ...detailCoordinator, queue: null }) })
+  renderWithProviders(<LeadPanel />, { role: "coordinator", route: route() })
+
+  await screen.findByRole("heading", { name: "L4 Alpha" })
+  expect(screen.queryByTestId("mark-done")).toBeNull()
+  // Send text / Call are gated by can_contact, not by the queue.
+  expect(screen.getByRole("link", { name: "Send text" })).toBeInTheDocument()
+})
