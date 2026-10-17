@@ -79,6 +79,23 @@ it("the assigned coordinator: raw answers, contact links and Mark done", async (
   expect(screen.getByRole("button", { name: /Actions/ })).toBeInTheDocument()
 })
 
+it("omits the contact links when the coordinator has no phone number", async () => {
+  mockApi({
+    [`GET /api/v1/leads/${L4}`]: () =>
+      HttpResponse.json({ ...detailCoordinator, contact: { ...detailCoordinator.contact, phone: null } }),
+  })
+  renderWithProviders(<LeadPanel />, { role: "coordinator", route: route() })
+
+  await screen.findByRole("heading", { name: "L4 Alpha" })
+  // can_contact is true, but there is no number to dial: never an empty sms:/tel: target.
+  expect(screen.queryByRole("link", { name: "Send text" })).toBeNull()
+  expect(screen.queryByRole("link", { name: "Call" })).toBeNull()
+  expect(screen.queryByRole("button", { name: /Actions/ })).toBeNull()
+  expect(screen.getByText("—")).toBeInTheDocument()
+  // Mark done does not need a phone.
+  expect(screen.getByTestId("mark-done")).toBeInTheDocument()
+})
+
 it("the Actions menu holds Send text/Call", async () => {
   renderWithProviders(<LeadPanel />, { role: "coordinator", route: route() })
 

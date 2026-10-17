@@ -237,23 +237,31 @@ function LeadPanelBody({
 function ActionRow({ detail }: { detail: LeadDetail }) {
   const { can_contact: canContact, phone } = detail.contact
   if (!canContact) return null
-  const number = phone ?? ""
+
+  // `can_contact` without a number still cannot be acted on: no empty `sms:`/`tel:` targets.
+  const number = phone?.trim() ?? ""
+  const canReach = number !== ""
+  if (!canReach && !detail.queue) return null
 
   return (
     <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-      <a className={LINK_OUTLINE} href={`sms:${number}`}>
-        Send text
-      </a>
-      <a className={LINK_SECONDARY} href={`tel:${number}`}>
-        Call
-      </a>
+      {canReach ? (
+        <>
+          <a className={LINK_OUTLINE} href={`sms:${number}`}>
+            Send text
+          </a>
+          <a className={LINK_SECONDARY} href={`tel:${number}`}>
+            Call
+          </a>
+        </>
+      ) : null}
       {/* Keyed on the server value: a refetch that changes `done` (another session, a new snapshot)
           resets the button to it, while a refetch that agrees with the click leaves the label alone.
           An effect would do the same but trips react-hooks/set-state-in-effect. */}
       {detail.queue ? (
         <DoneButton key={`${detail.id}:${detail.done}`} leadId={detail.id} queue={detail.queue} initialDone={detail.done} />
       ) : null}
-      <ActionsMenu number={number} />
+      {canReach ? <ActionsMenu number={number} /> : null}
     </div>
   )
 }
