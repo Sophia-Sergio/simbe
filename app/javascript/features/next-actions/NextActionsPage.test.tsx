@@ -193,6 +193,19 @@ it("gives an owner with no snapshot the Load your data link", async () => {
   expect(await screen.findByRole("link", { name: "Load your data" })).toHaveAttribute("href", "/data")
 })
 
+it("shows a retryable error when the snapshot call fails", async () => {
+  mockApi({
+    "/api/v1/next_actions": EMPTY,
+    "/api/v1/snapshots/current": () =>
+      new Response(JSON.stringify({ error: { code: "server_error", message: "boom" } }), { status: 500 }),
+  })
+  renderWithProviders(<NextActionsPage />, { role: "coordinator" })
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't load your data.")
+  expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
+  expect(screen.queryByText("Ask your agency owner to load data.")).toBeNull()
+})
+
 it("on mobile switches queues with chips when more than two are non-empty", async () => {
   renderWithProviders(<NextActionsPage />, { role: "coordinator", viewport: 390 })
 

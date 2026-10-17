@@ -214,7 +214,10 @@ export function NextActionsPage() {
   )
 
   let body
-  if (total === 0 && pending) body = <LoadingYourData progress={pending.progress} />
+  if (total === 0 && snapshot.isError) {
+    // A failed snapshot call is not "no data": say so, and let the user retry it.
+    body = <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
+  } else if (total === 0 && pending) body = <LoadingYourData progress={pending.progress} />
   else if (total === 0 && !hasSnapshot) body = <NoDataState role={role} />
   else if (caughtUp) {
     // Everything is done, but a mistaken Done must stay revertible: keep the board (its done cards
