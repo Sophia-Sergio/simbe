@@ -1,0 +1,5 @@
+# Owner-only coordinator performance. `:name` is a URL-encoded path segment. Loaded by
+# config/routes.rb inside `namespace :api do namespace :v1`; ignored by Zeitwerk
+# (config/application.rb), so this plain DSL is never eager-loaded at top level.
+get "coordinators", to: "coordinators#index"
+get "coordinators/:name", to: "coordinators#show"
