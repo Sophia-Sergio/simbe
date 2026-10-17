@@ -1,8 +1,8 @@
 import { ArrowRight } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { useAgent } from "@/app/agent"
-import { BarChart } from "@/components/ui/BarChart"
 import { Chip } from "@/components/ui/Chip"
+import { AnswerChart } from "./AnswerChart"
 import { safeRoute } from "./routes"
 import type { AgentTurn } from "./useAgentThread"
 
@@ -41,7 +41,7 @@ export function MessageBubble({ turn }: { turn: AgentTurn }) {
         <p className="whitespace-pre-wrap text-[14px] text-ink">{text}</p>
         {chart && chart.bars.length > 0 && (
           <div className="mt-2.5">
-            <BarChart title={chart.title} bars={chart.bars} />
+            <AnswerChart chart={chart} />
           </div>
         )}
       </div>

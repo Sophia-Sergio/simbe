@@ -56,7 +56,7 @@ test("'Ask why' on This week opens the panel with the question already sent", as
   await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
 })
 
-test("the Ask tab opens the agent full screen on a phone", async ({ page }, testInfo) => {
+test("the Ask tab opens the agent full screen on a phone and answers with a chart", async ({ page }, testInfo) => {
   testInfo.skip(!testInfo.project.name.includes("mobile"), "the Ask tab is the mobile entry point")
 
   await signIn(page, "erin@harbor.test")
@@ -70,6 +70,10 @@ test("the Ask tab opens the agent full screen on a phone", async ({ page }, test
   // Full screen from the top edge (the notch inset lives on the panel, not the viewport).
   expect(box?.y).toBe(0)
   expect(box?.height).toBeGreaterThan(800)
+
+  await panel.getByRole("button", { name: "Which channel costs the most per qualified lead?" }).click()
+  await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
+  await expect(panel.getByRole("img", { name: /Cost per qualified lead/ })).toBeVisible()
   await page.screenshot({ path: shot("agent", testInfo.project.name) })
 
   await panel.getByRole("button", { name: "Close" }).click()
