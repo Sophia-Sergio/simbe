@@ -11,10 +11,12 @@ module Leads
     # "needs_support when overdue > 8" (spec 2008 decision 9 / contracts schemas/coordinators.yaml).
     NEEDS_SUPPORT_THRESHOLD = 8
 
-    # One row per coordinator: leads, share of the agency's leads, qualified under the agency
-    # milestone and the median first-reply minutes. Rounding is numeric half-up in SQL, matching
-    # the golden oracle (bin/golden-numbers rate/rd). Ordered by leads desc, name asc (stable for
-    # ties, matching coordinators_all_time).
+    # One row per coordinator: leads, share of the agency's *attributed* leads (those with a
+    # coordinator_name, the same population as the rows), qualified under the agency milestone and
+    # the median first-reply minutes. Using the attributed population -- not every lead -- keeps
+    # share_pct summing to ~100 over the cards shown instead of leaking points to unassigned leads.
+    # Rounding is numeric half-up in SQL, matching the golden oracle (bin/golden-numbers rate/rd).
+    # Ordered by leads desc, name asc (stable for ties, matching coordinators_all_time).
     def self.call(agency:)
       overdue = overdue_by_coordinator(agency)
       aggregate_rows(agency).map { |row| row_hash(row, overdue.fetch(row["name"], 0)) }
@@ -80,20 +82,22 @@ module Leads
 
     def self.aggregate_sql(milestone)
       <<~SQL
-        WITH totals AS (
-          SELECT count(*)::numeric AS total FROM leads WHERE agency_id = :agency_id
+        WITH attributed AS (
+          SELECT count(*)::numeric AS total
+          FROM leads
+          WHERE agency_id = :agency_id AND coordinator_name IS NOT NULL
         )
         SELECT l.coordinator_name AS name,
                count(*)::int AS leads,
-               round(100.0 * count(*) / t.total, 1) AS share_pct,
+               round(100.0 * count(*) / a.total, 1) AS share_pct,
                count(*) FILTER (WHERE f.#{milestone} IS NOT NULL)::int AS qualified,
                round(100.0 * count(*) FILTER (WHERE f.#{milestone} IS NOT NULL) / count(*), 1) AS qualified_rate,
                percentile_cont(0.5) WITHIN GROUP (ORDER BY f.first_response_minutes) AS first_reply_minutes
         FROM leads l
         JOIN lead_facts f ON f.lead_id = l.id
-        CROSS JOIN totals t
+        CROSS JOIN attributed a
         WHERE l.agency_id = :agency_id AND l.coordinator_name IS NOT NULL
-        GROUP BY l.coordinator_name, t.total
+        GROUP BY l.coordinator_name, a.total
         ORDER BY leads DESC, name ASC
       SQL
     end

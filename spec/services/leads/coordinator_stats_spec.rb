@@ -41,6 +41,17 @@ RSpec.describe Leads::CoordinatorStats do
     expect { described_class.detail(agency: agency, name: "Nobody") }.to raise_error(ActiveRecord::RecordNotFound)
   end
 
+  it "computes shares over the leads it attributes, so they still sum to ~100" do
+    Lead.find_by!(first_name: "L6").update!(coordinator_name: nil) # unattributed lead
+    rows = described_class.call(agency: agency).index_by { _1[:name] }
+
+    expect(rows.keys).to eq([ "Dana Ortiz", "Jess Kim", "Priya Shah" ])
+    expect(rows["Dana Ortiz"][:share_pct]).to eq(44.4)  # 4 of the 9 attributed leads
+    expect(rows["Jess Kim"][:share_pct]).to eq(33.3)    # 3 of 9
+    expect(rows["Priya Shah"][:share_pct]).to eq(22.2)  # 2 of 9
+    expect(rows.values.sum { _1[:share_pct] }).to be_within(0.2).of(100.0)
+  end
+
   it "returns no rows for an agency without leads" do
     expect(described_class.call(agency: create(:agency))).to eq([])
   end
