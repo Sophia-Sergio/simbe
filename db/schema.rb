@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_17_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -74,6 +74,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
     t.index ["agency_id", "id"], name: "index_agent_conversations_on_agency_id_and_id", unique: true
+    t.index ["agency_id", "user_id"], name: "idx_agent_conversations_agency_id_user_id"
     t.index ["agency_id"], name: "index_agent_conversations_on_agency_id"
   end
 
@@ -99,7 +100,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.integer "cost_cents"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "conversation_id"], name: "idx_ai_usage_events_agency_id_conversation_id"
     t.index ["agency_id", "created_at"], name: "index_ai_usage_events_on_agency_id_and_created_at"
+    t.index ["agency_id", "user_id"], name: "idx_ai_usage_events_agency_id_user_id"
     t.index ["agency_id"], name: "index_ai_usage_events_on_agency_id"
   end
 
@@ -112,6 +115,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "last_section_completed"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_applications_agency_id_lead_id"
     t.index ["agency_id"], name: "index_applications_on_agency_id"
     t.index ["lead_id", "started_at"], name: "index_applications_on_lead_id_and_started_at", unique: true
     t.index ["lead_id"], name: "index_applications_on_lead_id"
@@ -125,6 +129,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "status"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_appointments_agency_id_lead_id"
     t.index ["agency_id"], name: "index_appointments_on_agency_id"
     t.index ["lead_id", "booked_at"], name: "index_appointments_on_lead_id_and_booked_at", unique: true
     t.index ["lead_id"], name: "index_appointments_on_lead_id"
@@ -150,6 +155,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "contacted_by"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_contacts_agency_id_lead_id"
     t.index ["agency_id"], name: "index_contacts_on_agency_id"
     t.index ["lead_id", "contacted_at", "direction", "channel"], name: "idx_on_lead_id_contacted_at_direction_channel_c0bf45a1c8", unique: true
     t.index ["lead_id"], name: "index_contacts_on_lead_id"
@@ -167,6 +173,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "accepted_at"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "invited_by"], name: "idx_invitations_agency_id_invited_by"
     t.index ["agency_id"], name: "index_invitations_on_agency_id"
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
     t.check_constraint "role::text = 'coordinator'::text", name: "invitations_role_check"
@@ -190,6 +197,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.integer "screener_total"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_lead_facts_agency_id_lead_id"
     t.index ["agency_id"], name: "index_lead_facts_on_agency_id"
     t.index ["lead_id"], name: "index_lead_facts_on_lead_id", unique: true
   end
@@ -233,6 +241,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "revoked_at"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "created_by"], name: "idx_mcp_keys_agency_id_created_by"
     t.index ["agency_id"], name: "index_mcp_keys_on_agency_id"
     t.index ["key_digest"], name: "index_mcp_keys_on_key_digest", unique: true
   end
@@ -246,6 +255,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "meets_requirement"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_screener_answers_agency_id_lead_id"
     t.index ["agency_id"], name: "index_screener_answers_on_agency_id"
     t.index ["lead_id", "question"], name: "index_screener_answers_on_lead_id_and_question", unique: true
     t.index ["lead_id"], name: "index_screener_answers_on_lead_id"
@@ -266,7 +276,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
     t.index ["agency_id", "id"], name: "index_snapshot_uploads_on_agency_id_and_id", unique: true
+    t.index ["agency_id", "snapshot_id"], name: "idx_snapshot_uploads_agency_id_snapshot_id"
     t.index ["agency_id", "status"], name: "index_snapshot_uploads_on_agency_id_and_status"
+    t.index ["agency_id", "user_id"], name: "idx_snapshot_uploads_agency_id_user_id"
     t.index ["agency_id"], name: "index_snapshot_uploads_in_flight_per_agency", unique: true, where: "((status)::text = ANY ((ARRAY['validating'::character varying, 'committing'::character varying])::text[]))"
     t.index ["agency_id"], name: "index_snapshot_uploads_on_agency_id"
     t.index ["snapshot_id"], name: "index_snapshot_uploads_on_snapshot_id"
@@ -285,6 +297,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "updated_at", null: false
     t.index ["agency_id", "as_of"], name: "index_snapshots_on_agency_id_and_as_of"
     t.index ["agency_id", "id"], name: "index_snapshots_on_agency_id_and_id", unique: true
+    t.index ["agency_id", "loaded_by"], name: "idx_snapshots_agency_id_loaded_by"
+    t.index ["agency_id", "upload_id"], name: "idx_snapshots_agency_id_upload_id"
     t.index ["agency_id"], name: "index_snapshots_on_agency_id"
   end
 
@@ -445,6 +459,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.timestamptz "entered_at"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_stage_events_agency_id_lead_id"
     t.index ["agency_id"], name: "index_stage_events_on_agency_id"
     t.index ["lead_id", "stage"], name: "index_stage_events_on_lead_id_and_stage", unique: true
     t.index ["lead_id"], name: "index_stage_events_on_lead_id"
@@ -476,6 +491,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_15_000007) do
     t.string "device"
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "lead_id"], name: "idx_web_sessions_agency_id_lead_id"
     t.index ["agency_id"], name: "index_web_sessions_on_agency_id"
     t.index ["lead_id", "started_at"], name: "index_web_sessions_on_lead_id_and_started_at", unique: true
     t.index ["lead_id"], name: "index_web_sessions_on_lead_id"

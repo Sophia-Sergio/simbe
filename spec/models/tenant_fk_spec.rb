@@ -16,6 +16,20 @@ RSpec.describe "tenant foreign keys" do
     Current.agency = previous
   end
 
+  it "has an index behind every composite foreign key (otherwise deleting a parent row scans the child once per row)" do
+    unindexed = ActiveRecord::Base.connection.select_rows(<<~SQL)
+      SELECT c.conrelid::regclass::text, c.conname
+      FROM pg_constraint c
+      WHERE c.contype = 'f' AND array_length(c.conkey, 1) > 1
+        AND NOT EXISTS (
+          SELECT 1 FROM pg_index i
+          WHERE i.indrelid = c.conrelid
+            AND (i.indkey::int2[])[0:array_length(c.conkey, 1) - 1] = c.conkey
+        )
+    SQL
+    expect(unindexed).to eq([]), "composite FKs without a matching index: #{unindexed.inspect}"
+  end
+
   it "rejects a child row whose agency_id differs from its lead's agency (composite FK)" do
     lead = lead!
     expect {
