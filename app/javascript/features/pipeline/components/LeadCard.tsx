@@ -17,14 +17,14 @@ export function LeadCard({ lead, timezone, onOpen }: { lead: LeadCardData; timez
       onClick={() => onOpen(lead.id)}
       className="w-full rounded-card border border-line bg-surface p-3 text-left shadow-card transition-colors hover:border-line-strong"
     >
-      <span className="flex flex-wrap items-center gap-1.5">
-        <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{lead.name}</span>
+      <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="min-w-0 max-w-full truncate text-[13px] font-semibold text-ink">{lead.name}</span>
         <SourcePill channel={lead.channel} />
         <StatusPill status={lead.status} />
       </span>
-      <span className="mt-1.5 flex items-center justify-between gap-2 text-[12px] text-ink-muted">
-        <span>{meta}</span>
-        <span>{formatDate(lead.date, timezone)}</span>
+      <span className="mt-1.5 flex min-w-0 items-center justify-between gap-2 text-[12px] text-ink-muted">
+        <span className="min-w-0 truncate">{meta}</span>
+        <span className="shrink-0">{formatDate(lead.date, timezone)}</span>
       </span>
       <span className="mt-2 block">
         <ProgressBar segments={lead.segments} label={`${lead.name} stage progress`} />

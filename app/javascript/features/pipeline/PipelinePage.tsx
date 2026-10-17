@@ -77,15 +77,15 @@ function ListRow({ lead, onOpen }: { lead: LeadCardData; onOpen: (id: string) =>
     <button
       type="button"
       onClick={() => onOpen(lead.id)}
-      className="flex w-full flex-wrap items-center gap-x-2 gap-y-1 rounded-row border border-line bg-surface px-3 py-2.5 text-left transition-colors hover:border-line-strong"
+      className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 rounded-row border border-line bg-surface px-3 py-2.5 text-left transition-colors hover:border-line-strong"
     >
-      <span className="text-[13px] font-semibold text-ink">{lead.name}</span>
+      <span className="min-w-0 max-w-full truncate text-[13px] font-semibold text-ink">{lead.name}</span>
       <SourcePill channel={lead.channel} />
       <StatusPill status={lead.status} />
       <span className="text-[12px] text-ink-muted">
         {ageState(lead)} · {stageLabel(lead.stage)}
       </span>
-      <span className="ml-auto text-[12px] text-ink-muted">{lead.coordinator ?? "Unassigned"}</span>
+      <span className="ml-auto min-w-0 truncate text-[12px] text-ink-muted">{lead.coordinator ?? "Unassigned"}</span>
     </button>
   )
 }

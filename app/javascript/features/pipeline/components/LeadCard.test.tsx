@@ -34,6 +34,12 @@ it("renders the date in the agency time zone", () => {
   expect(screen.getByText("Sep 30")).toBeInTheDocument()
 })
 
+it("truncates a very long name instead of overflowing the card", () => {
+  const LONG_NAME = `Anastasia ${"Verylongword".repeat(12)}`
+  render(<LeadCard lead={{ ...L4, name: LONG_NAME }} timezone="UTC" onOpen={() => {}} />)
+  expect(screen.getByText(LONG_NAME)).toHaveClass("min-w-0", "max-w-full", "truncate")
+})
+
 it("opens the lead panel with the card's id", async () => {
   const onOpen = vi.fn()
   render(<LeadCard lead={L4} timezone="UTC" onOpen={onOpen} />)

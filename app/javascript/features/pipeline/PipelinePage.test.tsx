@@ -1,6 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { HttpResponse } from "msw"
+import listFixture from "@contracts/examples/leads/list.json"
+import type { LeadCard as LeadCardData } from "@/api/types"
 import { setScenario } from "@/mocks/scenarios"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
@@ -73,6 +75,14 @@ it("debounces the filter so typing l4 quickly issues one request", async () => {
   } finally {
     vi.useRealTimers()
   }
+})
+
+it("keeps a very long lead name from overflowing a list row", async () => {
+  const LONG_NAME = `Anastasia ${"Verylongword".repeat(12)}`
+  const lead = { ...(listFixture.leads[0] as unknown as LeadCardData), name: LONG_NAME }
+  mockApi({ "GET /api/v1/leads": { leads: [lead], next_cursor: null } })
+  renderWithProviders(<PipelinePage />, { route: "/pipeline?view=list", role: "owner" })
+  expect(await screen.findByText(LONG_NAME)).toHaveClass("min-w-0", "max-w-full", "truncate")
 })
 
 it("re-syncs the filter box when the URL changes externally", async () => {

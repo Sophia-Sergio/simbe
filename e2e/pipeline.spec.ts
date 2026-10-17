@@ -85,4 +85,21 @@ test.describe("mobile board", () => {
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
   })
+
+  // jsdom has no layout, so the "a long name cannot overflow" guarantee is measured in a real browser:
+  // inject a long name and assert the row (and the document) still fit their width.
+  test("owner: a very long lead name does not overflow a list row", async ({ page }) => {
+    await signIn(page, "erin@harbor.test")
+    await page.goto("/pipeline?view=list")
+
+    // Class-based so the locator survives the text change below (a name-based one would stop matching).
+    const row = page.locator("button.rounded-row").first()
+    await expect(row).toBeVisible()
+    await row.locator("span.truncate").first().evaluate((element) => {
+      element.textContent = `Anastasia ${"Verylongword".repeat(12)}`
+    })
+
+    expect(await row.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true)
+  })
 })
