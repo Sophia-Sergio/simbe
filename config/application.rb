@@ -40,6 +40,26 @@ module App
     concerns = Dir["#{root}/app/packs/*/app/services/concerns"]
     config.autoload_paths.concat(concerns); config.eager_load_paths.concat(concerns)
 
+    # Pack route/rack_attack files are `instance_eval`'d by config/routes.rb (and the rack_attack
+    # initializer), never autoloaded. `app/packs` is itself an `app/*` Zeitwerk root, so without
+    # this every pack route file would also be eager-loaded at top level, where a plain
+    # `get "x"` raises (NoMethodError for `get` on `main`).
+    Rails.autoloaders.main.ignore(*Dir["#{root}/app/packs/*/config"])
+
+    # Screener answers are health data (docs/conventions/sensitive-data.md): encrypted at rest.
+    # Keys come from the environment (.env; see .env.example). Tests use fixed, non-secret keys.
+    # Production fails fast at boot rather than mid-upload. No deterministic key: no encrypted
+    # column is looked up by exact value, and `encrypts` would otherwise be non-deterministic.
+    if Rails.env.production?
+      %w[AR_ENCRYPTION_PRIMARY_KEY AR_ENCRYPTION_KEY_DERIVATION_SALT].each do |name|
+        raise "#{name} must be set in production" if ENV[name].blank?
+      end
+    end
+    config.active_record.encryption.primary_key =
+      ENV["AR_ENCRYPTION_PRIMARY_KEY"].presence || ("test-primary-key" if Rails.env.test?)
+    config.active_record.encryption.key_derivation_salt =
+      ENV["AR_ENCRYPTION_KEY_DERIVATION_SALT"].presence || ("test-key-derivation-salt" if Rails.env.test?)
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

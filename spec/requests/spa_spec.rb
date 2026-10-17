@@ -32,7 +32,7 @@ RSpec.describe "SPA shell", type: :request do
   end
 
   it "does not swallow the API: unknown /api paths are JSON 404s" do
-    get "/api/v1/nope", headers: { "Accept" => "text/html" }
+    get "/api/v1/nope", headers: { "Accept" => "text/html", "X-Simbe-Contract-Probe" => "1" }
     expect(response).to have_http_status(:not_found)
     expect(response.parsed_body.dig("error", "code")).to eq("not_found")
   end
