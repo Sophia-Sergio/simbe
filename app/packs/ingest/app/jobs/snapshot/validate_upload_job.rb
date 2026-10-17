@@ -15,7 +15,9 @@ class Snapshot::ValidateUploadJob < ApplicationJob
     progress.update(phase: "validating", pct: 50)
     report = Snapshot::Validator.call(agency: upload.agency, dir: upload.dir, rows: rows)
 
-    upload.update!(report: report, status: "validated", progress: nil, finished_at: Time.current)
+    # Compare-and-set: if a cancel landed meanwhile, `cancelled` must win.
+    transition(upload, from: "validating", to: "validated",
+               report: report, progress: nil, finished_at: Time.current)
   rescue StandardError => e
     fail_upload(upload, e)
   ensure
@@ -24,10 +26,17 @@ class Snapshot::ValidateUploadJob < ApplicationJob
 
   private
 
+  # Every final status write is conditional on the status the job started from, so a concurrent
+  # cancel (or a newer state) is never overwritten.
+  def transition(upload, from:, to:, **attributes)
+    SnapshotUpload.where(id: upload.id, status: from)
+                  .update_all(attributes.merge(status: to, updated_at: Time.current))
+  end
+
   # A readable error only — never a stack trace or row contents (docs/conventions/sensitive-data.md).
   def fail_upload(upload, error)
-    upload.update!(status: "failed", progress: nil, finished_at: Time.current,
-                   error: { "code" => "validation_failed", "message" => "The upload could not be validated" })
+    transition(upload, from: "validating", to: "failed", progress: nil, finished_at: Time.current,
+               error: { "code" => "validation_failed", "message" => "The upload could not be validated" })
     Rails.logger.warn("snapshot validation failed for upload #{upload.id} (#{error.class})")
   end
 end

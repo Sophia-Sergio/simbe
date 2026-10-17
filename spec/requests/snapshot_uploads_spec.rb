@@ -113,8 +113,29 @@ RSpec.describe "Snapshot uploads", type: :request do
     expect(Dir.exist?(Snapshot::Storage.dir(agency.snapshot_uploads.find(id)))).to be(false)
   end
 
-  it "shows a pending upload on the current snapshot" do
+  it "cancels a failed upload" do
     sign_in(owner)
+    upload = SnapshotUpload.create!(agency: agency, user: owner, status: "failed")
+
+    delete "/api/v1/snapshot_uploads/#{upload.id}", headers: headers
+
+    expect(response).to have_http_status(:no_content)
+    expect(upload.reload.status).to eq("cancelled")
+  end
+
+  it "does not cancel a committed upload" do
+    sign_in(owner)
+    snapshot = Snapshot.create!(agency: agency, as_of: Time.current, loaded_at: Time.current,
+                                row_counts: {}, warnings: [])
+    upload = SnapshotUpload.create!(agency: agency, user: owner, status: "committed", snapshot: snapshot)
+
+    delete "/api/v1/snapshot_uploads/#{upload.id}", headers: headers
+
+    expect(response).to have_http_status(:no_content)
+    expect(upload.reload.status).to eq("committed")
+  end
+
+  it "shows a pending upload on the current snapshot" do    sign_in(owner)
     post "/api/v1/snapshot_uploads", params: { files: files }, headers: headers
     id = response.parsed_body["id"]
 

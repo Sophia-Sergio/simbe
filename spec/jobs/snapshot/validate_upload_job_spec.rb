@@ -38,4 +38,28 @@ RSpec.describe Snapshot::ValidateUploadJob do
 
     expect(upload.reload.status).to eq("cancelled")
   end
+
+  it "leaves a cancellation that lands mid-validation alone" do
+    upload = upload_for
+    allow(Snapshot::Reader).to receive(:call).and_wrap_original do |original, *args|
+      SnapshotUpload.where(id: upload.id).update_all(status: "cancelled")
+      original.call(*args)
+    end
+
+    described_class.perform_now(upload)
+
+    expect(upload.reload.status).to eq("cancelled")
+  end
+
+  it "does not overwrite a cancellation with failed when parsing then raises" do
+    upload = upload_for
+    allow(Snapshot::Reader).to receive(:call) do
+      SnapshotUpload.where(id: upload.id).update_all(status: "cancelled")
+      raise StandardError, "boom"
+    end
+
+    described_class.perform_now(upload)
+
+    expect(upload.reload.status).to eq("cancelled")
+  end
 end

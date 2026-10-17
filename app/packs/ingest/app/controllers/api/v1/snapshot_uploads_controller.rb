@@ -4,6 +4,9 @@ module Api
     # `ingest` jobs; these actions only store files, flip status and enqueue (lane override 1).
     class SnapshotUploadsController < Api::BaseController
       MAX_UPLOAD_BYTES = 250.megabytes
+      # Cancel is allowed from the statuses the plan lists: an in-flight or finished-but-not-
+      # committed upload. `committed`, `cancelled` and `expired` are terminal.
+      CANCELLABLE = %w[validating validated committing failed].freeze
 
       before_action :require_owner!
 
@@ -103,12 +106,14 @@ module Api
         }, status: 422
       end
 
-      # A running commit job notices the flag between batches and aborts.
+      # Compare-and-set cancel: only the statuses the plan allows are cancellable, so a committed,
+      # expired or already-cancelled row is never rewritten (and a job's conditional writes still
+      # win from their own starting status).
       def cancel(upload)
-        return if upload.status == "committed"
-
-        upload.update!(status: "cancelled", progress: nil, finished_at: Time.current)
-        Snapshot::Storage.remove(upload)
+        affected = SnapshotUpload.where(id: upload.id, status: CANCELLABLE)
+                                 .update_all(status: "cancelled", progress: nil,
+                                             finished_at: Time.current, updated_at: Time.current)
+        Snapshot::Storage.remove(upload) if affected.positive?
       end
     end
   end
