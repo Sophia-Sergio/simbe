@@ -13,6 +13,17 @@ import { SnapshotUploader } from "./SnapshotUploader"
 
 const ALREADY_RUNNING = "A load is already running — it will finish on its own."
 
+// Announced through a live region so screen-reader users hear every phase of the async load.
+const ANNOUNCEMENTS: Record<string, string> = {
+  idle: "Choose your 7 CSV exports",
+  uploading: "Uploading your files",
+  validating: "Checking your files",
+  review: "Upload validated — review before replacing",
+  committing: "Replacing your snapshot",
+  done: "Snapshot replaced",
+  error: "Upload failed",
+}
+
 type UploadModalProps = {
   open: boolean
   onClose: () => void
@@ -49,9 +60,16 @@ function UploadModalContent({ onClose, agencyName }: UploadModalProps) {
     if (state !== "done" || finished.current) return
     finished.current = true
     toast.show("Snapshot replaced · no duplicates counted", { tone: "success" })
+    setRejected([])
     upload.reset()
     onClose()
   }, [state, toast, upload, onClose])
+
+  // Retry starts a clean slate: a file rejected by a previous attempt must not linger as "Ignored".
+  const retry = () => {
+    setRejected([])
+    upload.reset()
+  }
 
   const alreadyRunning = error?.code === "already_in_progress"
   const ignored = [...rejected, ...((report as UiReport | null)?.ignored ?? [])]
@@ -135,7 +153,7 @@ function UploadModalContent({ onClose, agencyName }: UploadModalProps) {
             Close
           </Button>
           {alreadyRunning ? null : (
-            <Button className="w-full md:w-auto" onClick={upload.reset}>
+            <Button className="w-full md:w-auto" onClick={retry}>
               Try again
             </Button>
           )}
@@ -152,10 +170,13 @@ function UploadModalContent({ onClose, agencyName }: UploadModalProps) {
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="absolute -right-1 -top-2 rounded-full p-1 text-ink-muted transition-colors hover:bg-subtle"
+          className="absolute right-0 top-0 rounded-full p-1 text-ink-muted transition-colors hover:bg-subtle"
         >
           <X aria-hidden className="h-4 w-4" />
         </button>
+        <div role="status" aria-live="polite" data-testid="upload-status" className="sr-only">
+          {ANNOUNCEMENTS[state] ?? ""}
+        </div>
         {body}
       </div>
     </Modal>

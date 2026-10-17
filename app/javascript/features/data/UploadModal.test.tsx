@@ -242,3 +242,63 @@ it("is a bottom sheet under 860px", () => {
   renderWithProviders(<UploadModal open onClose={() => {}} agencyName="Harbor Surrogacy" />, { viewport: 390 })
   expect(screen.getByRole("dialog")).toHaveAttribute("data-variant", "sheet")
 })
+
+it("announces the upload phases through a live status region", async () => {
+  vi.useFakeTimers()
+  mockValidation(uploadOk.report)
+  renderWithProviders(<UploadModal open onClose={() => {}} agencyName="Harbor Surrogacy" />)
+
+  const status = screen.getByTestId("upload-status")
+  expect(status).toHaveAttribute("role", "status")
+  expect(status).toHaveTextContent("Choose your 7 CSV exports")
+
+  pick(EXPORT_FILES)
+  await flush(0)
+  expect(screen.getByTestId("upload-status")).toHaveTextContent(/Checking your files|Uploading your files/)
+
+  await flush(4000)
+  expect(screen.getByTestId("upload-status")).toHaveTextContent("Upload validated — review before replacing")
+})
+
+it("clears a rejected file once the user retries", async () => {
+  vi.useFakeTimers()
+  mockApi({
+    "POST /api/v1/snapshot_uploads": () => HttpResponse.json({ error: { code: "failed", message: "boom" } }, { status: 500 }),
+  })
+  renderWithProviders(<UploadModal open onClose={() => {}} agencyName="Harbor Surrogacy" />)
+
+  act(() => {
+    fireEvent.change(screen.getByLabelText("CSV files"), {
+      target: { files: [...EXPORT_FILES.map(csv), new File(["notes"], "notes.docx")] },
+    })
+  })
+  await flush(0)
+  expect(screen.getByRole("alert")).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }))
+  expect(screen.getByText("Drop your 7 CSV exports")).toBeInTheDocument()
+  expect(screen.queryByText(/Ignored:/)).toBeNull()
+})
+
+it("can be closed while committing and its close button sits inside the sheet", async () => {
+  vi.useFakeTimers()
+  mockValidation(uploadOk.report)
+  renderWithProviders(<Host />, { viewport: 390 })
+
+  pick(EXPORT_FILES)
+  await flush(4000)
+  mockApi({
+    "POST /api/v1/snapshot_uploads/:id/commit": () => HttpResponse.json(committing(10), { status: 202 }),
+    [`GET /api/v1/snapshot_uploads/${ID}`]: () => HttpResponse.json(committing(50)),
+  })
+  fireEvent.click(screen.getByRole("button", { name: "Replace snapshot" }))
+  await flush(0)
+
+  // The mobile sheet must not push its close button off the panel.
+  const close = screen.getByRole("button", { name: "Close" })
+  expect(close).toHaveClass("top-0")
+  expect(close).not.toHaveClass("-top-2")
+
+  fireEvent.click(close)
+  expect(screen.queryByRole("dialog")).toBeNull()
+})
