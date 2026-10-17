@@ -185,25 +185,30 @@ export function DataSourcesPage() {
   const byPlatform = new Map((connections.data?.connections ?? []).map((connection) => [connection.platform, connection]))
 
   // Each card fails on its own: a broken connections call must not hide the CRM exports or the upload path.
-  const connectors = connections.isPending ? (
-    <Skeleton className="h-[104px]" />
-  ) : connections.isError ? (
-    <ErrorState message="We couldn't load your ad connections." onRetry={() => void connections.refetch()} />
-  ) : (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      {PLATFORMS.map((config) => (
-        <ConnectorCard key={config.platform} {...config} connection={byPlatform.get(config.platform) ?? null} />
-      ))}
-    </div>
-  )
+  // A query that already has data keeps rendering it when a later poll fails (`refetchInterval` refetches
+  // every 2 s while a load is pending): only a first load with no data at all shows the error card, so an
+  // in-flight upload is never dropped mid-validate/commit by a transient failure.
+  const connectors =
+    connections.data !== undefined ? (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {PLATFORMS.map((config) => (
+          <ConnectorCard key={config.platform} {...config} connection={byPlatform.get(config.platform) ?? null} />
+        ))}
+      </div>
+    ) : connections.isError ? (
+      <ErrorState message="We couldn't load your ad connections." onRetry={() => void connections.refetch()} />
+    ) : (
+      <Skeleton className="h-[104px]" />
+    )
 
-  const crm = snapshot.isPending ? (
-    <Skeleton className="h-[280px]" />
-  ) : snapshot.isError ? (
-    <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
-  ) : (
-    <CrmExportsCard snapshot={current} files={files} pending={pending} timezone={timezone} onUpload={() => setUploadOpen(true)} />
-  )
+  const crm =
+    snapshot.data !== undefined ? (
+      <CrmExportsCard snapshot={current} files={files} pending={pending} timezone={timezone} onUpload={() => setUploadOpen(true)} />
+    ) : snapshot.isError ? (
+      <ErrorState message="We couldn't load your data." onRetry={() => void snapshot.refetch()} />
+    ) : (
+      <Skeleton className="h-[280px]" />
+    )
 
   return (
     <div className="flex flex-col gap-5" aria-busy={snapshot.isPending || connections.isPending}>

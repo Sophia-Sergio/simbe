@@ -1,6 +1,8 @@
-import { screen, waitFor, within } from "@testing-library/react"
+import { act, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { HttpResponse } from "msw"
+import currentFixture from "@contracts/examples/snapshots/current.json"
+import currentLoadingFixture from "@contracts/examples/snapshots/current-loading.json"
 import { setScenario } from "@/mocks/scenarios"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
@@ -91,4 +93,84 @@ it("shows an ad-connection failure in its own card without hiding the CRM export
   // The CRM card and the upload path are unrelated to the connector failure.
   expect(screen.getByText("leads.csv")).toBeInTheDocument()
   expect(screen.getAllByRole("button", { name: "Upload new snapshot" }).length).toBeGreaterThanOrEqual(1)
+})
+
+it("keeps the last snapshot visible when a refetch fails", async () => {
+  let calls = 0
+  mockApi({
+    "GET /api/v1/snapshots/current": () => {
+      calls += 1
+      return calls === 1
+        ? HttpResponse.json(currentFixture)
+        : HttpResponse.json({ error: { code: "boom", message: "x" } }, { status: 500 })
+    },
+  })
+  const { queryClient } = renderWithProviders(<DataSourcesPage />)
+  expect(await screen.findByText("3,530 rows")).toBeInTheDocument()
+
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: ["snapshot"] })
+  })
+
+  expect(calls).toBeGreaterThanOrEqual(2)
+
+  // A transient poll failure must not replace the data on screen with an error card.
+  expect(screen.getByText("3,530 rows")).toBeInTheDocument()
+  expect(screen.queryByText("We couldn't load your data.")).toBeNull()
+})
+
+it("does not drop an in-flight upload modal when a pending refetch fails", async () => {
+  let calls = 0
+  mockApi({
+    "GET /api/v1/snapshots/current": () => {
+      calls += 1
+      return calls <= 2
+        ? HttpResponse.json(currentLoadingFixture)
+        : HttpResponse.json({ error: { code: "boom", message: "x" } }, { status: 500 })
+    },
+  })
+  const user = userEvent.setup()
+  const { queryClient } = renderWithProviders(<DataSourcesPage />)
+
+  await user.click((await screen.findAllByRole("button", { name: "Upload new snapshot" }))[0])
+  expect(await screen.findByRole("dialog")).toBeInTheDocument()
+
+  await act(async () => {
+    await queryClient.refetchQueries({ queryKey: ["snapshot"] })
+  })
+
+  expect(screen.getByRole("dialog")).toBeInTheDocument()
+  expect(screen.getByText(/Loading your data/)).toBeInTheDocument()
+  expect(screen.queryByText("We couldn't load your data.")).toBeNull()
+})
+
+it("keeps the pending strip when the 2 s poll fails", async () => {
+  vi.useFakeTimers()
+  try {
+    let calls = 0
+    mockApi({
+      "GET /api/v1/snapshots/current": () => {
+        calls += 1
+        return calls === 1
+          ? HttpResponse.json(currentLoadingFixture)
+          : HttpResponse.json({ error: { code: "boom", message: "x" } }, { status: 500 })
+      },
+    })
+    renderWithProviders(<DataSourcesPage />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(screen.getByText("Loading your data… 46%")).toBeInTheDocument()
+
+    // The hook refetches every 2 s while `pending` is set; this one fails.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2100)
+    })
+    expect(calls).toBeGreaterThanOrEqual(2)
+
+    expect(screen.getByText("Loading your data… 46%")).toBeInTheDocument()
+    expect(screen.queryByText("We couldn't load your data.")).toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
 })
