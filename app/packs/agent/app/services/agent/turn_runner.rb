@@ -12,6 +12,12 @@ module Agent
   class TurnRunner
     MAX_ROUNDS = 6
     HISTORY_LIMIT = 10
+    # A turn lock older than this is treated as abandoned (a killed Puma mid-turn must not
+    # leave the conversation answering 409 forever); the controller clears it atomically.
+    STALE_LOCK_AFTER = 90
+    # One overall deadline across all rounds, not 45s per call × 6 rounds: a call can never
+    # run past the deadline and the loop re-checks between rounds.
+    DEADLINE = 40
     FALLBACK = "I couldn't finish that — try a simpler question."
     Error = Class.new(StandardError)
 
@@ -88,10 +94,19 @@ module Agent
       @appended = []
       tools = Agent::Tools.definitions(role: @user.role) + [ RESPOND_DEFINITION ]
       rounds = 0
+      deadline = monotonic + DEADLINE
 
       loop do
         rounds += 1
-        blocks = client.converse(messages: messages, system: system_prompt, tools: tools, ledger: ledger)[:content]
+        raise Error, "model_unavailable: turn deadline exceeded" if monotonic >= deadline
+
+        reply = client.converse(messages: messages, system: system_prompt, tools: tools, ledger: ledger,
+                                timeout: [ deadline - monotonic, 1 ].max)
+        # A truncated reply (max_tokens) may hold an empty or partial `respond`; never store a
+        # 201 with empty text — surface it as the contract's model_unavailable error instead.
+        raise Error, "model_unavailable: response truncated" if reply[:stop_reason] == "max_tokens"
+
+        blocks = reply[:content]
 
         respond = blocks.find { |block| block["type"] == "tool_use" && block["name"] == "respond" }
         if respond
@@ -123,12 +138,20 @@ module Agent
     end
 
     # A tool_result block; an unknown tool / bad input / disallowed tool is `is_error`, so
-    # the loop continues instead of raising a 500 (review focus).
+    # the loop continues instead of raising a 500 (review focus). Any other error inside a
+    # tool (a data bug, a missing snapshot) is caught too — the loop keeps going and the lock
+    # is still released.
     def tool_result(block)
       result = Agent::Tools.call(block["name"], block["input"], agency: @conversation.agency, user: @user)
       { "type" => "tool_result", "tool_use_id" => block["id"], "content" => JSON.generate(result), "is_error" => false }
     rescue Agent::Tools::Error => e
-      { "type" => "tool_result", "tool_use_id" => block["id"], "content" => e.message, "is_error" => true }
+      error_result(block, e.message)
+    rescue StandardError => e
+      error_result(block, "tool_error: #{e.class}")
+    end
+
+    def error_result(block, message)
+      { "type" => "tool_result", "tool_use_id" => block["id"], "content" => message, "is_error" => true }
     end
 
     # The last 10 stored messages' API content, flattened. A leading assistant message (whose
@@ -173,6 +196,10 @@ module Agent
 
     def as_of
       Leads::Queues.latest_as_of(@conversation.agency) || Time.current
+    end
+
+    def monotonic
+      Process.clock_gettime(Process::CLOCK_MONOTONIC)
     end
 
     def client

@@ -83,4 +83,32 @@ RSpec.describe Agent::TurnRunner do
     described_class.call(conversation: dana_convo, text: "hi")
     expect(WebMock).to have_requested(:post, AnthropicStub::URL).with { |req| JSON.parse(req.body)["tools"].map { _1["name"] }.sort == %w[get_next_actions respond] }
   end
+
+  it "turns any tool error into an error tool_result and keeps going" do
+    allow(Agent::Tools).to receive(:call).and_raise(RuntimeError, "boom")
+    stub_anthropic(anthropic_message(content: [ tool_use("get_funnel", {}, id: "t1") ], stop_reason: "tool_use"),
+                   anthropic_message(content: [ text_block("Sorry.") ]))
+    expect(described_class.call(conversation: convo, text: "x").body["text"]).to eq("Sorry.")
+    expect(WebMock).to have_requested(:post, AnthropicStub::URL).twice
+    expect(convo.reload.turn_started_at).to be_nil
+  end
+
+  it "stops at the turn deadline with a model_unavailable error" do
+    stub_const("Agent::TurnRunner::DEADLINE", 0)
+    stub_anthropic(anthropic_message(content: [ tool_use("respond", { "text" => "x" }, id: "t") ], stop_reason: "tool_use"))
+    expect { described_class.call(conversation: convo, text: "x") }.to raise_error(Agent::TurnRunner::Error, /model_unavailable/)
+    expect(WebMock).not_to have_requested(:post, AnthropicStub::URL)
+    expect(convo.reload.turn_started_at).to be_nil
+  end
+
+  it "errors instead of returning empty text when the reply is truncated" do
+    stub_anthropic(anthropic_message(content: [ tool_use("respond", { "text" => "" }, id: "t") ], stop_reason: "max_tokens"))
+    expect { described_class.call(conversation: convo, text: "x") }.to raise_error(Agent::TurnRunner::Error, /model_unavailable/)
+  end
+
+  it "still answers when the ledger write fails" do
+    allow(AiUsageEvent).to receive(:create!).and_raise(ActiveRecord::StatementInvalid, "db down")
+    stub_anthropic(anthropic_message(content: [ tool_use("respond", { "text" => "fine" }, id: "t") ], stop_reason: "tool_use"))
+    expect(described_class.call(conversation: convo, text: "x").body["text"]).to eq("fine")
+  end
 end

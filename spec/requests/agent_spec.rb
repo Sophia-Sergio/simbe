@@ -51,6 +51,14 @@ RSpec.describe "Agent API", type: :request do
     expect(response.parsed_body.dig("error", "code")).to eq("already_in_progress")
   end
 
+  it "runs the turn when the lock is stale" do
+    stub_anthropic(anthropic_message(content: [ tool_use("respond", { "text" => "ok" }, id: "t") ], stop_reason: "tool_use"))
+    sign_in(owner)
+    c = AgentConversation.create!(agency: agency, user: owner, turn_started_at: 2.minutes.ago)
+    post "/api/v1/agent/messages", params: { conversation_id: c.id, text: "again" }, headers: headers, as: :json
+    expect(response).to have_http_status(:created)
+  end
+
   it "502s provider failure and frees the lock" do
     stub_request(:post, AnthropicStub::URL).to_return(status: 529, body: "{}")
     sign_in(owner)
@@ -111,5 +119,28 @@ RSpec.describe "Agent API", type: :request do
   it "requires a session" do
     get "/api/v1/agent/suggestions"
     expect(response).to have_http_status(:unauthorized)
+  end
+
+  # 20 messages/min/user (spec decision 5). Rack::Attack is disabled suite-wide; enable it
+  # with an isolated counter store and exercise the real registered throttle through a bare
+  # Rack app, so the contract observer (which has no 429 for sendAgentMessage — a contract gap
+  # reported in the PR) is not involved.
+  it "throttles a user to 20 messages per minute" do
+    Rack::Attack.enabled = true
+    Rack::Attack.cache.store = ActiveSupport::Cache::MemoryStore.new
+    app = Rack::Builder.new do
+      use Rack::Attack
+      run ->(_env) { [ 200, {}, [ "ok" ] ] }
+    end.to_app
+    session = Rack::Test::Session.new(app)
+
+    statuses = 21.times.map do
+      session.post("/api/v1/agent/messages", {}, "REMOTE_ADDR" => "127.0.0.1")
+      session.last_response.status
+    end
+    expect(statuses.first(20)).to all(eq(200))
+    expect(statuses.last).to eq(429)
+  ensure
+    Rack::Attack.enabled = false
   end
 end

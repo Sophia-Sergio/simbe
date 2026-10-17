@@ -82,10 +82,13 @@ module Api
 
       # Acquire the turn lock under a row lock (a second turn while one runs is a 409), then
       # run the turn outside the lock. Agent::TurnRunner releases `turn_started_at` in its
-      # `ensure`, so a provider failure frees the lock too.
+      # `ensure`, so a provider failure frees the lock too. A lock older than
+      # STALE_LOCK_AFTER is treated as abandoned (a killed process) and replaced atomically.
       def run_turn(conversation, text)
         conversation.with_lock do
-          raise InProgress if conversation.turn_started_at.present?
+          stale = conversation.turn_started_at.present? &&
+                  conversation.turn_started_at < Agent::TurnRunner::STALE_LOCK_AFTER.seconds.ago
+          raise InProgress if conversation.turn_started_at.present? && !stale
 
           conversation.update!(turn_started_at: Time.current)
         end
