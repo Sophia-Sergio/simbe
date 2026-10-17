@@ -50,12 +50,14 @@ module Leads
       CLAUSES[queue] || OUTCOME_CLAUSES[lead.outcome] || "and is on track."
     end
 
+    # Gender-neutral wording: the data carries no gender, so the next step never assumes one
+    # ("them"/"their"). A missing application falls back to 0% instead of rendering "(…% complete)".
     def self.next_step(queue, application)
       case queue
-      when "text_back_now" then "Text her back now — no message has been sent."
-      when "nudge_applications" then "Nudge her to finish the application (#{application&.percent_complete}% complete)."
+      when "text_back_now" then "Text them back now — no message has been sent."
+      when "nudge_applications" then "Nudge them to finish the application (#{application&.percent_complete || 0}% complete)."
       when "rebook_consults" then "Offer a new consult time."
-      when "paused_due_back" then "Reach out — her return date has passed."
+      when "paused_due_back" then "Reach out — their return date has passed."
       else NO_ACTION
       end
     end

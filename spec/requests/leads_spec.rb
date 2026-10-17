@@ -127,6 +127,7 @@ RSpec.describe "Leads API", type: :request do
     expect(response).to have_http_status(:ok)
     expect(canonical_detail(response.parsed_body)).to eq(canonical_detail(expected_detail("detail-owner")))
     expect(response.parsed_body.dig("contact", "can_contact")).to be(false)
+    expect(response.parsed_body.dig("summary", "next_step")).to eq("Nudge them to finish the application (40% complete).")
   end
 
   it "returns the assigned coordinator detail matching the contract example" do
@@ -134,6 +135,7 @@ RSpec.describe "Leads API", type: :request do
     get "/api/v1/leads/#{lead('L4').external_id}", headers: headers
     expect(canonical_detail(response.parsed_body)).to eq(canonical_detail(expected_detail("detail-coordinator", coordinator: true)))
     expect(response.parsed_body.dig("contact", "can_contact")).to be(true)
+    expect(response.parsed_body.dig("summary", "next_step")).to eq("Nudge them to finish the application (40% complete).")
   end
 
   def canonical_board(body)
@@ -142,9 +144,12 @@ RSpec.describe "Leads API", type: :request do
 
   # The 10 questions are all answered by every Alpha lead, so their frequency ties and the
   # order among equal-frequency questions is not defined by the data; compare them by question.
+  # `summary.next_step` is dropped from the comparison because the example hard-codes "her":
+  # the app uses gender-neutral wording, pinned explicitly in the two examples above.
   def canonical_detail(body)
     copy = Marshal.load(Marshal.dump(body))
     copy["screener"]["items"] = copy["screener"]["items"].sort_by { |item| item["question"] }
+    copy["summary"].delete("next_step")
     copy
   end
 

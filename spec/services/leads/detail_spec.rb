@@ -60,3 +60,19 @@ RSpec.describe Leads::Detail do
     expect(described_class.call(user: owner, id: lead("L4").external_id).to_json).not_to match(/"answer"/)
   end
 end
+
+RSpec.describe Leads::Summarizer do
+  it "writes gender-neutral next steps and falls back to 0% without an application" do
+    expect(described_class.next_step("text_back_now", nil)).to eq("Text them back now — no message has been sent.")
+    expect(described_class.next_step("nudge_applications", nil)).to eq("Nudge them to finish the application (0% complete).")
+    expect(described_class.next_step("rebook_consults", nil)).to eq("Offer a new consult time.")
+    expect(described_class.next_step("paused_due_back", nil)).to eq("Reach out — their return date has passed.")
+    expect(described_class.next_step(nil, nil)).to eq("No action needed right now.")
+  end
+
+  it "never assumes a gender" do
+    %w[text_back_now nudge_applications rebook_consults paused_due_back].each do |queue|
+      expect(described_class.next_step(queue, nil)).not_to match(/\b(?:her|hers|his|she|he)\b/)
+    end
+  end
+end
