@@ -237,7 +237,8 @@ export function NextActionsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      {/* Same 860px switch as the board (`useIsDesktop`), not a separate CSS breakpoint. */}
+      <header className={`flex gap-3 ${isDesktop ? "items-start justify-between" : "flex-col"}`}>
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-[24px] font-semibold tracking-[-0.02em] text-ink">Next actions</h1>

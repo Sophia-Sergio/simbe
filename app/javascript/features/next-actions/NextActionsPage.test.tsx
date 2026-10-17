@@ -220,6 +220,17 @@ it("on mobile switches queues with chips when more than two are non-empty", asyn
   expect(screen.queryByRole("region", { name: "Nudge applications" })).toBeNull()
 })
 
+it("switches the header layout at the same 860px breakpoint as the board", async () => {
+  const narrow = renderWithProviders(<NextActionsPage />, { role: "coordinator", viewport: 800 })
+  const narrowHeader = (await screen.findByRole("heading", { name: "Next actions" })).closest("header")
+  expect(narrowHeader).toHaveClass("flex-col")
+  narrow.unmount()
+
+  renderWithProviders(<NextActionsPage />, { role: "coordinator", viewport: 900 })
+  const wideHeader = (await screen.findByRole("heading", { name: "Next actions" })).closest("header")
+  expect(wideHeader).not.toHaveClass("flex-col")
+})
+
 it("shows the error state when the actions call fails", async () => {
   mockApi({
     "/api/v1/next_actions": () =>
