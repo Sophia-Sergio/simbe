@@ -29,6 +29,11 @@ test("owner: top bar, search, account sheet and sign out", async ({ page }) => {
   await expect(page.getByRole("dialog")).toBeVisible()
   await page.keyboard.press("Control+k")
   await expect(page).toHaveURL(/\/pipeline\?range=90d$/)
+  // The search palette (F-SEARCH) opens on the same shortcut: close it before going on.
+  const palette = page.getByRole("dialog", { name: /search/i })
+  await expect(palette).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(palette).toBeHidden()
 
   await page.getByRole("button", { name: "Account" }).click()
   const sheet = page.getByRole("dialog", { name: "Account" })
