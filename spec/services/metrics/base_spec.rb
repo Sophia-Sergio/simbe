@@ -21,7 +21,7 @@ RSpec.describe Metrics::Base do
 
   it "exposes the snapshot id and as_of" do
     snapshot = current_snapshot
-    expect(base.snapshot).to eq(id: snapshot.id, as_of: snapshot.as_of)
+    expect(base.snapshot).to eq(id: snapshot.id, as_of: snapshot.as_of.utc)
   end
 
   it "returns a nil snapshot and window for an agency that never loaded one" do

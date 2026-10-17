@@ -38,7 +38,7 @@ RSpec.describe Metrics::Summary do
 
   it "returns the snapshot and range" do
     snapshot = Snapshot.for_agency(agency).order(created_at: :desc).first
-    expect(s[:snapshot]).to eq(id: snapshot.id, as_of: snapshot.as_of)
+    expect(s[:snapshot]).to eq(id: snapshot.id, as_of: snapshot.as_of.utc)
     expect(s[:range]).to eq("30d")
   end
 

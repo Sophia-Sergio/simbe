@@ -35,7 +35,7 @@ module Metrics
       return @snapshot if defined?(@snapshot)
 
       row = connection.select_one(sanitize(SNAPSHOT_SQL, agency_id: agency.id))
-      @snapshot = row && { id: row["id"], as_of: row["as_of"] }
+      @snapshot = row && { id: row["id"], as_of: row["as_of"].utc }
     end
 
     # The cohort window as UTC times, or nil without a snapshot: the current window is

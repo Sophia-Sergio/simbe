@@ -8,7 +8,7 @@ RSpec.describe Spend::SampleGenerator do
     described_class.call(agency: agency)
     first = AdSpendDay.order(:date, :channel, :campaign).pluck(:date, :channel, :campaign, :spend_cents)
     expect(AdSpendDay.distinct.pluck(:channel)).to match_array(%w[Facebook Instagram Google])
-    expect(AdSpendDay.distinct.pluck(:source)).to eq(["sample"])
+    expect(AdSpendDay.distinct.pluck(:source)).to eq([ "sample" ])
     described_class.call(agency: agency)
     expect(AdSpendDay.order(:date, :channel, :campaign).pluck(:date, :channel, :campaign, :spend_cents)).to eq(first)
   end
