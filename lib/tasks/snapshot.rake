@@ -7,7 +7,13 @@ namespace :snapshot do
     abort "usage: rake 'snapshot:load[slug,dir]'" if args[:slug].to_s.empty? || args[:dir].to_s.empty?
 
     importer = Snapshot::Importer # also loads Invalid/InProgress for the rescues below
-    agency = Agency.find_by!(slug: args[:slug])
+    slug = args[:slug].to_s
+    # A replace is destructive: in production it must be confirmed by naming the agency.
+    if Rails.env.production? && ENV["SIMBE_CONFIRM_REPLACE"] != slug
+      abort "refusing to replace #{slug} in production: set SIMBE_CONFIRM_REPLACE=#{slug} to confirm"
+    end
+
+    agency = Agency.find_by!(slug: slug)
     dir = File.expand_path(args[:dir], Rails.root)
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     snapshot = importer.call(agency: agency, dir: dir)
@@ -19,6 +25,10 @@ namespace :snapshot do
       .first(20).join("\n")
   rescue Snapshot::InProgress
     abort "#{args[:slug]}: a load is already running for this agency"
+  rescue StandardError => e
+    # Only the class: a PG::Error message carries the COPY row contents and a KeyError carries an
+    # external_id (docs/conventions/sensitive-data.md). Never print e.message.
+    abort "#{args[:slug]}: snapshot load failed (#{e.class})"
   end
 
   desc "Fail stuck uploads and expire uploads older than 24h (run hourly)"
