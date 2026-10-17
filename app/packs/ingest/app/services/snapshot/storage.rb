@@ -1,13 +1,18 @@
 class Snapshot
   # Stores an upload's files under storage/snapshot_uploads/<id>/ and deletes them after commit,
-  # cancel or expiry (spec 2002 decisions 6 and 8). Every file is reduced to its basename, matched
-  # to the seven export names case-insensitively and stored under the canonical name so
-  # Snapshot::Reader can stream it; anything else is kept too (the report lists it as `ignored`)
-  # and removed with the directory.
+  # cancel or expiry (spec 2002 decisions 6 and 8). Only the seven required names are written to
+  # disk (canonicalised, case-insensitively); any other uploaded name is reported as `ignored` and
+  # never stored, so a crafted upload cannot fill the disk or hide a payload.
   #
   # `storage/` is git-ignored; the directory only lives between upload and commit/cancel/expiry.
   module Storage
     ROOT = "storage/snapshot_uploads"
+    # A DoS bound on a single upload; the seven required files plus a little slack.
+    MAX_FILES = 20
+    # Browsers disagree about a CSV's content type; these are accepted (blank too).
+    CSV_CONTENT_TYPES = %w[
+      text/csv application/csv application/vnd.ms-excel text/plain application/octet-stream
+    ].freeze
 
     def self.root
       Rails.root.join(ROOT)
@@ -21,7 +26,8 @@ class Snapshot
       dir(upload).join(name)
     end
 
-    # Copies each uploaded file (ActionDispatch::Http::UploadedFile) into the upload's directory.
+    # Only the seven required files are ever written to disk; anything else is reported as
+    # `ignored` (never stored) so a crafted upload cannot fill the disk or hide a payload.
     # -> { stored: [names], ignored: [uploaded names that match none of the seven] }.
     def self.store(upload, files)
       FileUtils.mkdir_p(dir(upload))
@@ -32,11 +38,37 @@ class Snapshot
         next if name.nil?
 
         canonical = canonical_name(name)
-        write(path(upload, canonical || name), file)
-        stored << (canonical || name)
-        ignored << name if canonical.nil?
+        if canonical.nil?
+          ignored << name
+          next
+        end
+        write(path(upload, canonical), file)
+        stored << canonical
       end
       { stored: stored.uniq, ignored: ignored.uniq }
+    end
+
+    # -> nil when the set is acceptable, or a reason symbol for the caller to turn into a 422.
+    # Unknown names are allowed (they are ignored, not stored); everything else is rejected.
+    def self.invalid_files(files)
+      list = Array(files)
+      return :invalid_request if list.empty?
+      return :too_many_files if list.size > MAX_FILES
+
+      names = list.map { |file| safe_name(file.original_filename) }
+      return :unsafe_name if names.any?(&:nil?)
+      return :duplicate_file if names.uniq.size != names.size
+
+      matched = list.select { |file| canonical_name(safe_name(file.original_filename)) }
+      return :duplicate_file if matched.map { |file| canonical_name(safe_name(file.original_filename)) }.uniq.size != matched.size
+      return :not_csv if matched.any? { |file| !csv_content_type?(file) }
+
+      nil
+    end
+
+    def self.csv_content_type?(file)
+      content_type = file.respond_to?(:content_type) ? file.content_type.to_s : ""
+      content_type.empty? || CSV_CONTENT_TYPES.include?(content_type)
     end
 
     # Total bytes of the uploaded files, for the 250 MB upload cap.

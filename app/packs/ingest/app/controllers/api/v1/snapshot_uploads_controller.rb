@@ -13,8 +13,8 @@ module Api
       # POST /api/v1/snapshot_uploads → 201 { status: "validating", progress: {phase: "storing", pct: 0}, … }
       def create
         files = upload_files
-        return render_error("invalid_request", "Attach at least one CSV file", 422) if files.empty?
-        return render_error("invalid_request", "A filename is not usable", 422) if unsafe_names?(files)
+        invalid = Snapshot::Storage.invalid_files(files)
+        return render_error("invalid_request", invalid_message(invalid), 422) if invalid
         return render_error("too_large", "Uploads are capped at 250 MB", 413) if too_large?(files)
 
         upload = Current.agency.snapshot_uploads.create!(
@@ -75,17 +75,22 @@ module Api
         Array(params[:files]).select { |file| file.respond_to?(:original_filename) }
       end
 
-      def unsafe_names?(files)
-        files.any? { |file| Snapshot::Storage.safe_name(file.original_filename).nil? }
+      def invalid_message(reason)
+        case reason
+        when :too_many_files then "Too many files in one upload"
+        when :duplicate_file then "Two files have the same name"
+        when :not_csv then "Only CSV files are accepted"
+        else "A filename is not usable"
+        end
       end
 
       # A failure here (disk full, a bad name, the queue) must not leave the row in the in-flight
       # unique index, or the agency could never upload again. Remove any partial files and mark the
       # row failed; the caller renders the error.
       def store_and_enqueue(upload, files)
-        Snapshot::Storage.store(upload, files)
+        result = Snapshot::Storage.store(upload, files)
         upload.update!(dir: Snapshot::Storage.dir(upload).to_s)
-        Snapshot::ValidateUploadJob.perform_later(upload)
+        Snapshot::ValidateUploadJob.perform_later(upload, result[:ignored])
         true
       rescue StandardError => e
         Snapshot::Storage.remove(upload)

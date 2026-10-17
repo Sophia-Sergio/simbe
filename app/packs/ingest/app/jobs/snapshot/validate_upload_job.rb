@@ -2,8 +2,9 @@ class Snapshot::ValidateUploadJob < ApplicationJob
   queue_as :ingest
 
   # Parses the stored files and writes the report (lane override 1). Runs on the single-threaded
-  # `ingest` queue so a 69 MB upload never blocks web requests.
-  def perform(upload)
+  # `ingest` queue so a 69 MB upload never blocks web requests. `ignored` is the uploaded names
+  # that matched none of the seven files (they are not stored on disk).
+  def perform(upload, ignored = [])
     return unless upload.status == "validating"
 
     previous = Current.agency
@@ -13,7 +14,7 @@ class Snapshot::ValidateUploadJob < ApplicationJob
     progress.update(phase: "parsing", pct: 5)
     rows = Snapshot::Reader.call(upload.dir)
     progress.update(phase: "validating", pct: 50)
-    report = Snapshot::Validator.call(agency: upload.agency, dir: upload.dir, rows: rows)
+    report = Snapshot::Validator.call(agency: upload.agency, dir: upload.dir, rows: rows, ignored: ignored)
 
     # Compare-and-set: if a cancel landed meanwhile, `cancelled` must win.
     transition(upload, from: "validating", to: "validated",

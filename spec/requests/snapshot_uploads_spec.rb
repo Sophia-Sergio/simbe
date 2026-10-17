@@ -145,7 +145,7 @@ RSpec.describe "Snapshot uploads", type: :request do
     expect(response.parsed_body["pending"]["progress"]).to eq("phase" => "storing", "pct" => 0)
   end
 
-  it "lists a file that matches none of the seven names as ignored" do
+  it "stores only the seven export files and reports the rest as ignored" do
     sign_in(owner)
     Dir.mktmpdir("upload-extra") do |dir|
       extra = File.join(dir, "notes.txt")
@@ -155,6 +155,8 @@ RSpec.describe "Snapshot uploads", type: :request do
 
       get "/api/v1/snapshot_uploads/#{id}", headers: headers
       expect(response.parsed_body.dig("report", "ignored")).to eq([ "notes.txt" ])
+      stored = Dir.children(Snapshot::Storage.dir(agency.snapshot_uploads.find(id)))
+      expect(stored).to match_array(Snapshot::Constants::REQUIRED_FILES)
     end
   end
 
@@ -263,6 +265,45 @@ RSpec.describe "Snapshot uploads", type: :request do
       # the agency is no longer blocked: a new upload works
       allow(Snapshot::Storage).to receive(:store).and_call_original
       expect(create_upload(files)).to be_present
+    end
+
+    it "rejects two files that resolve to the same export name (422)" do
+      sign_in(owner)
+      dir = AlphaScenario.copy_dir
+
+      post "/api/v1/snapshot_uploads",
+           params: { files: [ uploaded_with_name(File.join(dir, "leads.csv"), "leads.csv"),
+                              uploaded_with_name(File.join(dir, "leads.csv"), "LEADS.CSV") ] },
+           headers: headers
+
+      expect(response).to have_http_status(422)
+      expect(response.parsed_body.dig("error", "code")).to eq("invalid_request")
+      expect(agency.snapshot_uploads).to be_empty
+    end
+
+    it "rejects a matched file whose content type is not CSV-like (422)" do
+      sign_in(owner)
+      dir = AlphaScenario.copy_dir
+
+      post "/api/v1/snapshot_uploads",
+           params: { files: [ Rack::Test::UploadedFile.new(File.join(dir, "leads.csv"), "application/pdf") ] },
+           headers: headers
+
+      expect(response).to have_http_status(422)
+      expect(agency.snapshot_uploads).to be_empty
+    end
+
+    it "caps the number of uploaded files (422)" do
+      sign_in(owner)
+      dir = AlphaScenario.copy_dir
+      many = Array.new(Snapshot::Storage::MAX_FILES + 1) do
+        Rack::Test::UploadedFile.new(File.join(dir, "leads.csv"), "text/csv")
+      end
+
+      post "/api/v1/snapshot_uploads", params: { files: many }, headers: headers
+
+      expect(response).to have_http_status(422)
+      expect(agency.snapshot_uploads).to be_empty
     end
   end
 end

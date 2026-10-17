@@ -65,8 +65,9 @@ class Snapshot
 
     # -> Hash report: { ok:, errors:, warnings:, ignored:, diff:, checks:, as_of: } (symbol keys).
     # `rows` lets the caller reuse the parse it already did (the upload job); otherwise the file
-    # is parsed here.
-    def self.call(agency:, dir:, rows: nil)
+    # is parsed here. `ignored` is the uploaded names that matched none of the seven files (the
+    # upload job knows them from the request; without it they are read back from the directory).
+    def self.call(agency:, dir:, rows: nil, ignored: nil)
       rows ||= Reader.call(dir)
       errors = reader_errors(rows) + header_errors(dir) + missing_file_errors(dir)
 
@@ -83,7 +84,7 @@ class Snapshot
         ok: errors.empty?,
         errors: errors,
         warnings: warnings(rows),
-        ignored: ignored_files(dir),
+        ignored: ignored || ignored_files(dir),
         diff: diff(agency, rows),
         checks: {
           files_matched: "#{present_files(dir).size} of #{Constants::REQUIRED_FILES.size}",
