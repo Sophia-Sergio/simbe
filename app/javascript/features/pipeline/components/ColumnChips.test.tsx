@@ -10,15 +10,15 @@ const columns = [
 it("renders one chip per column with its count and marks the selected one", () => {
   render(<ColumnChips columns={columns} value="qualified" onChange={() => {}} />)
   const group = screen.getByRole("group", { name: "Pipeline columns" })
-  const qualified = within(group).getByRole("button", { name: /Qualified/ })
+  // The label and count must be separated in the accessible name ("Qualified, 3", not "Qualified3").
+  const qualified = within(group).getByRole("button", { name: "Qualified, 3" })
   expect(qualified).toHaveAttribute("aria-pressed", "true")
-  expect(qualified).toHaveTextContent("3")
-  expect(within(group).getByRole("button", { name: /Action needed/ })).toHaveTextContent("4")
+  expect(within(group).getByRole("button", { name: "Action needed, 4" })).toBeInTheDocument()
 })
 
 it("reports the clicked column", async () => {
   const onChange = vi.fn()
   render(<ColumnChips columns={columns} value="action_needed" onChange={onChange} />)
-  await userEvent.click(screen.getByRole("button", { name: /Qualified/ }))
+  await userEvent.click(screen.getByRole("button", { name: "Qualified, 3" }))
   expect(onChange).toHaveBeenCalledWith("qualified")
 })

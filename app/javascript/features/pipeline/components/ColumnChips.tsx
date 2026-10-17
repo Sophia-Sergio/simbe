@@ -16,8 +16,13 @@ export function ColumnChips({
     <div role="group" aria-label="Pipeline columns" className="flex gap-2 overflow-x-auto pb-1">
       {columns.map((column) => (
         <Chip key={column.key} selected={column.key === value} onClick={() => onChange(column.key)}>
-          {column.label}
-          <span className="text-ink-muted">{column.count}</span>
+          {/* The visual pieces are aria-hidden and a single sr-only string names the chip, so assistive tech
+              reads "Qualified, 3" rather than the concatenated "Qualified3". */}
+          <span aria-hidden="true">{column.label}</span>
+          <span aria-hidden="true" className="text-ink-muted">
+            {column.count}
+          </span>
+          <span className="sr-only">{`${column.label}, ${column.count}`}</span>
         </Chip>
       ))}
     </div>
