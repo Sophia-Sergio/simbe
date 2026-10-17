@@ -10,6 +10,11 @@ export default defineConfig({
   testDir: "e2e",
   outputDir: "e2e/test-results",
   reporter: [["list"]],
+  // CI runners are slower than a laptop and the first requests wait on the Vite dev server compiling: allow a retry and a longer
+  // expect timeout there, and keep the worker count low so the dev server is not starved. Local runs stay strict.
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 2 : undefined,
+  expect: { timeout: process.env.CI ? 10_000 : 5_000 },
   use: { trace: "retain-on-failure" },
   webServer: real ? undefined : { command: "npm run dev:mock", url: mockURL, reuseExistingServer: true },
   projects: real

@@ -195,7 +195,7 @@ Plan: `{l['rel']}`
     print(f"posted claude-review=success on {sha[:9]}")
     auto = False
     if a.auto_merge and not a.draft:
-        r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash", "--delete-branch"], text=True, capture_output=True)
+        r = subprocess.run(["gh", "pr", "merge", url, "--auto", "--squash"], text=True, capture_output=True)
         auto = r.returncode == 0
         print("auto-merge enabled (merges when the required checks are green)" if auto else "auto-merge not enabled: " + (r.stderr or r.stdout).strip()[:200])
     # `ci` means the PR is open with auto-merge on; otherwise it is approved and waiting for a human to merge.
@@ -326,6 +326,9 @@ RED_FLAGS = [
     ("raw hex color", r"#[0-9a-fA-F]{6}\b"),
     ("network call outside client", r"\bfetch\("),
 ]
+# These rules are about the React app: `fetch(` is also Ruby's Hash#fetch and `#rrggbb` is plain text in Ruby/YAML/docs.
+FRONTEND_ONLY = {"network call outside client", "browser storage", "unsafe HTML", "native dialog", "raw hex color"}
+FRONTEND_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs")
 SOFT = {"raw hex color", "network call outside client", "browser storage", "TODO/FIXME/HACK", "debug leftovers"}   # warn, human decides
 
 def gate_dir(l):
@@ -409,10 +412,15 @@ def cmd_review(a):
     stat = sh_in(wt, "git", "diff", "--shortstat", f"{base}...HEAD")
     newf = sh_in(wt, "git", "diff", "--diff-filter=A", "--name-only", f"{base}...HEAD").splitlines()
     tests = [f for f in changed if re.search(r"(_spec\.rb|\.test\.[tj]sx?|\.spec\.[tj]s|^spec/|^e2e/)", f)]
-    added = [ln[1:] for ln in sh_in(wt, "git", "diff", "-U0", f"{base}...HEAD").splitlines() if ln.startswith("+") and not ln.startswith("+++")]
+    added_by_file, current = [], ""
+    for ln in sh_in(wt, "git", "diff", "-U0", f"{base}...HEAD").splitlines():
+        if ln.startswith("+++ "): current = ln[6:] if ln.startswith("+++ b/") else ""
+        elif ln.startswith("+"): added_by_file.append((current, ln[1:]))
+    added = [ln for _, ln in added_by_file]
     flags = {}
     for name, rx in RED_FLAGS:
-        hits = [ln.strip()[:110] for ln in added if re.search(rx, ln)]
+        scope = [ln for path, ln in added_by_file if name not in FRONTEND_ONLY or path.endswith(FRONTEND_EXT)]
+        hits = [ln.strip()[:110] for ln in scope if re.search(rx, ln)]
         if hits: flags[name] = hits
     deps = [ln.strip() for ln in added if re.match(r'\s*(gem "|"[@\w./-]+": "[\^~\d])', ln)]
     guard = subprocess.run(["bin/guard-no-health-data"], cwd=wt, text=True, capture_output=True)

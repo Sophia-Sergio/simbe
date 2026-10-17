@@ -28,7 +28,9 @@ RSpec.describe "bin/lane pr" do
     expect(res).to be_success, res.err + res.out
     expect(sandbox.gh_calls.grep(/^pr create/).size).to eq(1)
     expect(sandbox.gh_calls).to include(a_string_matching(%r{^api -X POST repos/me/simbe/statuses/#{head}}))
-    expect(sandbox.gh_calls).to include(a_string_matching(/^pr merge \S+ --auto --squash/))
+    expect(sandbox.gh_calls).to include(a_string_matching(/^pr merge \S+ --auto --squash$/))
+    # The repo deletes merged branches itself; --delete-branch makes gh switch the local worktree onto main and breaks the next PR.
+    expect(sandbox.gh_calls.grep(/^pr merge/)).to all(satisfy { |c| !c.include?("--delete-branch") })
     expect(sandbox.state.dig("lanes", "F-WEEK")).to include("phase" => "ci", "pr" => "https://gh/pull/9", "head" => head)
   end
 

@@ -23,6 +23,20 @@ RSpec.describe "bin/lane review" do
     expect(review.out).not_to include("skipped/focused test")
   end
 
+  it "does not treat Ruby's Hash#fetch as a network call or a hex-looking string in a Ruby/YAML file as a raw color" do
+    sandbox.commit_in("F-WEEK", file: "app/models/option.rb", content: "options.fetch(:a)\nENV.fetch('X', 1)\ncolor = '#ff8dac'\n")
+    out = review.out
+    expect(out).not_to include("network call outside client")
+    expect(out).not_to include("raw hex color")
+  end
+
+  it "still flags fetch and raw hex colors in frontend files" do
+    sandbox.commit_in("F-WEEK", file: file, content: "export const go = () => fetch('/x')\nexport const c = '#ff8dac'\n")
+    out = review.out
+    expect(out).to include("network call outside client")
+    expect(out).to include("raw hex color")
+  end
+
   it "still flags real skipped, focused and pending tests" do
     [ "it.skip('x', () => {})", "xit('x', () => {})", "describe.only('x', () => {})", "test.skip('x', () => {})", "  pending 'not yet'", "  pending('not yet')", "  skip 'later'" ].each do |line|
       sandbox.commit_in("F-WEEK", file: file, content: "#{line}\n", message: "feat: #{line}")

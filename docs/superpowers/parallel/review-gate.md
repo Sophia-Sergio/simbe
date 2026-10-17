@@ -68,6 +68,37 @@ What you will see at G4: the verdict line, the commit list (one per plan task), 
 ## 8. FAQ
 
 - **What if OpenCode stalls or loops?** `--timeout` kills it; the partial commits stay local; I review what exists and either continue the session or take the lane over myself.
-- **Which model?** Your call (`opencode models`); use a strong coding model for W0-1/W0-3/W0-5/B-INGEST/B-AGENT and cheaper ones for small UI lanes. The gate is model-independent: the review decides, not the model's confidence.
+- **Which model?** DeepSeek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`) for every OpenCode lane; no per-tier choice. The gate is model-independent: the review decides, not the model's confidence.
 - **Does this slow things down?** The first lanes yes (that is the point); the ladder removes manual steps as trust is earned, but never the independent verification or your approval of what gets pushed.
 - **What can still go wrong?** Plans themselves are untested until a lane runs them; the first lane may expose plan defects. Those are fixed in the plan (separate docs PR), not worked around.
+
+## Pre-go quality checklist (conductor, every batch)
+
+Before asking the human for a batch "go", the conductor has done all of these and the go request reports them (lane by lane, with the findings count and what was fixed):
+
+1. A fresh-subagent review of the lane, fixes applied (max 2 rounds) and re-checked by the conductor.
+2. The plan's **Done when** commands re-run in the lane worktree by the conductor, not the builder.
+3. tsc, eslint, Vitest and Playwright (desktop and mobile) / RSpec green, run sequentially per worktree.
+4. UI lanes: the desktop and mobile e2e screenshots viewed and compared with `handoff/design/screenshots/` and `docs/design/brand.md`.
+5. A rebase onto `origin/main` and `bin/lane check` clean.
+
+A go request that cannot report all five says which is missing and why.
+
+## Do not defer work on an unchecked assumption
+
+Before holding, delaying or queueing a step "to avoid load or a clash", the conductor names the specific shared resource (a lane slot, a Docker stack, the Playwright dev-server port, a database, a CI quota) and checks whether the step really uses it. A read-only review (a subagent reading a diff, Vitest only) uses none of them and starts immediately. The lane caps limit builder runs, not reviews. If the claim cannot be verified in one command, run the step. Delaying needs a named resource, not a feeling.
+
+## Act on every state change (no waiting to be asked)
+
+The conductor reacts to these events as they happen, without a prompt from the human:
+
+| Event | Immediate action |
+|---|---|
+| A builder run ends (phase `verifying`, or a log that stopped growing with no live process) | Start the fresh review at once (read-only, no lane slot needed) |
+| A review report arrives | Send the findings to the builder session the same minute (a conductor-built lane has no session: fix it inline) |
+| A fix round ends | Re-verify at once: rebase, full suite with `RAILS_ENV=test` (or the frontend checks), rubocop/eslint, `bin/lane check`, read the diff against each finding |
+| A lane passes re-verification | Add it to the next go request; when a batch is ready, ask for the go |
+| A PR merges | Clean its worktree, stack and images; mark it merged; start the lanes it unblocks |
+| A process or log goes quiet | Look at the log and the process right away, resume with `--session` if it stopped |
+
+When waiting on something, the conductor says what it is waiting for and checks on it at a stated interval. "Waiting for the user" is only valid when a go or a decision is actually pending.
