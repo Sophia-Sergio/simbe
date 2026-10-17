@@ -22,6 +22,11 @@ module Signup
     # The token is expired or already used → 410, never 404 (the link is real, just spent).
     class Expired < StandardError; end
 
+    # The raw token is never persisted: it is encrypted into the job payload so the mail can
+    # rebuild the link, without the usable token ever reaching job arguments or logs.
+    SEAL_PURPOSE = "invitation accept url"
+    SEAL_TTL = 1.hour
+
     class << self
       # Returns [invitation, raw_token]; the raw token is never stored.
       def issue!(agency:, invited_by:, email:, coordinator_name:)
@@ -99,6 +104,23 @@ module Signup
 
       def accept_url(raw_token)
         "#{ENV.fetch('APP_URL', 'http://localhost:5173')}/invite/#{raw_token}"
+      end
+
+      # Job-safe token hand-off: opaque ciphertext, short lived, not usable to accept.
+      def seal_token(raw_token)
+        token_encryptor.encrypt_and_sign(raw_token, expires_in: SEAL_TTL)
+      end
+
+      def unseal_token(sealed)
+        token_encryptor.decrypt_and_verify(sealed)
+      end
+
+      def token_encryptor
+        @token_encryptor ||= ActiveSupport::MessageEncryptor.new(
+          Rails.application.key_generator.generate_key(SEAL_PURPOSE, 32),
+          cipher: "aes-256-gcm",
+          serializer: JSON
+        )
       end
 
       # The Invitation contract shape; `accept_url` only exists in the create response.

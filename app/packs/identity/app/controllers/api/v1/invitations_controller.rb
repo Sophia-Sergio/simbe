@@ -15,12 +15,12 @@ module Api
           coordinator_name: params[:coordinator_name].to_s
         )
         url = Signup::Invitations.accept_url(raw_token)
-        InvitationMailer.invite(
-          email: invitation.email,
-          agency_name: Current.agency.name,
-          coordinator_name: invitation.coordinator_name,
-          accept_url: url
-        ).deliver_later
+        # The job gets opaque, short-lived ciphertext, never the usable token.
+        Signup::InvitationDeliveryJob.perform_later(
+          invitation.id,
+          invitation.agency_id,
+          Signup::Invitations.seal_token(raw_token)
+        )
         render json: Signup::Invitations.as_json(invitation, accept_url: url), status: :created
       rescue Signup::Invitations::Error => e
         render_invitation_error(e)

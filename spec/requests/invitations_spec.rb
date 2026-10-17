@@ -58,6 +58,43 @@ RSpec.describe "Invitations", type: :request do
     expect(response).to have_http_status(:gone)
   end
 
+  it "enqueues the invitation mail without the raw token in the job arguments" do
+    sign_in
+    invite
+    token = response.parsed_body["accept_url"].split("/").last
+    job = ActiveJob::Base.queue_adapter.enqueued_jobs.last
+
+    expect(job[:job]).to eq(Signup::InvitationDeliveryJob)
+    expect(job[:args].to_s).not_to include(token)
+    expect(Signup::InvitationDeliveryJob.log_arguments).to be(false)
+  end
+
+  it "never writes the raw token from an invitation path to the log" do
+    sign_in
+    invite
+    token = response.parsed_body["accept_url"].split("/").last
+
+    output = StringIO.new
+    previous_logger = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(output)
+
+    begin
+      get "/api/v1/invitations/#{token}/preview"
+      expect(response).to have_http_status(:ok)
+      expect(output.string).not_to include(token)
+      expect(output.string).to include("/api/v1/invitations/[FILTERED]/preview")
+
+      # Production logs one structured line through lograge; its `path` goes through the
+      # same scrubber.
+      if defined?(Lograge)
+        structured = Lograge.before_format({ path: "/api/v1/invitations/#{token}/accept" }, {})
+        expect(structured[:path]).not_to include(token)
+      end
+    ensure
+      Rails.logger = previous_logger
+    end
+  end
+
   it "rejects unknown coordinator names with the valid list" do
     sign_in
     invite(email: "x@alpha.test", coordinator_name: "Nobody")
