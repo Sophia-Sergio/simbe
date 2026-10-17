@@ -85,7 +85,7 @@ const TRICKY_NAMES = ["Dana Ortiz Jr.", "J. Smith", "A/B", "50%", "José"]
 it.each(TRICKY_NAMES)("decodes %s from the route and matches the mock API", async (name) => {
   // Echo the decoded path segment, so a pass proves the encoded route matched the mock handler.
   mockApi({
-    "/api/v1/coordinators/:name": (request) =>
+    "/api/v1/coordinators/:name": (request: Request) =>
       HttpResponse.json({
         ...detail,
         name: decodeURIComponent(new URL(request.url).pathname.split("/").pop() ?? ""),
