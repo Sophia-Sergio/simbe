@@ -105,6 +105,24 @@ RSpec.describe "MCP endpoint", type: :request do
     expect(digests).to include(Mcp::Keys.digest_for(new_key))
   end
 
+  it "looks a key up by its digest in one indexed query" do
+    statements = []
+    subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") do |*args|
+      event = ActiveSupport::Notifications::Event.new(*args)
+      sql = event.payload[:sql].to_s
+      next if event.payload[:name] == "SCHEMA" || sql.match?(/\A\s*(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE|TRANSACTION)/i)
+
+      statements << sql
+    end
+
+    found = Mcp::Keys.active_key(@key)
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+
+    expect(found).to be_present
+    expect(statements.size).to eq(1)
+    expect(statements.first).to match(/key_digest/i)
+  end
+
   it "405s a GET on the endpoint" do
     get "/mcp/alpha", headers: { "Authorization" => "Bearer #{@key}" }
     expect(response).to have_http_status(:method_not_allowed)

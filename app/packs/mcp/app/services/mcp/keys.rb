@@ -30,14 +30,16 @@ module Mcp
 
     # The active key for a token regardless of slug. Lets the endpoint tell an invalid/revoked key
     # (401) from a valid key used with the wrong slug (404) without trusting either to the other.
+    # `key_digest` is uniquely indexed, so this is one indexed lookup (never a scan of every key);
+    # the constant-time compare stays as a sanity check.
     def active_key(token)
       return nil if token.blank?
 
       digest = digest_for(token)
-      McpKey.active.find_each do |key|
-        return key if ActiveSupport::SecurityUtils.secure_compare(key.key_digest, digest)
-      end
-      nil
+      key = McpKey.active.find_by(key_digest: digest)
+      return nil if key.nil? || !ActiveSupport::SecurityUtils.secure_compare(key.key_digest, digest)
+
+      key
     end
 
     def digest_for(token)
