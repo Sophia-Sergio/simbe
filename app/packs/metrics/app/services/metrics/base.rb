@@ -20,6 +20,15 @@ module Metrics
       LIMIT 1
     SQL
 
+    # (row count, latest update) of the agency's ad spend: goes into the cache key, so a
+    # changed spend total (a fresh sample run, an import) is never served from a stale
+    # summary/channels payload.
+    SPEND_FINGERPRINT_SQL = <<~SQL.freeze
+      SELECT count(*) AS count, max(updated_at) AS updated_at
+      FROM ad_spend_daily
+      WHERE agency_id = :agency_id
+    SQL
+
     attr_reader :agency, :range
 
     def initialize(agency:, range: "30d")
@@ -80,7 +89,15 @@ module Metrics
     private
 
     def cache_key(key)
-      [ "metrics", agency.id, snapshot&.dig(:id), agency.qualified_milestone, range, key ]
+      [ "metrics", agency.id, snapshot&.dig(:id), agency.qualified_milestone, range, key, spend_fingerprint ]
+    end
+
+    # `"<row_count>:<max updated_at>"`, e.g. "3:2026-09-25T20:00:00.123456Z". A String, not a
+    # Time: cache-key expansion (`to_param`) would drop sub-second precision and miss a
+    # same-second replacement.
+    def spend_fingerprint
+      row = connection.select_one(sanitize(SPEND_FINGERPRINT_SQL, agency_id: agency.id))
+      "#{row['count'].to_i}:#{row['updated_at']&.utc&.iso8601(6)}"
     end
 
     # A date in the agency's time zone, for the `date` column of ad_spend_daily.

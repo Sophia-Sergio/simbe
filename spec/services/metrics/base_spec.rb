@@ -49,6 +49,8 @@ RSpec.describe Metrics::Base do
     let(:store) { ActiveSupport::Cache::MemoryStore.new }
     before { allow(Rails).to receive(:cache).and_return(store) }
 
+    def fresh_base = described_class.new(agency: agency, range: "30d")
+
     it "evaluates the block once per key and follows a changed definition" do
       calls = 0
       expect(base.cached("k") { calls += 1; "v" }).to eq("v")
@@ -56,8 +58,41 @@ RSpec.describe Metrics::Base do
       expect(calls).to eq(1)
 
       agency.update!(qualified_milestone: "records")
-      base.cached("k") { calls += 1; "v2" }
+      fresh_base.cached("k") { calls += 1; "v2" }
       expect(calls).to eq(2)
+    end
+
+    it "invalidates when a new snapshot is loaded" do
+      calls = 0
+      base.cached("k") { calls += 1 }
+      Snapshot.for_agency(agency).create!(as_of: Time.utc(2026, 10, 5, 12), loaded_at: Time.current, row_counts: {}, warnings: [])
+      fresh_base.cached("k") { calls += 1 }
+      expect(calls).to eq(2)
+    end
+
+    it "invalidates when the agency's spend changes" do
+      calls = 0
+      base.cached("k") { calls += 1 }
+      AdSpendDay.create!(agency: agency, date: "2026-09-25", platform: "meta", channel: "Facebook",
+                         campaign: "c-a", spend_cents: 100, source: "import")
+      fresh_base.cached("k") { calls += 1 }
+      expect(calls).to eq(2)
+    end
+
+    it "invalidates when spend is replaced but has the same row count" do
+      AdSpendDay.create!(agency: agency, date: "2026-09-25", platform: "meta", channel: "Facebook",
+                         campaign: "c-a", spend_cents: 100, source: "import")
+      calls = 0
+      base.cached("k") { calls += 1 }
+      AdSpendDay.find_by!(campaign: "c-a").update!(spend_cents: 500)
+      fresh_base.cached("k") { calls += 1 }
+      expect(calls).to eq(2)
+    end
+
+    it "never serves one agency's cached value to another" do
+      expect(base.cached("k") { "alpha" }).to eq("alpha")
+      other = described_class.new(agency: create(:agency), range: "30d")
+      expect(other.cached("k") { "beta" }).to eq("beta")
     end
   end
 end
