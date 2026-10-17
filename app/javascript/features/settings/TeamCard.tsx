@@ -191,7 +191,9 @@ export function TeamCard() {
                     >
                       Copy invite link
                     </Button>
-                  ) : revoking === invitation.id ? null : (
+                  ) : null}
+                  {/* Independent of the copy button: a mistyped email must be revocable right away. */}
+                  {revoking === invitation.id ? null : (
                     <Button variant="ghost" size="sm" onClick={() => setRevoking(invitation.id)}>
                       Revoke
                     </Button>

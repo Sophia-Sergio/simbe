@@ -66,6 +66,21 @@ it("revokes a pending invitation through an inline confirmation", async () => {
   await waitFor(() => expect(screen.queryByText("maya@harbor.test")).toBeNull())
 })
 
+it("revokes the invitation it just sent (a mistyped email can be undone)", async () => {
+  renderWithProviders(<TeamCard />)
+
+  await invite("typo@harbor.test", "Jess Kim")
+  await screen.findByText("Invitation sent")
+
+  const row = screen.getByText("typo@harbor.test").closest("li") as HTMLElement
+  // Both actions stay available on the just-sent row, not just Copy invite link.
+  expect(within(row).getByRole("button", { name: "Copy invite link" })).toBeInTheDocument()
+  await userEvent.click(within(row).getByRole("button", { name: "Revoke" }))
+  await userEvent.click(within(screen.getByRole("group")).getByRole("button", { name: "Revoke" }))
+
+  await waitFor(() => expect(screen.queryByText("typo@harbor.test")).toBeNull())
+})
+
 it("cancelling the inline confirmation keeps the invitation", async () => {
   renderWithProviders(<TeamCard />)
 
