@@ -1,6 +1,6 @@
 import { Check } from "lucide-react"
 
-export const WIZARD_STEPS = ["Account", "Agency", "Ad accounts", "Load data", "Team"] as const
+const WIZARD_STEPS = ["Account", "Agency", "Ad accounts", "Load data", "Team"] as const
 
 export type StepStatus = "done" | "current" | "upcoming"
 
