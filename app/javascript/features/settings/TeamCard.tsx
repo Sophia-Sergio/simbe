@@ -107,6 +107,10 @@ export function TeamCard() {
       } else if (caught instanceof ApiError && caught.code === "invalid_email") {
         setEmailError(INVALID_EMAIL)
         emailRef.current?.focus()
+      } else if (caught instanceof ApiError && caught.status >= 400 && caught.status < 500 && caught.message !== "") {
+        // The error envelope's `message` is written for the user (a duplicate invite, already a member, …):
+        // showing it beats a generic line that hides what actually happened.
+        setFormError(caught.message)
       } else {
         setFormError(SEND_FAILED)
       }
@@ -168,7 +172,16 @@ export function TeamCard() {
             }}
           />
         </Field>
-        <Field label="Coordinator" className="md:flex-1" error={coordinatorError ?? undefined}>
+        <Field
+          label="Coordinator"
+          className="md:flex-1"
+          error={coordinatorError ?? undefined}
+          hint={
+            names.isError
+              ? "We could not load your coordinator names — type the name exactly as it appears in your data."
+              : undefined
+          }
+        >
           <Input
             ref={coordinatorRef}
             list={listId}

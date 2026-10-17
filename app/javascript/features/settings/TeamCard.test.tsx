@@ -177,6 +177,39 @@ it("keeps Invite disabled until an email and a coordinator are given", async () 
   await waitFor(() => expect(button).toBeEnabled())
 })
 
+it("shows the server's specific message for a duplicate invitation instead of the generic one", async () => {
+  mockApi({
+    "POST /api/v1/invitations": () =>
+      Response.json(
+        { error: { code: "already_invited", message: "That person already has a pending invitation." } },
+        { status: 422 },
+      ),
+  })
+  renderWithProviders(<TeamCard />)
+
+  await invite("jess@harbor.test", "Jess Kim")
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("That person already has a pending invitation.")
+})
+
+it("falls back to a generic message when the failure carries no usable one", async () => {
+  mockApi({ "POST /api/v1/invitations": () => Response.json({}, { status: 500 }) })
+  renderWithProviders(<TeamCard />)
+
+  await invite("jess@harbor.test", "Jess Kim")
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("We could not send the invitation. Try again.")
+})
+
+it("tells the user when the coordinator names could not be loaded", async () => {
+  mockApi({ "GET /api/v1/coordinator_names": () => Response.json({ error: { code: "server_error", message: "x" } }, { status: 500 }) })
+  renderWithProviders(<TeamCard />)
+
+  expect(await screen.findByText(/could not load your coordinator names/i)).toBeInTheDocument()
+  // Wired to the field, so a screen reader hears it with the input.
+  expect(describedText(screen.getByLabelText("Coordinator"))).toMatch(/could not load your coordinator names/i)
+})
+
 it("shows an error with retry when the team cannot be loaded", async () => {
   mockApi({ "GET /api/v1/team": () => Response.json({ error: { code: "server_error", message: "x" } }, { status: 500 }) })
   renderWithProviders(<TeamCard />)
