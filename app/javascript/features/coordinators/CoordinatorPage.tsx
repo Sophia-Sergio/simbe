@@ -16,7 +16,7 @@ import { StatusPill } from "@/components/ui/StatusPill"
 import { Table } from "@/components/ui/Table"
 import type { Column } from "@/components/ui/Table"
 import { formatDuration, formatInt, formatPct } from "@/lib/format"
-import { COORDINATOR_STATUS, CoordinatorNoData } from "./lib"
+import { barPct, COORDINATOR_STATUS, CoordinatorNoData } from "./lib"
 
 type NeedsAction = CoordinatorDetail["needs_action"][number]
 
@@ -108,14 +108,25 @@ export function CoordinatorPage() {
     body = (
       <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KpiCard label="Leads" value={formatInt(kpis.leads)} bar={{ kind: "fill", pct: 100 }} />
+          <KpiCard label="Leads" value={formatInt(kpis.leads)} bar={{ kind: "fill", pct: barPct(100) }} />
           <KpiCard
             label="Qualified"
             value={formatInt(kpis.qualified)}
-            bar={{ kind: "fill", pct: kpis.leads > 0 ? (kpis.qualified / kpis.leads) * 100 : 0 }}
+            bar={{ kind: "fill", pct: barPct(kpis.leads > 0 ? (kpis.qualified / kpis.leads) * 100 : 0) }}
           />
-          <KpiCard label="Qualified rate" value={formatPct(kpis.qualified_rate)} bar={{ kind: "fill", pct: kpis.qualified_rate }} />
-          <KpiCard label="First reply" value={formatDuration(kpis.first_reply_minutes)} bar={{ kind: "fill", pct: 0 }} />
+          <KpiCard
+            label="Qualified rate"
+            value={formatPct(kpis.qualified_rate)}
+            bar={{ kind: "fill", pct: barPct(kpis.qualified_rate) }}
+          />
+          {/* KpiCard requires a bar, but a median duration has no 0–100 scale: the track stays empty
+              and neutral (never a "100%" that would read as good) with a note that says what it is. */}
+          <KpiCard
+            label="First reply"
+            value={formatDuration(kpis.first_reply_minutes)}
+            note="Median across all leads"
+            bar={{ kind: "fill", pct: barPct(0) }}
+          />
         </div>
 
         <section aria-labelledby="needs-action-heading" className="overflow-hidden rounded-card border border-line bg-surface">

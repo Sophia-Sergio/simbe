@@ -9,6 +9,12 @@ export const COORDINATOR_STATUS: Record<CoordinatorRow["status"], StatusPillStat
   needs_support: { key: "needs_support", label: "Needs support", tone: "warning" },
 }
 
+/** Clamps a KPI bar percentage to 0–100; absent and non-finite (NaN/±Infinity) input falls back to 0. */
+export function barPct(value: number | null | undefined, fallback = 0): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback
+  return Math.max(0, Math.min(100, value))
+}
+
 /** No snapshot has ever been loaded — owners upload, coordinators ask the owner to. */
 export function CoordinatorNoData({ role }: { role: Role | null }) {
   if (role === "owner") {

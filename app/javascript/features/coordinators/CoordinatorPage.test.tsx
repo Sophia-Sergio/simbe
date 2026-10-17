@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import detailDana from "@contracts/examples/coordinators/detail-dana.json"
 import type { CoordinatorDetail } from "@/api/types"
@@ -6,6 +6,7 @@ import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { CoordinatorPage } from "./CoordinatorPage"
 
+const detail = detailDana as CoordinatorDetail
 const DANA = "aaaaaaaa-0000-4000-8000-000000000004"
 const route = "/coordinators/Dana%20Ortiz"
 const path = "/coordinators/:name"
@@ -29,7 +30,6 @@ it("shows the KPIs and opens the lead panel from a needs-action row", async () =
 })
 
 it("formats a two-hour median first reply as '2h 10m'", async () => {
-  const detail = detailDana as CoordinatorDetail
   mockApi({
     "/api/v1/coordinators/:name": {
       ...detail,
@@ -40,6 +40,14 @@ it("formats a two-hour median first reply as '2h 10m'", async () => {
   renderWithProviders(<CoordinatorPage />, { route, path })
 
   expect(await screen.findByText("2h 10m")).toBeInTheDocument()
+})
+
+it("clamps an out-of-range KPI bar to 100% instead of overflowing the track", async () => {
+  mockApi({ "/api/v1/coordinators/:name": { ...detail, kpis: { ...detail.kpis, qualified_rate: 140 } } })
+  renderWithProviders(<CoordinatorPage />, { route, path })
+
+  const card = (await screen.findByText("Qualified rate")).closest("div.rounded-card") as HTMLElement
+  expect(within(card).getByRole("presentation").firstElementChild).toHaveStyle({ width: "100%" })
 })
 
 it("shows a not-found state for an unknown coordinator", async () => {
