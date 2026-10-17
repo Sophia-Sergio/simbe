@@ -100,7 +100,7 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
   const followUps = pending ? [] : (lastAssistant?.body.suggestions ?? [])
 
   const submit = async () => {
-    if (!draft.trim() || pending) return
+    if (!draft.trim() || pending || tooLong) return
     const answered = await send(draft)
     // On any failure (409/502/422) the typed text stays put so the ask is not lost.
     if (answered) setDraft("")
@@ -184,15 +184,24 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
             className="h-[38px] w-full rounded-input border border-line bg-surface px-3 text-[14px] text-ink placeholder:text-ink-faint disabled:bg-subtle"
           />
           {nearLimit && (
-            <p data-testid="agent-counter" className={`mt-1 text-right text-[11px] ${tooLong ? "text-danger-text" : "text-ink-muted"}`}>
+            <p
+              data-testid="agent-counter"
+              aria-live="polite"
+              className={`mt-1 text-right text-[11px] ${tooLong ? "text-danger-text" : "text-ink-muted"}`}
+            >
               {draft.length}/500
+            </p>
+          )}
+          {tooLong && (
+            <p role="alert" className="mt-1 text-[11px] font-medium text-danger-text">
+              Keep it under 500 characters.
             </p>
           )}
         </div>
         <button
           type="submit"
           aria-label="Send"
-          disabled={pending || !draft.trim()}
+          disabled={pending || !draft.trim() || tooLong}
           className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:pointer-events-none disabled:opacity-50"
         >
           <Send aria-hidden className="h-4 w-4" />

@@ -296,6 +296,27 @@ it("a 502 keeps the typed question", async () => {
   expect(screen.getByLabelText("Ask about your business")).toHaveValue("hello there")
 })
 
+it("blocks sending over 500 characters with a message and a polite counter", async () => {
+  mount()
+  await openFab()
+  const input = await screen.findByLabelText("Ask about your business")
+  await userEvent.click(input)
+  await userEvent.paste("x".repeat(501))
+
+  const counter = screen.getByTestId("agent-counter")
+  expect(counter).toHaveTextContent("501/500")
+  expect(counter).toHaveAttribute("aria-live", "polite")
+  expect(screen.getByRole("alert")).toHaveTextContent("Keep it under 500 characters.")
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled()
+
+  await userEvent.clear(input)
+  await userEvent.click(input)
+  await userEvent.paste("y".repeat(500))
+  expect(screen.getByTestId("agent-counter")).toHaveTextContent("500/500")
+  expect(screen.queryByText("Keep it under 500 characters.")).toBeNull()
+  expect(screen.getByRole("button", { name: "Send" })).toBeEnabled()
+})
+
 it("a 422 text_too_long shows the inline 500-character counter", async () => {
   mockApi({ "POST /api/v1/agent/messages": () => Response.json({ error: { code: "text_too_long", message: "x" } }, { status: 422 }) })
   mount()
