@@ -102,3 +102,7 @@ The conductor reacts to these events as they happen, without a prompt from the h
 | A process or log goes quiet | Look at the log and the process right away, resume with `--session` if it stopped |
 
 When waiting on something, the conductor says what it is waiting for and checks on it at a stated interval. "Waiting for the user" is only valid when a go or a decision is actually pending.
+
+## Reviewers do not run the Rails suite
+
+A reviewer subagent reads the diff and the specs; the conductor runs the suite. Each worktree has one test database, and two RSpec runs at once (a hung reviewer run plus the builder's or the conductor's) block each other on database locks and hang for many minutes. A reviewer that needs a result asks for it in its report. Backend specs are always run with `RAILS_ENV=test`, one run per worktree at a time, with `--tag '~real_data'` unless the real-data oracle itself is the question (it loads the large exports and takes gigabytes of memory). Before starting a run, the conductor lists the rspec processes in the lane's web container and stops stale ones.
