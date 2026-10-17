@@ -39,6 +39,11 @@ test("owner: chrome, collapse, ⌘K and sign out", async ({ page }) => {
   await expect(page.locator("[data-shell='desktop']")).toBeVisible()
   await page.keyboard.press("Control+k")
   await expect(page).toHaveURL(/\/pipeline\?range=90d$/)
+  // The search palette (F-SEARCH) is open now: close it before going on.
+  const palette = page.getByRole("dialog", { name: /search/i })
+  await expect(palette).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(palette).toBeHidden()
 
   await page.getByRole("button", { name: "Sign out", exact: true }).first().click()
   await expect(page).toHaveURL(/\/signin$/)

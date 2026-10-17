@@ -1,0 +1,337 @@
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { HttpResponse } from "msw"
+import listFixture from "@contracts/examples/leads/list.json"
+import type { LeadCard as LeadCardData } from "@/api/types"
+import { mockApi } from "@/test/mockApi"
+import { renderWithProviders } from "@/test/renderWithProviders"
+import { SearchPalette } from "./SearchPalette"
+
+const L4 = "aaaaaaaa-0000-4000-8000-000000000004" // Dana Ortiz's lead
+const L8 = "aaaaaaaa-0000-4000-8000-000000000008" // Priya Shah's lead, second owner-wide match
+
+/** A contract-shaped lead card, overridable per test. */
+const card = (over: Partial<LeadCardData> = {}): LeadCardData => ({
+  ...(listFixture.leads.find((lead) => lead.id === L4) as LeadCardData),
+  ...over,
+})
+
+/** Mounts the palette overlay and opens it the way the shell does: Ctrl+K. */
+async function openPalette(role: "owner" | "coordinator" = "owner", route = "/", viewport = 1280) {
+  const rendered = renderWithProviders(<SearchPalette />, { role, route, viewport })
+  fireEvent.keyDown(window, { key: "k", ctrlKey: true })
+  const input = await screen.findByRole("combobox", { name: "Search candidates" })
+  return { ...rendered, input }
+}
+
+it("opens with Ctrl+K, searches after two characters and opens the lead", async () => {
+  const user = userEvent.setup()
+  const { input, location } = await openPalette()
+
+  // One character is below the two-character gate: the hook is disabled, so there are no options.
+  await user.type(input, "l")
+  expect(screen.queryAllByRole("option")).toHaveLength(0)
+
+  await user.clear(input)
+  await user.type(input, "l4")
+
+  const option = await screen.findByRole("option", { name: /L4 Alpha/ })
+  // Each option carries the name, the channel pill and the status pill.
+  expect(within(option).getByText("Instagram")).toBeInTheDocument()
+  expect(within(option).getByText("Nudge")).toBeInTheDocument()
+
+  await user.click(option)
+  await waitFor(() => expect(location().search).toContain(`lead=${L4}`))
+  // The palette closes so it never stacks over the lead panel.
+  expect(screen.queryByRole("combobox")).toBeNull()
+})
+
+it("issues no request before two characters", async () => {
+  const user = userEvent.setup()
+  let requests = 0
+  mockApi({
+    "GET /api/v1/leads": () => {
+      requests += 1
+      return HttpResponse.json({ leads: [], next_cursor: null })
+    },
+  })
+  const { input } = await openPalette()
+
+  await user.type(input, "l")
+  expect(requests).toBe(0)
+  await user.type(input, "4")
+  await waitFor(() => expect(requests).toBe(1))
+})
+
+it("moves the active option with the arrow keys and opens it with Enter", async () => {
+  const user = userEvent.setup()
+  const { input, location } = await openPalette()
+
+  await user.type(input, "alpha")
+  const options = await screen.findAllByRole("option")
+  expect(options.length).toBeGreaterThan(1)
+
+  expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+  fireEvent.keyDown(input, { key: "ArrowDown" })
+  expect(input).toHaveAttribute("aria-activedescendant", options[1].id)
+  expect(options[1]).toHaveAttribute("aria-selected", "true")
+
+  fireEvent.keyDown(input, { key: "Enter" })
+  await waitFor(() => expect(location().search).toContain(`lead=${L8}`))
+  expect(screen.queryByRole("combobox")).toBeNull()
+})
+
+it("shows No matches for an empty result and treats % literally", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  // `l%` is two characters, so the search runs. If `%` were a wildcard like in SQL, `l%` would
+  // match every "L…" name; as a literal it matches nothing, so the palette shows the empty state.
+  await user.type(input, "l%")
+  expect(await screen.findByTestId("search-empty")).toHaveTextContent("No matches")
+  expect(screen.queryAllByRole("option")).toHaveLength(0)
+})
+
+it("closes on Escape", async () => {
+  const { input } = await openPalette()
+  fireEvent.keyDown(input, { key: "Escape" })
+  await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull())
+})
+
+it("shows a skeleton while the search is in flight", async () => {
+  const user = userEvent.setup()
+  // A request that never settles keeps the palette in its loading state.
+  mockApi({ "GET /api/v1/leads": () => new Promise<Response>(() => {}) })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  await waitFor(() => expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0))
+  expect(screen.queryByText("No matches")).toBeNull()
+})
+
+it("opens search while a lead panel is open and closes the panel first", async () => {
+  const { location } = renderWithProviders(<SearchPalette />, { role: "owner", route: `/?lead=${L4}&tab=screener` })
+  expect(location().search).toContain(`lead=${L4}`)
+
+  fireEvent.keyDown(window, { key: "k", ctrlKey: true })
+  await screen.findByRole("combobox")
+  await waitFor(() => expect(location().search).not.toContain("lead="))
+})
+
+it("only searches the coordinator's own leads", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette("coordinator")
+
+  // "alpha" would match every fixture lead for the owner; for Dana it must stop at her two.
+  await user.type(input, "alpha")
+  expect(await screen.findByRole("option", { name: /L4 Alpha/ })).toBeInTheDocument()
+  expect(screen.getByRole("option", { name: /L3 Alpha/ })).toBeInTheDocument()
+  for (const name of [/L7 Alpha/, /L8 Alpha/, /L2 Alpha/]) {
+    expect(screen.queryByRole("option", { name })).toBeNull()
+  }
+})
+
+it("does not show or open a stale row inside the debounce window", async () => {
+  const user = userEvent.setup()
+  const { input, location } = await openPalette()
+
+  await user.type(input, "l4")
+  await screen.findByRole("option", { name: /L4 Alpha/ })
+
+  // `useLeadSearch` debounces 200 ms and keys on the debounced value, so right after a change the
+  // previous query's data is still cached. It must neither be shown nor be openable with Enter.
+  vi.useFakeTimers()
+  try {
+    fireEvent.change(input, { target: { value: "l5" } })
+    await act(async () => {
+      vi.advanceTimersByTime(100) // still inside the 200 ms debounce
+    })
+    expect(screen.queryByRole("option", { name: /L4 Alpha/ })).toBeNull()
+    expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0)
+    fireEvent.keyDown(input, { key: "Enter" })
+    expect(location().search).not.toContain("lead=")
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+it("shows an error with Retry when the request fails, and retry recovers", async () => {
+  const user = userEvent.setup()
+  mockApi({
+    "GET /api/v1/leads": () => HttpResponse.json({ error: { code: "server_error", message: "boom" } }, { status: 500 }),
+  })
+  const { input } = await openPalette()
+  await user.type(input, "l4")
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/couldn't/i)
+  expect(screen.queryByTestId("skeleton")).toBeNull()
+
+  // Retry re-runs the settled query; this time the API answers.
+  mockApi({ "GET /api/v1/leads": { leads: [card()], next_cursor: null } })
+  await user.click(screen.getByRole("button", { name: "Retry" }))
+  expect(await screen.findByRole("option", { name: /L4 Alpha/ })).toBeInTheDocument()
+  expect(screen.queryByRole("alert")).toBeNull()
+})
+
+it("shows the error state for a network failure too", async () => {
+  const user = userEvent.setup()
+  mockApi({ "GET /api/v1/leads": () => HttpResponse.error() })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  expect(await screen.findByRole("alert")).toBeInTheDocument()
+  expect(screen.queryByTestId("skeleton")).toBeNull()
+})
+
+it("keeps aria-expanded in sync and announces the results in a live region", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  // No listbox on screen yet.
+  expect(input).toHaveAttribute("aria-expanded", "false")
+  expect(screen.getByTestId("search-status")).toHaveTextContent("Type at least two characters")
+
+  await user.type(input, "l4")
+  await screen.findByRole("option", { name: /L4 Alpha/ })
+  expect(input).toHaveAttribute("aria-expanded", "true")
+  expect(screen.getByTestId("search-status")).toHaveAttribute("role", "status")
+  expect(screen.getByTestId("search-status")).toHaveTextContent("1 result")
+
+  // A new keystroke is pending, then settles with no rows.
+  fireEvent.change(input, { target: { value: "l%" } })
+  expect(screen.getByTestId("search-status")).toHaveTextContent("Searching")
+  expect(await screen.findByTestId("search-empty")).toHaveTextContent("No matches")
+  expect(screen.getByTestId("search-status")).toHaveTextContent("No matches")
+  expect(input).toHaveAttribute("aria-expanded", "false")
+})
+
+it("wraps the active option around with ArrowDown and ArrowUp", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  await user.type(input, "alpha")
+  const options = await screen.findAllByRole("option")
+
+  expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+  fireEvent.keyDown(input, { key: "ArrowUp" }) // from the first row, wraps to the last
+  expect(input).toHaveAttribute("aria-activedescendant", options[options.length - 1].id)
+  fireEvent.keyDown(input, { key: "ArrowDown" }) // from the last row, wraps to the first
+  expect(input).toHaveAttribute("aria-activedescendant", options[0].id)
+})
+
+it("leaves Home and End to the caret instead of moving the active option", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette()
+
+  await user.type(input, "alpha")
+  await screen.findAllByRole("option")
+  fireEvent.keyDown(input, { key: "ArrowDown" })
+  const active = input.getAttribute("aria-activedescendant")
+
+  fireEvent.keyDown(input, { key: "Home" })
+  fireEvent.keyDown(input, { key: "End" })
+  expect(input).toHaveAttribute("aria-activedescendant", active)
+})
+
+it("a slow older response never overwrites the newer query's results", async () => {
+  const user = userEvent.setup()
+  mockApi({
+    "GET /api/v1/leads": (req: Request) => {
+      const q = new URL(req.url).searchParams.get("q")
+      // "l4" answers late with a row; "l5" answers at once with none.
+      if (q === "l4") {
+        return new Promise<Response>((resolve) =>
+          setTimeout(() => resolve(HttpResponse.json({ leads: [card()], next_cursor: null })), 300),
+        )
+      }
+      return HttpResponse.json({ leads: [], next_cursor: null })
+    },
+  })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  // Let the debounce fire so the slow l4 request is in flight, then move on to "l5".
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 240))
+  })
+  fireEvent.change(input, { target: { value: "l5" } })
+
+  expect(await screen.findByTestId("search-empty")).toHaveTextContent("No matches")
+  // Let the older l4 response land; it must not replace the newer query's empty state.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350))
+  })
+  expect(screen.queryByRole("option", { name: /L4 Alpha/ })).toBeNull()
+  expect(screen.getByTestId("search-empty")).toHaveTextContent("No matches")
+})
+
+it("aborts the in-flight request's signal when the palette closes", async () => {
+  const signals: AbortSignal[] = []
+  const original = AbortController.prototype.abort
+  const spy = vi.spyOn(AbortController.prototype, "abort").mockImplementation(function (this: AbortController) {
+    signals.push(this.signal)
+    original.call(this)
+  })
+  try {
+    mockApi({ "GET /api/v1/leads": () => new Promise<Response>(() => {}) })
+    const user = userEvent.setup()
+    const { input } = await openPalette()
+
+    await user.type(input, "l4")
+    await waitFor(() => expect(screen.getAllByTestId("skeleton").length).toBeGreaterThan(0))
+
+    fireEvent.keyDown(input, { key: "Escape" })
+    // Closing unmounts the query, so the signal handed to the request is aborted.
+    await waitFor(() => expect(signals.some((signal) => signal.aborted)).toBe(true))
+  } finally {
+    spy.mockRestore()
+  }
+})
+
+it("Ctrl+K toggles an open palette closed", async () => {
+  await openPalette()
+  fireEvent.keyDown(window, { key: "k", ctrlKey: true })
+  await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull())
+})
+
+it("renders HTML in a lead name as text, never as markup", async () => {
+  const user = userEvent.setup()
+  const name = '<img src=x onerror="window.__xss = true">'
+  mockApi({ "GET /api/v1/leads": { leads: [card({ name })], next_cursor: null } })
+  const { input } = await openPalette()
+
+  await user.type(input, "l4")
+  const option = await screen.findByRole("option")
+  expect(option).toHaveTextContent("<img")
+  expect(within(option).queryByRole("img")).toBeNull()
+  expect((window as unknown as { __xss?: boolean }).__xss).toBeUndefined()
+})
+
+it("ignores Enter while an IME composition is active", async () => {
+  const user = userEvent.setup()
+  const { input, location } = await openPalette()
+
+  await user.type(input, "l4")
+  await screen.findByRole("option", { name: /L4 Alpha/ })
+
+  // Enter while composing belongs to the IME candidate window, not the palette.
+  fireEvent.keyDown(input, { key: "Enter", isComposing: true })
+  expect(location().search).not.toContain("lead=")
+  expect(screen.getByRole("combobox")).toBeInTheDocument()
+
+  // A committed Enter still opens the active row.
+  fireEvent.keyDown(input, { key: "Enter" })
+  await waitFor(() => expect(location().search).toContain(`lead=${L4}`))
+})
+
+it("makes the results list the only scroll area, sized in dvh", async () => {
+  const user = userEvent.setup()
+  const { input } = await openPalette("owner", "/", 390)
+
+  await user.type(input, "alpha")
+  const listbox = await screen.findByRole("listbox")
+  // One scroller (the list), so the modal body never becomes a second nested scroll area, and a
+  // viewport-relative height that shrinks with the on-screen keyboard rather than 100vh.
+  expect(listbox).toHaveClass("overflow-y-auto")
+  expect(listbox.className).toContain("dvh")
+})
