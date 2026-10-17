@@ -57,6 +57,14 @@ RSpec.describe "MCP settings API", type: :request do
     expect(Mcp::Keys.authenticate(body["key"], slug: "alpha")).to be_present
   end
 
+  it "marks the rotate response no-store so the full key is never cached" do
+    sign_in(owner)
+    post "/api/v1/mcp/rotate", headers: headers
+
+    expect(response).to have_http_status(:created)
+    expect(response.headers["Cache-Control"]).to eq("no-store")
+  end
+
   it "hides the full key: only the prefix is ever returned by the settings read" do
     raw = Mcp::Keys.rotate!(agency: agency, user: owner)
     sign_in(owner)

@@ -16,6 +16,8 @@ module Api
       def rotate
         raw = Mcp::Keys.rotate!(agency: Current.agency, user: Current.user)
         render json: { key: raw, url: server_url, key_prefix: raw[0, Mcp::Keys::PREFIX_LENGTH] }, status: :created
+        # The body carries the full key: never let a proxy or browser cache it.
+        response.set_header("Cache-Control", "no-store")
       end
 
       private
