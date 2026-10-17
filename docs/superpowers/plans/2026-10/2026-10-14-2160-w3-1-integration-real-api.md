@@ -22,8 +22,8 @@
 
 ## Task 1: Real-mode default and e2e seeding
 
-- [ ] **Step 1:** In the Rails-embedded app the API is already the real one (same origin, no proxy): make sure `.env.example` documents `VITE_API_MODE=real` (default) and `mock` (embedded dev against MSW), and that **Playwright's `real-*` projects** are selected with `E2E_API=real E2E_BASE_URL=$(make ports → web)`. The standalone mock host (`npm run dev:mock`) stays always-mock. Document both in `README.md` ("Mock vs real" section).
-- [ ] **Step 2: `lib/tasks/e2e.rake`**
+- [x] **Step 1:** In the Rails-embedded app the API is already the real one (same origin, no proxy): make sure `.env.example` documents `VITE_API_MODE=real` (default) and `mock` (embedded dev against MSW), and that **Playwright's `real-*` projects** are selected with `E2E_API=real E2E_BASE_URL=$(make ports → web)`. The standalone mock host (`npm run dev:mock`) stays always-mock. Document both in `README.md` ("Mock vs real" section).
+- [x] **Step 2: `lib/tasks/e2e.rake`**
 ```ruby
 namespace :e2e do
   desc "Load Alpha for harbor + coordinator logins (development/test only)"
@@ -48,7 +48,7 @@ namespace :e2e do
   end
 end
 ```
-- [ ] **Step 3: Verify:** `make up && make setup && docker compose exec web bundle exec rails e2e:seed` twice (idempotent); `curl` sign-in as `erin@harbor.test` and `GET /api/v1/metrics/summary` → `kpis.leads.value == 10`. Commit.
+- [x] **Step 3: Verify:** `make up && make setup && docker compose exec web bundle exec rails e2e:seed` twice (idempotent); `curl` sign-in as `erin@harbor.test` and `GET /api/v1/metrics/summary` → `kpis.leads.value == 10`. Commit.
 
 ---
 
