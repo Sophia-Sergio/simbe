@@ -1,13 +1,11 @@
 require "rails_helper"
 
-# The next-actions read-model and the done/undo toggles (detail reference task 4). Queue
-# membership itself is covered in queues_spec; this file covers the shaping, progress, scoping
-# and idempotent completions that Leads::Queues does not.
+# The next-actions read-model (detail reference task 4). Queue membership itself is covered in
+# queues_spec; the done/undo toggle over HTTP is owned by spec/requests/next_actions_spec.rb.
 RSpec.describe Leads::NextActions do
   let(:agency) { create(:agency, slug: "alpha", timezone: "America/Los_Angeles") }
   let!(:owner) { create(:user, agency: agency) }
   let!(:dana) { create(:user, :coordinator, agency: agency, coordinator_name: "Dana Ortiz") }
-  let!(:priya) { create(:user, :coordinator, agency: agency, coordinator_name: "Priya Shah") }
 
   before do
     Current.agency = agency
@@ -33,36 +31,9 @@ RSpec.describe Leads::NextActions do
     expect(names).to eq([ "L7 Alpha" ])
   end
 
-  it "completes and undoes idempotently" do
-    l7 = Lead.find_by!(first_name: "L7")
-    2.times { described_class.complete!(user: owner, lead_id: l7.external_id, queue: "text_back_now") }
-    result = described_class.call(user: owner)
-    expect(result[:progress]).to eq(done: 1, total: 4)
-    expect(result[:queues].first[:count]).to eq(0)
-    expect(result[:queues].first[:items].first[:done]).to be(true)
-    expect(ActionCompletion.count).to eq(1)
-
-    2.times { described_class.undo!(user: owner, lead_id: l7.external_id, queue: "text_back_now") }
-    expect(described_class.call(user: owner)[:progress][:done]).to eq(0)
-    expect(ActionCompletion.count).to eq(0)
-  end
-
-  it "rejects completing a lead that is not in that queue" do
-    expect { described_class.complete!(user: owner, lead_id: Lead.find_by!(first_name: "L1").external_id, queue: "text_back_now") }
-      .to raise_error(ActiveRecord::RecordNotFound)
-  end
-
-  it "rejects a coordinator completing someone else's lead" do
-    l7 = Lead.find_by!(first_name: "L7") # Priya's
-    expect { described_class.complete!(user: dana, lead_id: l7.external_id, queue: "text_back_now") }
-      .to raise_error(ActiveRecord::RecordNotFound)
-  end
-
-  it "rejects a queue outside the known keys" do
-    expect { described_class.complete!(user: owner, lead_id: Lead.find_by!(first_name: "L7").external_id, queue: "nope") }
-      .to raise_error(Leads::NextActions::BadQueue)
-  end
-
+  # The done/undo toggle itself (happy path, double POST/DELETE idempotence, bad_queue, 404s) is
+  # owned by spec/requests/next_actions_spec.rb (docs/conventions/testing.md: one owner per
+  # behaviour). Kept here: the read-model, and edges the request spec cannot reach.
   it "stays idempotent when the insert loses a race on the unique index" do
     l7 = Lead.find_by!(first_name: "L7")
     # A concurrent POST has already committed this completion...
@@ -74,6 +45,12 @@ RSpec.describe Leads::NextActions do
 
     expect { described_class.complete!(user: owner, lead_id: l7.external_id, queue: "text_back_now") }.not_to raise_error
     expect(ActionCompletion.where(lead_external_id: l7.external_id, queue: "text_back_now").count).to eq(1)
+  end
+
+  it "rejects completing a lead that is in scope but not currently in that queue" do
+    l1 = Lead.find_by!(first_name: "L1") # accepted, not queued
+    expect { described_class.complete!(user: owner, lead_id: l1.external_id, queue: "text_back_now") }
+      .to raise_error(ActiveRecord::RecordNotFound)
   end
 
   it "resets when a newer snapshot is loaded" do
