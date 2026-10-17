@@ -7,7 +7,7 @@
   },
   "scripts": {
     "dev": "bin/vite dev",
-    "dev:mock": "vite --config vite.mock.config.ts --port 5173 --host 127.0.0.1",
+    "dev:mock": "vite --config vite.mock.config.ts --port ${E2E_MOCK_PORT:-5173} --host 127.0.0.1",
     "build": "bin/vite build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
