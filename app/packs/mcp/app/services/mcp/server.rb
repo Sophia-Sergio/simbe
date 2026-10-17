@@ -24,8 +24,9 @@ module Mcp
     def call
       return error(nil, -32600, "Invalid Request: body must be a JSON object") unless @body.is_a?(Hash)
 
-      # A `notifications/*` method has no response; the controller answers HTTP 202 empty.
-      return nil if notification?
+      # A request without an `id` is a notification, whatever its method: no response, HTTP 202.
+      # A `notifications/*` call *with* an id is an ordinary (unknown) request and gets a response.
+      return nil unless @body.key?("id")
 
       id = @body["id"]
       method = @body["method"]
@@ -45,8 +46,6 @@ module Mcp
     end
 
     private
-
-    def notification? = @body["method"].to_s.start_with?("notifications/")
 
     # A tool error is a *result* with `isError: true` (the model/tool contract), never a JSON-RPC
     # error: an unknown tool, bad input or a disallowed tool must not look like a protocol failure.

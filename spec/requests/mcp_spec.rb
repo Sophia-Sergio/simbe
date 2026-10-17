@@ -16,8 +16,10 @@ RSpec.describe "MCP endpoint", type: :request do
   end
 
   def rpc(method, params = {}, id = 1, token: @key, slug: "alpha")
+    body = { jsonrpc: "2.0", method: method, params: params }
+    body[:id] = id unless id.nil?
     post "/mcp/#{slug}",
-         params: { jsonrpc: "2.0", id: id, method: method, params: params }.to_json,
+         params: body.to_json,
          headers: { "Authorization" => "Bearer #{token}", "Content-Type" => "application/json" }
   end
 
@@ -53,10 +55,25 @@ RSpec.describe "MCP endpoint", type: :request do
   end
 
   it "answers notifications with 202" do
-    rpc("notifications/initialized")
+    rpc("notifications/initialized", {}, nil)
 
     expect(response).to have_http_status(:accepted)
     expect(response.body).to be_blank
+  end
+
+  it "treats a request without an id as a notification (202) for any method" do
+    rpc("tools/list", {}, nil)
+
+    expect(response).to have_http_status(:accepted)
+    expect(response.body).to be_blank
+  end
+
+  it "still answers a notifications/* call that carries an id" do
+    rpc("notifications/initialized")
+
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["id"]).to eq(1)
+    expect(response.parsed_body.dig("error", "code")).to eq(-32601)
   end
 
   it "returns -32601 for an unknown method" do
