@@ -36,6 +36,20 @@ RSpec.describe "Coordinators API", type: :request do
     expect(response.parsed_body).to eq(example)
   end
 
+  it "serves coordinator names with a space and with a dot (never parsed as a format)" do
+    Current.agency = agency
+    Lead.find_by!(first_name: "L4").update!(coordinator_name: "Dana O.")
+    sign_in(owner)
+
+    get "/api/v1/coordinators/Dana%20Ortiz" # space
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["name"]).to eq("Dana Ortiz")
+
+    get "/api/v1/coordinators/Dana%20O." # space and dot, must not become name "Dana O" + format
+    expect(response).to have_http_status(:ok)
+    expect(response.parsed_body["name"]).to eq("Dana O.")
+  end
+
   it "403s a coordinator on both routes" do
     sign_in(dana)
     get "/api/v1/coordinators"
