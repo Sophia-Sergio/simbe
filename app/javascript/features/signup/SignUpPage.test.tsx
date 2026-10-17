@@ -12,6 +12,8 @@ const me = meOwner as Me
 
 /** Fill step 1 and continue; the promise resolves once step 2 is on screen. */
 async function reachAgencyStep(email = "erin@new.test") {
+  // The page resolves the session before it renders the wizard, so wait for step 1 first.
+  await screen.findByLabelText("Your name")
   await userEvent.type(screen.getByLabelText("Your name"), "Erin Walsh")
   await userEvent.type(screen.getByLabelText("Work email"), email)
   await userEvent.type(screen.getByLabelText("Password"), "long-enough-pass")
@@ -21,7 +23,7 @@ async function reachAgencyStep(email = "erin@new.test") {
 
 it("disables Continue until the account step is valid", async () => {
   renderWithProviders(<SignUpPage />, { role: null })
-  const next = screen.getByRole("button", { name: "Continue" })
+  const next = await screen.findByRole("button", { name: "Continue" })
 
   expect(next).toBeDisabled()
   await userEvent.type(screen.getByLabelText("Your name"), "Erin Walsh")
@@ -92,6 +94,30 @@ it("hides Back once the account exists, so signup can never be submitted twice",
 
   // One account per visit: no step above 2 can re-post the signup.
   expect(posts).toBe(1)
+})
+
+it("redirects a signed-in owner whose agency already has data to their home", async () => {
+  const { location } = renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
+
+  await waitFor(() => expect(location().pathname).toBe("/"))
+  expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
+})
+
+it("sends a signed-in coordinator to their own home instead of the wizard", async () => {
+  const { location } = renderWithProviders(<SignUpPage />, { role: "coordinator", route: "/signup" })
+
+  await waitFor(() => expect(location().pathname).toBe("/next-actions"))
+  expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
+})
+
+it("resumes an unfinished onboarding at step 3 for a signed-in owner", async () => {
+  mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
+  renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
+
+  expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
+  expect(screen.getByText("Step 3 of 5")).toBeInTheDocument()
+  expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument()
 })
 
 it("shows email_taken and returns the user to step 1 with the message", async () => {

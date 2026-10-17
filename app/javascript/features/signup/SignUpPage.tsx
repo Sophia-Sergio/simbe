@@ -1,10 +1,15 @@
 import { useState } from "react"
 import type { ReactNode } from "react"
+import { Navigate } from "react-router-dom"
 import { ApiError } from "@/api/client"
 import { useSignup } from "@/api/hooks/account"
+import { useCurrentSnapshot } from "@/api/hooks/snapshots"
+import type { User } from "@/api/types"
+import { useAuth } from "@/app/auth/useAuth"
 import type { Milestone } from "@/components/shared/options"
 import { TIMEZONES } from "@/components/shared/options"
 import { Button } from "@/components/ui/Button"
+import { Skeleton } from "@/components/ui/Skeleton"
 import { useAsyncAction } from "@/hooks/useAsyncAction"
 import { WizardShell } from "./WizardShell"
 import { AccountStep } from "./steps/AccountStep"
@@ -35,21 +40,53 @@ const STEPS = [
 
 /**
  * The five-step sign-up wizard (spec decision 1): steps 1–2 collect everything client-side and
- * `POST /signup` fires at the end of step 2; steps 3–5 run authenticated. The signup response is the
- * source for the created agency and owner, so the later steps do not depend on the auth context
- * refreshing mid-flow.
+ * `POST /signup` fires at the end of step 2; steps 3–5 run authenticated.
+ *
+ * `/signup` is a public route, so the page itself is the guard: a signed-in visitor must not be able
+ * to create a second agency (and a refresh in steps 3–5 must not drop them back to step 1).
  */
 export function SignUpPage() {
+  const { status } = useAuth()
+
+  if (status === "loading") return <Skeleton className="h-screen w-full" />
+  if (status === "authenticated") return <SignedInOnboarding />
+  return <Wizard />
+}
+
+/**
+ * A signed-in visitor: onboarding that never loaded a snapshot resumes at step 3 (the first
+ * authenticated step, so a refresh mid-wizard continues instead of restarting); an agency that
+ * already has data — or a coordinator, who never onboards — goes to its home instead.
+ */
+function SignedInOnboarding() {
+  const { agency, user, role } = useAuth()
+  const snapshot = useCurrentSnapshot()
+
+  if (snapshot.isPending) return <Skeleton className="h-screen w-full" />
+  if (role === "coordinator") return <Navigate to="/next-actions" replace />
+  if (snapshot.data?.snapshot) return <Navigate to="/" replace />
+  return <Wizard initialStep={3} createdAgencyName={agency?.name} createdOwner={user} />
+}
+
+function Wizard({
+  initialStep = 1,
+  createdAgencyName,
+  createdOwner,
+}: {
+  initialStep?: number
+  createdAgencyName?: string
+  createdOwner?: User | null
+} = {}) {
   const signup = useSignup()
-  const [step, setStep] = useState(1)
+  const [step, setStep] = useState(initialStep)
   const [account, setAccount] = useState<AccountDraft>({ name: "", email: "", password: "" })
   const [agency, setAgency] = useState<AgencyDraft>({ name: "", timezone: TIMEZONES[0].value, milestone: "consult_attended" })
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [agencyError, setAgencyError] = useState<string | null>(null)
 
   const created = signup.data ?? null
-  const agencyName = created?.agency.name ?? agency.name.trim()
-  const owner = created?.user ?? null
+  const agencyName = created?.agency.name ?? createdAgencyName ?? agency.name.trim()
+  const owner = created?.user ?? createdOwner ?? null
 
   const patchAccount = (patch: Partial<AccountDraft>) => {
     setAccount((previous) => ({ ...previous, ...patch }))
