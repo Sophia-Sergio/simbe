@@ -1,0 +1,60 @@
+import { screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import detailDana from "@contracts/examples/coordinators/detail-dana.json"
+import type { CoordinatorDetail } from "@/api/types"
+import { mockApi } from "@/test/mockApi"
+import { renderWithProviders } from "@/test/renderWithProviders"
+import { CoordinatorPage } from "./CoordinatorPage"
+
+const DANA = "aaaaaaaa-0000-4000-8000-000000000004"
+const route = "/coordinators/Dana%20Ortiz"
+const path = "/coordinators/:name"
+
+it("shows the KPIs and opens the lead panel from a needs-action row", async () => {
+  const { location } = renderWithProviders(<CoordinatorPage />, { route, path })
+
+  expect(await screen.findByRole("heading", { name: "Dana Ortiz" })).toBeInTheDocument()
+  expect(screen.getByText("4 leads · 40% of leads")).toBeInTheDocument()
+  for (const label of ["Leads", "Qualified", "Qualified rate", "First reply"]) {
+    expect(screen.getByText(label)).toBeInTheDocument()
+  }
+  expect(screen.getByText("23m")).toBeInTheDocument() // formatDuration(22.5)
+
+  // The three queue rows from the fixture; clicking one opens the lead panel on that lead.
+  const row = await screen.findByRole("row", { name: /L4 Alpha/ })
+  expect(row).toHaveTextContent("Nudge applications")
+  await userEvent.click(row)
+
+  expect(location().search).toContain(`lead=${DANA}`)
+})
+
+it("formats a two-hour median first reply as '2h 10m'", async () => {
+  const detail = detailDana as CoordinatorDetail
+  mockApi({
+    "/api/v1/coordinators/:name": {
+      ...detail,
+      first_reply_minutes: 130,
+      kpis: { ...detail.kpis, first_reply_minutes: 130 },
+    },
+  })
+  renderWithProviders(<CoordinatorPage />, { route, path })
+
+  expect(await screen.findByText("2h 10m")).toBeInTheDocument()
+})
+
+it("shows a not-found state for an unknown coordinator", async () => {
+  mockApi({
+    "/api/v1/coordinators/:name": () =>
+      new Response(JSON.stringify({ error: { code: "not_found", message: "Not found" } }), { status: 404 }),
+  })
+  renderWithProviders(<CoordinatorPage />, { route: "/coordinators/Nobody", path })
+
+  expect(await screen.findByText("We couldn't find that coordinator")).toBeInTheDocument()
+})
+
+it("mobile: renders the needs-action list as full-width cards, not a table", async () => {
+  renderWithProviders(<CoordinatorPage />, { route, path, viewport: 390 })
+
+  expect(await screen.findByText("L4 Alpha")).toBeInTheDocument()
+  expect(screen.queryByRole("table")).toBeNull()
+})
