@@ -18,11 +18,13 @@ function Section({
   id,
   title,
   subtitle,
+  error,
   children,
 }: {
   id: string
   title: string
   subtitle: string
+  error?: string | null
   children: ReactNode
 }) {
   return (
@@ -34,6 +36,11 @@ function Section({
         <p className="mt-0.5 text-[13px] text-ink-muted">{subtitle}</p>
       </div>
       {children}
+      {error && (
+        <p role="alert" className="text-[13px] font-medium text-danger-text">
+          {error}
+        </p>
+      )}
     </section>
   )
 }
@@ -41,42 +48,38 @@ function Section({
 /**
  * Owner-only settings: definition of "qualified", time zone and the team. Both definition cards save
  * immediately (`useUpdateAgency`) and toast; the agency copy in `["me"]` is updated optimistically, so the
- * selected card is right while the request is in flight and rolls back if it fails.
+ * selected card is right while the request is in flight and rolls back if it fails. A failure is reported
+ * inside the card it belongs to, so it is never mistaken for the other card's save.
  */
 export function SettingsPage() {
   const { agency } = useAuth()
   const update = useUpdateAgency()
   const toast = useToast()
-  const [error, setError] = useState<string | null>(null)
+  const [definitionError, setDefinitionError] = useState<string | null>(null)
+  const [timezoneError, setTimezoneError] = useState<string | null>(null)
 
-  const persist = async (body: Partial<Agency>): Promise<boolean> => {
-    setError(null)
+  const persist = async (body: Partial<Agency>, report: (message: string | null) => void): Promise<boolean> => {
+    report(null)
     try {
       await update.mutateAsync(body)
       return true
     } catch {
-      setError(SAVE_FAILED)
+      report(SAVE_FAILED)
       return false
     }
   }
 
   const definition = useAsyncAction(async (milestone: Agency["qualified_milestone"]) => {
-    if (await persist({ qualified_milestone: milestone })) toast.show(DEFINITION_SAVED, { tone: "success" })
+    if (await persist({ qualified_milestone: milestone }, setDefinitionError)) toast.show(DEFINITION_SAVED, { tone: "success" })
   })
   const timezone = useAsyncAction(async (value: string) => {
-    if (await persist({ timezone: value })) toast.show(TIMEZONE_SAVED, { tone: "success" })
+    if (await persist({ timezone: value }, setTimezoneError)) toast.show(TIMEZONE_SAVED, { tone: "success" })
   })
 
   const header = (
     <header>
       <h1 className="hidden font-display text-[24px] font-semibold tracking-[-0.02em] text-ink md:block">Settings</h1>
     </header>
-  )
-
-  const failed = error && (
-    <p role="alert" className="text-[13px] font-medium text-danger-text">
-      {error}
-    </p>
   )
 
   if (!agency) {
@@ -91,16 +94,25 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex w-full max-w-[720px] flex-col gap-4">
       {header}
-      <Section id="qualified-heading" title="Definition of qualified" subtitle="Changing this updates every number right away.">
+      <Section
+        id="qualified-heading"
+        title="Definition of qualified"
+        subtitle="Changing this updates every number right away."
+        error={definitionError}
+      >
         <QualifiedRadioCards
           value={agency.qualified_milestone}
           disabled={definition.pending}
           onChange={(milestone) => void definition.run(milestone)}
         />
-        {failed}
       </Section>
 
-      <Section id="timezone-heading" title="Time zone" subtitle="Every date and time in Simbe uses this zone.">
+      <Section
+        id="timezone-heading"
+        title="Time zone"
+        subtitle="Every date and time in Simbe uses this zone."
+        error={timezoneError}
+      >
         <TimezoneChips value={agency.timezone} onChange={(value) => void timezone.run(value)} />
       </Section>
 
