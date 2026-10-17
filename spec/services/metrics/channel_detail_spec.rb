@@ -28,4 +28,10 @@ RSpec.describe Metrics::ChannelDetail do
     campaigns = described_class.call(agency: agency, range: "30d", channel: "Facebook")[:campaigns]
     expect(campaigns.find { _1[:campaign] == "c-a" }[:spend_cents]).to eq(30_000) # not + 5_000 sample
   end
+
+  it "reports a lead with no campaign as (untagged)" do
+    Lead.where(first_name: "L1").update_all(campaign: nil)
+    campaigns = described_class.call(agency: agency, range: "30d", channel: "Facebook")[:campaigns]
+    expect(campaigns.find { _1[:campaign] == Metrics::Base::UNTAGGED }[:leads]).to eq(1)
+  end
 end

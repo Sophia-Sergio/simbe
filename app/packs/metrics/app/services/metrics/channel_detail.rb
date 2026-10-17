@@ -4,8 +4,6 @@
 # as 404 (never 403, so a probe cannot confirm the id exists).
 module Metrics
   module ChannelDetail
-    UNTAGGED = "(untagged)".freeze
-
     CAMPAIGNS_SQL = <<~SQL.freeze
       WITH cohort AS (
         SELECT l.id AS lead_id, l.ad, coalesce(nullif(l.campaign, ''), :untagged) AS campaign
@@ -52,7 +50,7 @@ module Metrics
 
     def self.campaigns(base, channel)
       sql = format(CAMPAIGNS_SQL, qcol: base.qualified_column)
-      base.rows(sql, channel: channel, untagged: UNTAGGED).map do |row|
+      base.rows(sql, channel: channel, untagged: Metrics::Base::UNTAGGED).map do |row|
         spend = row[:spend_cents]&.to_i
         qualified = row[:qualified].to_i
         {

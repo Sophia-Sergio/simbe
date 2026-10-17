@@ -52,4 +52,10 @@ RSpec.describe Metrics::Channels do
     expect(r[:insights][:unattributed]).to eq(count: 0, pct: 0.0)
     expect(r[:insights][:out_of_area]).to eq(count: 0, pct: 0.0, main_states: [])
   end
+
+  it "does not carry a campaign placeholder it never uses" do
+    # The channel table aggregates by channel; the blank-campaign label lives where campaigns
+    # are actually shown (Metrics::Base::UNTAGGED, used by ChannelDetail and sample spend).
+    expect(described_class.const_defined?(:UNTAGGED)).to be(false)
+  end
 end

@@ -21,7 +21,7 @@ module Metrics
       "accepted" => "accepted"
     }.freeze
 
-    UNTAGGED = "(none)".freeze
+    BLANK_SECTION = "(none)".freeze
 
     # One row per cohort lead with the flags every funnel/exit-reason decision needs.
     COHORT_SQL = <<~SQL.freeze
@@ -83,7 +83,7 @@ module Metrics
         SELECT l.id AS lead_id FROM leads l
         WHERE l.agency_id = :agency_id AND l.lead_created_at >= :from AND l.lead_created_at <= :to
       )
-      SELECT coalesce(nullif(a.last_section_completed, ''), :untagged) AS section, count(*) AS n
+      SELECT coalesce(nullif(a.last_section_completed, ''), :blank_section) AS section, count(*) AS n
       FROM applications a
       JOIN cohort c ON c.lead_id = a.lead_id
       WHERE a.submitted_at IS NULL
@@ -133,7 +133,7 @@ module Metrics
     end
 
     def self.form_dropoff(base)
-      rows = base.rows(FORM_DROPOFF_SQL, untagged: UNTAGGED)
+      rows = base.rows(FORM_DROPOFF_SQL, blank_section: BLANK_SECTION)
       total = rows.sum { |row| row[:n].to_i }
       rows.map { |row| { section: row[:section], count: row[:n].to_i, pct: Metrics::Base.rate(row[:n].to_i, total) } }
     end

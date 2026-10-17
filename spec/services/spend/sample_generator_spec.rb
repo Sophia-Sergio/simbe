@@ -43,6 +43,12 @@ RSpec.describe Spend::SampleGenerator do
     expect(AdSpendDay.where(source: "sample").count).to eq(6) # 7 paid groups minus the covered one
   end
 
+  it "labels a lead with no campaign as (untagged)" do
+    Lead.where(first_name: "L1").update_all(campaign: nil)
+    described_class.call(agency: agency)
+    expect(AdSpendDay.where(source: "sample", campaign: Metrics::Base::UNTAGGED).count).to eq(1)
+  end
+
   it "never writes another agency's spend" do
     other = create(:agency, slug: "beta")
     Current.agency = other

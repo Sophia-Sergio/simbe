@@ -13,7 +13,6 @@ module Spend
     # Assumed cost per lead in cents by channel; only the three paid channels get spend.
     COST_PER_LEAD_CENTS = { "Facebook" => 1800, "Instagram" => 2200, "Google" => 3000 }.freeze
     PLATFORMS = { "Facebook" => "meta", "Instagram" => "meta", "Google" => "google" }.freeze
-    UNTAGGED = "(untagged)".freeze
     # Leads grouped by channel/campaign/creation day (agency time zone), paid channels only.
     LEADS_SQL = <<~SQL.freeze
       SELECT channel,
@@ -59,14 +58,14 @@ module Spend
     end
 
     def self.covered_keys(agency)
-      rows(REAL_SPEND_SQL, agency_id: agency.id, untagged: UNTAGGED).each_with_object({}) do |row, index|
+      rows(REAL_SPEND_SQL, agency_id: agency.id, untagged: Metrics::Base::UNTAGGED).each_with_object({}) do |row, index|
         index[[ row["channel"], row["campaign"], row["date"].to_date ]] = true
       end
     end
 
     def self.groups_for(agency)
       rows(LEADS_SQL, agency_id: agency.id, timezone: agency.timezone,
-                    untagged: UNTAGGED, channels: COST_PER_LEAD_CENTS.keys)
+                    untagged: Metrics::Base::UNTAGGED, channels: COST_PER_LEAD_CENTS.keys)
     end
 
     def self.rows(sql, **binds)

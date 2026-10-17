@@ -4,7 +4,6 @@
 # otherwise; `flag` marks best/worst cost (or rate) so the UI can color them.
 module Metrics
   module Channels
-    UNTAGGED = "(untagged)".freeze
     MIN_LEADS = 30
 
     PER_CHANNEL_SQL = <<~SQL.freeze

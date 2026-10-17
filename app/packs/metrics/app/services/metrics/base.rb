@@ -30,6 +30,11 @@ module Metrics
       WHERE agency_id = :agency_id
     SQL
 
+    # Placeholder for a blank campaign: the channel table aggregates by channel and never
+    # shows campaigns, so this is shared only by ChannelDetail and sample spend. Blank *form
+    # sections* are labelled "(none)" by the funnel (see Metrics::Funnel::BLANK_SECTION).
+    UNTAGGED = "(untagged)".freeze
+
     # Predicate that drops a `sample` placeholder when a real (import/connected) row exists
     # for the same agency/channel/day, so the placeholder never double counts real spend in
     # the SUMs. The outer ad_spend_daily relation must be aliased `s`.

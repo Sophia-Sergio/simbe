@@ -19,6 +19,11 @@ RSpec.describe Metrics::Funnel do
     expect(inquiry[:exit_reasons]).to eq([ { reason: "age", count: 1 }, { reason: "bmi", count: 1 } ])
   end
 
+  it "reports an unsubmitted application with no section as (none)" do
+    Application.where(lead_id: Lead.find_by!(first_name: "L4").id).update_all(last_section_completed: nil)
+    expect(funnel[:form_dropoff]).to eq([ { section: "(none)", count: 1, pct: 100.0 } ])
+  end
+
   it "finds the biggest leak by absolute loss" do
     expect(described_class.leak(funnel[:stages])).to eq(from_stage: "Inquiry", to_stage: "Application", lost: 5, pct_lost: 50.0)
   end
