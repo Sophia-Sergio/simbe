@@ -306,3 +306,20 @@ it("renders HTML in a lead name as text, never as markup", async () => {
   expect(within(option).queryByRole("img")).toBeNull()
   expect((window as unknown as { __xss?: boolean }).__xss).toBeUndefined()
 })
+
+it("ignores Enter while an IME composition is active", async () => {
+  const user = userEvent.setup()
+  const { input, location } = await openPalette()
+
+  await user.type(input, "l4")
+  await screen.findByRole("option", { name: /L4 Alpha/ })
+
+  // Enter while composing belongs to the IME candidate window, not the palette.
+  fireEvent.keyDown(input, { key: "Enter", isComposing: true })
+  expect(location().search).not.toContain("lead=")
+  expect(screen.getByRole("combobox")).toBeInTheDocument()
+
+  // A committed Enter still opens the active row.
+  fireEvent.keyDown(input, { key: "Enter" })
+  await waitFor(() => expect(location().search).toContain(`lead=${L4}`))
+})

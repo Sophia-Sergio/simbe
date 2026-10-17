@@ -96,6 +96,8 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    // Keys pressed during an IME composition belong to the candidate window, not the palette.
+    if (event.nativeEvent.isComposing) return
     // Home/End are intentionally not handled: they fall through to the input's caret and must not
     // move the active row (the plan only asks for Up/Down/Enter/Esc).
     if (event.key === "ArrowDown") {
