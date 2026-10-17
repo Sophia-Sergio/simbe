@@ -151,6 +151,28 @@ RSpec.describe "MCP endpoint", type: :request do
     expect(statements.first).to match(/key_digest/i)
   end
 
+  it "rolls the revoke back when the new key cannot be created (never leaves the agency keyless)" do
+    old_prefix = @key[0, 16]
+    allow(McpKey).to receive(:create!).and_raise(ActiveRecord::RecordInvalid.new(McpKey.new))
+
+    expect { Mcp::Keys.rotate!(agency: agency, user: owner) }.to raise_error(ActiveRecord::RecordInvalid)
+
+    active = McpKey.for_agency(agency).active
+    expect(active.count).to eq(1)
+    expect(active.first.prefix).to eq(old_prefix)
+  end
+
+  it "leaves exactly one active key after two rotations" do
+    first = Mcp::Keys.rotate!(agency: agency, user: owner)
+    second = Mcp::Keys.rotate!(agency: agency, user: owner)
+
+    active = McpKey.for_agency(agency).active
+    expect(active.count).to eq(1)
+    expect(active.first.prefix).to eq(second[0, 16])
+    expect(Mcp::Keys.authenticate(first, slug: "alpha")).to be_nil
+    expect(Mcp::Keys.authenticate(second, slug: "alpha")).to be_present
+  end
+
   it "405s a GET on the endpoint" do
     get "/mcp/alpha", headers: { "Authorization" => "Bearer #{@key}" }
     expect(response).to have_http_status(:method_not_allowed)

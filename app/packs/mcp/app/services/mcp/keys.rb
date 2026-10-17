@@ -11,11 +11,18 @@ module Mcp
     module_function
 
     # Revokes every active key for the agency, then creates and returns the new raw key. The
-    # caller may display it once; it is never persisted (rotation revokes the old key immediately).
+    # revoke and the insert are one transaction serialized on the agency row (`lock!`), so two
+    # concurrent rotations leave exactly one active key and a failed insert never leaves the
+    # agency keyless. The caller may display the key once; it is never persisted.
     def rotate!(agency:, user:)
       raw = RAW_PREFIX + SecureRandom.urlsafe_base64(24) # 24 bytes -> 32 urlsafe chars
-      McpKey.for_agency(agency).active.update_all(revoked_at: Time.current, updated_at: Time.current)
-      McpKey.create!(agency: agency, created_by: user, key_digest: digest_for(raw), prefix: raw[0, PREFIX_LENGTH])
+      # requires_new: a savepoint under the spec-suite transaction, so a failed create! rolls
+      # back only this rotation rather than poisoning the surrounding transaction.
+      McpKey.transaction(requires_new: true) do
+        agency.lock! # SELECT ... FOR UPDATE: serializes concurrent rotations for this agency
+        McpKey.for_agency(agency).active.update_all(revoked_at: Time.current, updated_at: Time.current)
+        McpKey.create!(agency: agency, created_by: user, key_digest: digest_for(raw), prefix: raw[0, PREFIX_LENGTH])
+      end
       raw
     end
 
