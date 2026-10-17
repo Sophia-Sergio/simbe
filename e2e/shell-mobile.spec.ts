@@ -23,10 +23,11 @@ test("owner: top bar, search, account sheet and sign out", async ({ page }) => {
   expect(await overflow(page)).toBeLessThanOrEqual(0)
   await page.screenshot({ path: "e2e/screenshots/shell-mobile-owner.png" })
 
-  // ⌘K / Ctrl+K and the search icon both close an open lead panel (the overlay-state signal until the search lane lands).
+  // ⌘K / Ctrl+K closes an open lead panel (the panel is modal, so the search icon behind it is inert and only the shortcut reaches the palette).
   await page.goto("/pipeline?range=90d&lead=abc")
   await expect(page.locator("[data-shell='mobile']")).toBeVisible()
-  await page.getByRole("button", { name: "Search candidates" }).click()
+  await expect(page.getByRole("dialog")).toBeVisible()
+  await page.keyboard.press("Control+k")
   await expect(page).toHaveURL(/\/pipeline\?range=90d$/)
 
   await page.getByRole("button", { name: "Account" }).click()
