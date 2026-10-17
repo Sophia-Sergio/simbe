@@ -1,5 +1,5 @@
 import { Send, X } from "lucide-react"
-import { useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useAgentSuggestions } from "@/api/hooks/agent"
 import { useAgent } from "@/app/agent"
@@ -60,6 +60,17 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
   const { agency } = useAuth()
   const [draft, setDraft] = useState("")
   const inputId = useId()
+  const lastTurn = useRef<HTMLDivElement>(null)
+  const seenTurns = useRef(messages.length)
+
+  // Keep the newest turn in view: a new question sticks to the bottom (where the pending line is); a
+  // new answer is aligned to its start, so a long answer is read from the top instead of skipped past.
+  useEffect(() => {
+    if (messages.length === seenTurns.current) return
+    seenTurns.current = messages.length
+    const latest = messages[messages.length - 1]
+    lastTurn.current?.scrollIntoView?.({ block: latest?.role === "assistant" ? "start" : "end" })
+  }, [messages])
 
   const tooLong = draft.length > 500
   const nearLimit = draft.length >= 450
@@ -110,7 +121,9 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
           <div className="flex flex-col gap-3">
             {messages.map((turn, index) => (
               // The server id can repeat in tests/mocks; the index keeps React keys unique.
-              <MessageBubble key={`${turn.id}-${index}`} turn={turn} />
+              <div key={`${turn.id}-${index}`} ref={index === messages.length - 1 ? lastTurn : undefined}>
+                <MessageBubble turn={turn} />
+              </div>
             ))}
             {pending && (
               <p role="status" className="animate-pulse text-[13px] text-ink-muted motion-reduce:animate-none">

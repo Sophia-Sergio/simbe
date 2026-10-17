@@ -76,6 +76,28 @@ it("exposes the conversation as a polite live log and the pending line as a stat
   expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
 })
 
+describe("scrolling to the newest turn", () => {
+  afterEach(() => {
+    delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView
+  })
+
+  it("scrolls to the pending question, then to the start of the new answer", async () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    let release!: (response: Response) => void
+    mockApi({ "POST /api/v1/agent/messages": () => new Promise<Response>((resolve) => (release = resolve)) })
+    mount()
+    await openFab()
+    await userEvent.click(await screen.findByRole("button", { name: OWNER_CHIPS[0] }))
+    await screen.findByText("Reading your data…")
+    expect(scroll).toHaveBeenLastCalledWith({ block: "end" })
+
+    release(Response.json(answerFixture, { status: 201 }))
+    await screen.findByText(ANSWER.text)
+    await waitFor(() => expect(scroll).toHaveBeenLastCalledWith({ block: "start" }))
+  })
+})
+
 it("shows the pulsing pending line and disables the composer while the answer is in flight", async () => {
   let release!: (response: Response) => void
   mockApi({ "POST /api/v1/agent/messages": () => new Promise<Response>((resolve) => (release = resolve)) })
