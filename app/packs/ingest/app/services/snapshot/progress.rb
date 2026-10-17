@@ -13,6 +13,7 @@ class Snapshot
     MIN_STEP = 1
 
     UPDATE_SQL = "UPDATE snapshot_uploads SET progress = $1::jsonb, updated_at = now() WHERE id = $2"
+    HEARTBEAT_SQL = "UPDATE snapshot_uploads SET updated_at = now() WHERE id = $1"
 
     def initialize(upload, clock: nil, connection: nil)
       @upload = upload
@@ -41,6 +42,19 @@ class Snapshot
       @last = nil
     end
 
+    # Refresh `updated_at` (the heartbeat ExpireUploadsJob's staleness check reads) without
+    # changing the reported progress. A job calls this around a quiet phase — Snapshot::Facts can
+    # run for a while without a progress write — so a running import is never mistaken for a dead
+    # one.
+    def heartbeat
+      if @connection
+        @connection.exec_update(self.class::HEARTBEAT_SQL, "Snapshot::Progress", [ bind("id", @upload.id) ])
+      else
+        @upload.update_columns(updated_at: Time.current)
+      end
+      nil
+    end
+
     private
 
     def throttled?(phase, pct)
@@ -56,7 +70,9 @@ class Snapshot
         @connection.exec_update(self.class::UPDATE_SQL, "Snapshot::Progress",
                                 [ bind("progress", data&.to_json), bind("id", @upload.id) ])
       else
-        @upload.update_column(:progress, data)
+        # update_columns (not update_column) also bumps updated_at, so every throttled write is a
+        # heartbeat.
+        @upload.update_columns(progress: data, updated_at: Time.current)
       end
     end
 

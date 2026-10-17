@@ -158,6 +158,15 @@ RSpec.describe Snapshot::Importer do
     end
   end
 
+  # A long, write-free phase (Facts.call) must not look like a dead job to ExpireUploadsJob.
+  it "heartbeats the upload around the quiet computing phase" do
+    progress = double("progress", update: nil, heartbeat: nil)
+
+    described_class.call(agency: agency, dir: dir, progress: progress)
+
+    expect(progress).to have_received(:heartbeat).at_least(:once)
+  end
+
   def raw_connection
     config = ActiveRecord::Base.connection_db_config.configuration_hash
     PG.connect(host: config[:host], port: config[:port], dbname: config[:database],

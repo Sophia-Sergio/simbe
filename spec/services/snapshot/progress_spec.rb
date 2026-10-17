@@ -54,6 +54,24 @@ RSpec.describe Snapshot::Progress do
     expect(saved).to be_nil
   end
 
+  it "refreshes the heartbeat (updated_at) on every update and on demand" do
+    upload.update_column(:updated_at, 1.day.ago)
+    progress.update(phase: "importing", pct: 5)
+    expect(upload.reload.updated_at).to be > 1.hour.ago
+
+    upload.update_column(:updated_at, 1.day.ago)
+    progress.heartbeat
+    expect(upload.reload.updated_at).to be > 1.hour.ago
+  end
+
+  it "writes the heartbeat through the given connection too" do
+    connection = double("connection")
+    expect(connection).to receive(:exec_update)
+      .with(described_class::HEARTBEAT_SQL, "Snapshot::Progress", [ anything ])
+
+    described_class.new(upload, connection: connection).heartbeat
+  end
+
   it "writes through the given connection (so the import transaction does not hide progress)" do
     connection = double("connection")
     expect(connection).to receive(:exec_update)

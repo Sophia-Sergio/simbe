@@ -88,7 +88,11 @@ class Snapshot
         Lead.unscoped.where(agency_id: agency.id).delete_all
         stream!(agency, dir, report, progress, cancel)
         progress&.update(phase: "computing", pct: 95)
+        # Facts.call and the ANALYZE below can run without a progress write; keep the heartbeat
+        # fresh so ExpireUploadsJob never fails a healthy upload.
+        progress&.heartbeat
         Facts.call(agency.id)
+        progress&.heartbeat
         # Leave stats behind so the next replace's FK triggers get index plans (see ANALYZE_TABLES).
         analyze_loaded_tables
         snapshot = Snapshot.create!(

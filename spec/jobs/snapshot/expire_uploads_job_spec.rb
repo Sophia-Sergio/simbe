@@ -30,6 +30,16 @@ RSpec.describe Snapshot::ExpireUploadsJob do
     expect(upload.reload.status).to eq("validating")
   end
 
+  it "keeps a quiet import that is still heartbeating (updated_at) alive" do
+    upload = upload_for(status: "committing")
+    upload.update_column(:created_at, 3.hours.ago)
+    upload.update_column(:updated_at, 1.minute.ago) # recent heartbeat
+
+    described_class.perform_now
+
+    expect(upload.reload.status).to eq("committing")
+  end
+
   it "expires uploads older than 24h and removes their files" do
     upload = upload_for(status: "validated", age: 25.hours.ago)
     FileUtils.mkdir_p(Snapshot::Storage.dir(upload))
