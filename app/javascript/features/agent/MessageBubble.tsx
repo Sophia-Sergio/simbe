@@ -17,10 +17,11 @@ export function MessageBubble({ turn }: { turn: AgentTurn }) {
 
   if (turn.role === "user") {
     return (
-      <div className="flex justify-end">
+      <div className="flex flex-col items-end">
         <p className="max-w-[85%] whitespace-pre-wrap rounded-[14px_14px_4px_14px] bg-subtle px-3.5 py-2.5 text-[14px] text-ink">
           {turn.body.text}
         </p>
+        {turn.body.failed && <p className="mt-1 text-[11px] font-medium text-danger-text">Not sent — try again</p>}
       </div>
     )
   }

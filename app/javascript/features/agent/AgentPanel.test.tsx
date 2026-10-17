@@ -213,6 +213,72 @@ it("open(question) opens the panel and sends the question exactly once", async (
   await waitFor(() => expect(calls).toBe(1))
 })
 
+it("retrying a failed question does not add a second user bubble", async () => {
+  let fail = true
+  mockApi({
+    "POST /api/v1/agent/messages": () =>
+      fail
+        ? Response.json({ error: { code: "model_unavailable", message: "x" } }, { status: 502 })
+        : Response.json(answerFixture, { status: 201 }),
+  })
+  mount()
+  await openFab()
+  await ask("hello there")
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("I couldn't reach the model. Try again.")
+  expect(screen.getAllByText("hello there")).toHaveLength(1)
+  expect(screen.getByText("Not sent — try again")).toBeInTheDocument()
+
+  fail = false
+  await userEvent.click(screen.getByRole("button", { name: "Send" }))
+  expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
+  // The retry reused the failed bubble instead of appending a twin, and cleared its marker.
+  expect(screen.getAllByText("hello there")).toHaveLength(1)
+  expect(screen.queryByText("Not sent — try again")).toBeNull()
+})
+
+it("hints instead of silently dropping a question asked while one is in flight", async () => {
+  let calls = 0
+  let release!: (response: Response) => void
+  mockApi({
+    "POST /api/v1/agent/messages": () => {
+      calls += 1
+      return new Promise<Response>((resolve) => (release = resolve))
+    },
+  })
+  function TwoQuestions() {
+    const agent = useAgent()
+    return (
+      <>
+        <button type="button" onClick={() => agent.open("first question")}>
+          First
+        </button>
+        <button type="button" onClick={() => agent.open("second question")}>
+          Second
+        </button>
+        <AgentPanel />
+      </>
+    )
+  }
+  renderWithProviders(
+    <AgentProvider>
+      <TwoQuestions />
+    </AgentProvider>,
+  )
+
+  await userEvent.click(screen.getByRole("button", { name: "First" }))
+  expect(await screen.findByText("Reading your data…")).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Second" }))
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/still answering your last question/i)
+  expect(calls).toBe(1)
+  expect(screen.queryByText("second question")).toBeNull()
+
+  release(Response.json(answerFixture, { status: 201 }))
+  expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull())
+})
+
 it("a 409 shows 'Still working on your last question.'", async () => {
   mockApi({ "POST /api/v1/agent/messages": () => Response.json({ error: { code: "already_in_progress", message: "x" } }, { status: 409 }) })
   mount()

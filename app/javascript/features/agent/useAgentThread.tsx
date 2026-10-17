@@ -17,6 +17,8 @@ export type AgentTurn = {
     action?: AgentLink
     sources?: AgentLink[]
     suggestions?: string[]
+    /** A user turn whose send failed; retrying the same text reuses it in place. */
+    failed?: boolean
   }
 }
 

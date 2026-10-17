@@ -70,13 +70,30 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     const question = text.trim()
     if (!question) return false
     setError(null)
-    setMessages((prev) => [...prev, { id: nextTurnId(), role: "user", body: { text: question } }])
+    setMessages((prev) => {
+      // Retrying the question whose send just failed reuses that bubble (cleared of its marker)
+      // instead of appending a twin user turn.
+      const last = prev[prev.length - 1]
+      if (last?.role === "user" && last.body.text === question) {
+        return [...prev.slice(0, -1), { ...last, body: { ...last.body, failed: false } }]
+      }
+      return [...prev, { id: nextTurnId(), role: "user", body: { text: question } }]
+    })
     try {
       const reply = await sendRef.current({ conversationId: conversationId.current, text: question })
       conversationId.current = reply.conversation_id
       setMessages((prev) => [...prev, toTurn(reply.message)])
+      // Clears a "still answering" hint set while this turn was in flight.
+      setError(null)
       return true
     } catch (caught) {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.role === "user" && last.body.text === question) {
+          return [...prev.slice(0, -1), { ...last, body: { ...last.body, failed: true } }]
+        }
+        return prev
+      })
       setError(errorMessage(caught))
       return false
     }
@@ -85,9 +102,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const open = useCallback(
     (question?: string) => {
       setIsOpen(true)
-      if (question) void send(question)
+      if (!question) return
+      if (pending) {
+        // Single-flight: say so instead of silently dropping a question asked mid-answer.
+        setError("I'm still answering your last question — ask again in a moment.")
+        return
+      }
+      void send(question)
     },
-    [send],
+    [pending, send],
   )
   const close = useCallback(() => setIsOpen(false), [])
 
