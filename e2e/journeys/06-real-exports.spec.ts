@@ -104,7 +104,9 @@ test.describe("@real journey 6 — real exports at sign-up", () => {
   test("Harbor: a new agency loads the real export and shows the golden numbers", async ({ page }, testInfo) => {
     test.setTimeout(600_000)
     const viewport = viewportName(testInfo)
-    reset("E2E Real Harbor")
+    // The agency name carries the viewport, so the prefix is exact per project: it can never match
+    // the other viewport's agency (`E2E Real Harbor mobile` vs `… desktop`).
+    reset(`E2E Real Harbor ${viewport}`)
     await signUpAndLoad(page, {
       email: `real-harbor+${viewport}@example.test`,
       agency: `E2E Real Harbor ${viewport}`,
@@ -188,7 +190,7 @@ test.describe("@real journey 6 — real exports at sign-up", () => {
   test("Lakeside: the records config and Central time zone produce the golden numbers", async ({ page }, testInfo) => {
     test.setTimeout(900_000)
     const viewport = viewportName(testInfo)
-    reset("E2E Real Lakeside")
+    reset(`E2E Real Lakeside ${viewport}`)
     await signUpAndLoad(page, {
       email: `real-lakeside+${viewport}@example.test`,
       agency: `E2E Real Lakeside ${viewport}`,
@@ -213,48 +215,55 @@ test.describe("@real journey 6 — real exports at sign-up", () => {
     await page.screenshot({ path: shot("real-lakeside-02-coordinators", testInfo), fullPage: true })
   })
 
-  test("a third agency re-uploads Harbor's files without touching the first agency", async ({ page, browser }, testInfo) => {
+  test("a second agency re-uploads Harbor's files without touching the first", async ({ page, browser }, testInfo) => {
     test.setTimeout(900_000)
     const viewport = viewportName(testInfo)
     const baseURL = String(testInfo.project.use.baseURL)
 
-    // Agency 1 (from the first test): unchanged at 496 qualified.
-    await page.goto("/signin")
-    await page.getByLabel("Email").fill(`real-harbor+${viewport}@example.test`)
-    await page.getByLabel("Password").fill("long-enough-pass")
-    await page.getByRole("button", { name: "Sign in" }).click()
-    await expect(page.locator("[data-shell]")).toBeVisible({ timeout: 30_000 })
+    // Both agencies are created HERE: this test must not depend on the first test's account.
+    // Agency A: harbor's files under "Attended a consult" + Pacific → 496 qualified.
+    reset(`E2E Real Isol A ${viewport}`)
+    await signUpAndLoad(page, {
+      email: `real-isol-a+${viewport}+${Date.now()}@example.test`,
+      agency: `E2E Real Isol A ${viewport}`,
+      timezone: "Pacific",
+      definition: "Attended a consult",
+      files: exportFiles(harborDir),
+    })
     await page.getByRole("button", { name: "12 months" }).click()
-    await expect(kpi(page, "Qualified").getByText(int(harbor.qualified_all_time.consult_attended), { exact: true })).toBeVisible()
+    await expect(kpi(page, "Qualified").getByText(int(harbor.qualified_all_time.consult_attended), { exact: true })).toBeVisible({
+      timeout: 30_000,
+    })
 
-    // Agency 3: the same files under "Submitted an application" + Mountain.
+    // Agency B: the same files under "Submitted an application" + Mountain → 674 qualified.
     const context = await browser.newContext({ viewport: page.viewportSize() ?? undefined, baseURL })
-    const third = await context.newPage()
-    reset("E2E Real Third")
-    await signUpAndLoad(third, {
-      email: `real-third+${viewport}@example.test`,
-      agency: `E2E Real Third ${viewport}`,
+    const second = await context.newPage()
+    reset(`E2E Real Isol B ${viewport}`)
+    await signUpAndLoad(second, {
+      email: `real-isol-b+${viewport}+${Date.now()}@example.test`,
+      agency: `E2E Real Isol B ${viewport}`,
       timezone: "Mountain",
       definition: "Submitted an application",
       files: exportFiles(harborDir),
     })
-    await third.getByRole("button", { name: "12 months" }).click()
-    await expect(kpi(third, "Qualified").getByText(int(harbor.qualified_all_time.application_submitted), { exact: true })).toBeVisible({
+    await second.getByRole("button", { name: "12 months" }).click()
+    await expect(kpi(second, "Qualified").getByText(int(harbor.qualified_all_time.application_submitted), { exact: true })).toBeVisible({
       timeout: 30_000,
     })
-    await third.screenshot({ path: shot("real-third-01-week", testInfo), fullPage: true })
+    await second.screenshot({ path: shot("real-isolation-01-second-agency", testInfo), fullPage: true })
 
-    // Agency 1 is unchanged by agency 3's load.
+    // Agency A is unchanged by agency B's load of the same files.
     await page.reload()
     await page.getByRole("button", { name: "12 months" }).click()
     await expect(kpi(page, "Qualified").getByText(int(harbor.qualified_all_time.consult_attended), { exact: true })).toBeVisible()
+    await page.screenshot({ path: shot("real-isolation-02-first-unchanged", testInfo), fullPage: true })
     await context.close()
   })
 
   test("resumes a reload mid-load and reopens the upload after closing it", async ({ page }, testInfo) => {
     test.setTimeout(900_000)
     const viewport = viewportName(testInfo)
-    reset("E2E Real Resilience")
+    reset(`E2E Real Resilience ${viewport}`)
     await signUpAndLoad(page, {
       email: `real-resilience+${viewport}@example.test`,
       agency: `E2E Real Resilience ${viewport}`,
