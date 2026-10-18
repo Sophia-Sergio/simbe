@@ -17,15 +17,20 @@ const DOT: Record<StepStatus, string> = {
   upcoming: "border border-line bg-surface text-ink-muted",
 }
 
-/** The wizard's header strip: five numbered dots with labels (labels collapse to "Step N of 5" on mobile). */
-export function Stepper({ step }: { step: number }) {
+/**
+ * The wizard's header strip: five numbered dots with labels (labels collapse to dots on mobile).
+ * With `onGo`, every step from `firstReachable` on (except the current one) is a button; the steps
+ * before it stay plain (steps 1–2 must never be revisited once the account exists).
+ */
+export function Stepper({ step, firstReachable, onGo }: { step: number; firstReachable?: number; onGo?: (step: number) => void }) {
   return (
     <div className="border-b border-line bg-app px-4 py-3">
       <ol aria-label="Sign-up progress" className="flex items-center justify-center gap-3 md:gap-5">
         {WIZARD_STEPS.map((label, index) => {
           const status = statusOf(step, index)
-          return (
-            <li key={label} className="flex items-center gap-2" aria-current={status === "current" ? "step" : undefined}>
+          const goable = onGo !== undefined && firstReachable !== undefined && index + 1 >= firstReachable && status !== "current"
+          const content = (
+            <>
               {/* The name lives on the item, so the dot-only mobile row still announces label + status. */}
               <span className="sr-only">{`${label}: ${status}`}</span>
               <span
@@ -41,13 +46,21 @@ export function Stepper({ step }: { step: number }) {
               >
                 {label}
               </span>
+            </>
+          )
+          return (
+            <li key={label} aria-current={status === "current" ? "step" : undefined}>
+              {goable ? (
+                <button type="button" onClick={() => onGo(index + 1)} className="flex min-h-11 items-center gap-2 rounded-full px-1">
+                  {content}
+                </button>
+              ) : (
+                <span className="flex items-center gap-2">{content}</span>
+              )}
             </li>
           )
         })}
       </ol>
-      <p className="mt-1 text-center text-[13px] font-medium text-ink-muted md:hidden">
-        Step {step} of {WIZARD_STEPS.length}
-      </p>
     </div>
   )
 }

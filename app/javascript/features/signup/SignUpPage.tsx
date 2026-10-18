@@ -100,6 +100,12 @@ function Wizard({
   const [serverErrors, setServerErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Partial<Record<AccountField | "agency", boolean>>>({})
   const [serverAgencyError, setServerAgencyError] = useState<string | null>(null)
+  // Step 4 owns an upload; once visited it stays mounted (hidden) so Back/Continue never cancel it.
+  const [loadDataVisited, setLoadDataVisited] = useState(initialStep === 4)
+  const go = (target: number) => {
+    if (target === 4) setLoadDataVisited(true)
+    setStep(target)
+  }
   const [focusRequest, setFocusRequest] = useState<{ field: AccountField } | null>(null)
 
   const created = signup.data ?? null
@@ -162,9 +168,15 @@ function Wizard({
 
   // Once `POST /signup` has created the account, the wizard must not walk back to steps 1–2 (a
   // second submit would be a duplicate account); Back is only offered on step 2.
+  // Steps 3–5 are free to revisit (step 4 stays mounted, so a running upload survives); step 3 has
+  // nowhere to go back to.
   const back =
     step === 2 ? (
       <Button variant="secondary" onClick={() => setStep(1)}>
+        Back
+      </Button>
+    ) : step === 4 || step === 5 ? (
+      <Button variant="secondary" onClick={() => go(step - 1)}>
         Back
       </Button>
     ) : (
@@ -186,11 +198,15 @@ function Wizard({
     )
   } else if (step === 3 || step === 4) {
     // Step 3 is a display-only preview; step 4 may continue at any time (a running load finishes in the background).
-    next = <Button onClick={() => setStep(step + 1)}>Continue</Button>
+    next = <Button onClick={() => go(step + 1)}>Continue</Button>
   }
 
   return (
-    <WizardShell step={step} title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} alert={alert} footer={<>{back}{next}</>}>
+    <WizardShell
+      step={step}
+      firstReachable={step >= 3 ? 3 : undefined}
+      onGo={go}
+      title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} alert={alert} footer={<>{back}{next}</>}>
       {step === 1 ? (
         <AccountStep
           value={account}
@@ -214,7 +230,11 @@ function Wizard({
         />
       ) : null}
       {step === 3 ? <AdAccountsStep /> : null}
-      {step === 4 ? <LoadDataStep agencyName={agencyName} onSkip={() => setStep(5)} /> : null}
+      {loadDataVisited || step === 4 ? (
+        <div hidden={step !== 4}>
+          <LoadDataStep agencyName={agencyName} onSkip={() => setStep(5)} />
+        </div>
+      ) : null}
       {step === 5 ? <TeamStep owner={owner} /> : null}
     </WizardShell>
   )
