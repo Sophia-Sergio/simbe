@@ -42,6 +42,7 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
   ```
 
 ### Task 1 deviations (both required to make the task run)
+
 1. `e2e:seed` also `require`s `spec/support/rows_loader.rb`: `AlphaScenario.load!` calls `RowsLoader`,
    and `spec/support` is never autoloaded outside RSpec, so the plan's two requires alone raise
    `NameError` at runtime.
@@ -52,6 +53,31 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
    `AR_ENCRYPTION_PRIMARY_KEY` / `AR_ENCRYPTION_KEY_DERIVATION_SALT`, so `e2e:seed` could not write
    screener answers (`ActiveRecord::Encryption::Errors::Configuration`). Generated a fresh pair with
    `bin/rails db:encryption:init`-equivalent values and added them to `.env`.
+
+### Task 1 review fixes (7)
+- `e2e:alpha_files` now aborts outside development/test, like `e2e:seed`.
+- `e2e:seed` **restores the password of an existing login** instead of only setting it on create
+  (dev/test only, guarded by the abort). Verified end to end:
+
+  ```
+  $ docker compose exec web bundle exec rails runner 'u = User.find_by!(email: "dana@harbor.test"); u.password = "broken-pass-xyz"; u.password_confirmation = "broken-pass-xyz"; u.save!'
+  password now broken for dana
+  $ curl -s -o /dev/null -w "%{http_code}" .../api/v1/session {dana@harbor.test / simbe-dev-pass}
+  401
+  $ docker compose exec web bundle exec rails e2e:seed
+  (no output)
+  $ curl -s -o /dev/null -w "%{http_code}" .../api/v1/session {dana@harbor.test / simbe-dev-pass}
+  201
+  ```
+
+- `e2e:alpha_files` writes the seven CSVs (verified into an explicit dir so the worktree stays clean):
+  `docker compose exec web bundle exec rails "e2e:alpha_files[/tmp/alpha-files-check]"` →
+  `applications.csv appointments.csv contact_log.csv leads.csv screener_answers.csv
+  stage_history.csv web_sessions.csv`.
+- **Outside-lane item:** the default dir `e2e/fixtures/alpha` is *not* in `.gitignore` (which only
+  lists `/e2e/screenshots` and `/e2e/test-results`), although the F-SIGNUP plan says it is git-ignored.
+  Running `e2e:alpha_files` with the default dir leaves untracked CSVs in `e2e/fixtures/` before this
+  lane; `.gitignore` is W0-1's, so it is logged here rather than changed.
 
 ### Outside-lane items found in Task 1 (not changed by this lane)
 - Task 1 Step 1 asks to document "Mock vs real" in `README.md`, which is owned by **W0-1**, not W3-1.
