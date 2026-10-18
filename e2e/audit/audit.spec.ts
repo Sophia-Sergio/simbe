@@ -49,20 +49,16 @@ const settle = (page: Page) =>
 
 async function auditScreen(page: Page, screen: Screen, project: string, role: ScreenRole): Promise<void> {
   const path = REAL && screen.realPath ? screen.realPath : screen.path
-  const openScreen = async () => {
-    // The standalone mock host is shared by both Playwright workers; a single retry absorbs its occasional
-    // slow boot/compile without weakening the measurement (which always runs on the freshly opened screen).
-    for (let attempt = 1; ; attempt++) {
-      await page.goto(path)
-      if (screen.drive) await screen.drive(page, screen.id)
-      try {
-        await page.waitForSelector(screen.ready, { state: "visible", timeout: 30_000 })
-        break
-      } catch (error) {
-        if (attempt >= 2) throw error
-        await page.waitForTimeout(1_000)
-      }
+  const openScreen = async (width: number) => {
+    await page.goto(path)
+    if (screen.role !== "public") {
+      // The shells (and the desktop ⌘K handler) mount only after the session loads. Wait for the shell this
+      // width renders before driving: a keyboard chord sent before the handler exists is lost, and a click
+      // can land on the sign-in screen instead of the app.
+      await expect(page.locator("[data-shell]")).toHaveAttribute("data-shell", shellAt(width), { timeout: 30_000 })
     }
+    if (screen.drive) await screen.drive(page, screen.id)
+    await page.waitForSelector(screen.ready, { state: "visible", timeout: 30_000 })
     // Slide/fade entrances shift and fade panels for 200ms; measure the settled screen, not a transition
     // frame (a translucent panel blends text into a false contrast failure and a translated one "overflows").
     await settle(page)
@@ -78,7 +74,7 @@ async function auditScreen(page: Page, screen: Screen, project: string, role: Sc
   // them) unmount on the swap, so the modal must be re-opened in the shell that is being measured.
   // A `driveOnce` screen (a stateful server-side upload) is driven only at the first width.
   await page.setViewportSize({ width: WIDTHS[0], height: 844 })
-  await openScreen()
+  await openScreen(WIDTHS[0])
   let drivenShell: ReturnType<typeof shellAt> | null = screen.drive ? shellAt(WIDTHS[0]) : null
 
   for (const width of WIDTHS) {
@@ -86,7 +82,7 @@ async function auditScreen(page: Page, screen: Screen, project: string, role: Sc
     const needsDrive = Boolean(screen.drive) && !screen.driveOnce && screen.role !== "public" && shell !== drivenShell
     await page.setViewportSize({ width, height: width >= 860 ? 800 : 844 })
     if (needsDrive) {
-      await openScreen()
+      await openScreen(width)
       drivenShell = shell
     }
     if (screen.role === "public") {
