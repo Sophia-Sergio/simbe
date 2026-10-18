@@ -22,6 +22,30 @@ export const EXPORT_FILES = [
   "applications.csv",
 ] as const
 
+/** Hosts the bootstrap may write to without an explicit opt-in. */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"])
+
+/**
+ * Refuses to bootstrap the stack behind a non-local `E2E_BASE_URL`: `seed()`, `reset()` and
+ * `alphaFiles()` mutate that database, so a remote base URL would write to someone else's
+ * environment. `localhost`, `127.0.0.1` and `[::1]` (or no base URL at all) are fine;
+ * `E2E_ALLOW_REMOTE=1` opts in to anything else.
+ */
+export function assertLocalStack(baseURL = process.env.E2E_BASE_URL, allowRemote = process.env.E2E_ALLOW_REMOTE): void {
+  if (!baseURL || allowRemote === "1") return
+  let host: string
+  try {
+    host = new URL(baseURL).hostname
+  } catch (error) {
+    throw new Error(`E2E_BASE_URL is not a valid URL: ${baseURL}`, { cause: error })
+  }
+  if (!LOCAL_HOSTS.has(host)) {
+    throw new Error(
+      `refusing to run the e2e bootstrap against a non-local E2E_BASE_URL (${host}): it would mutate a remote database. Set E2E_ALLOW_REMOTE=1 to override.`,
+    )
+  }
+}
+
 /** Rails runs on this host when CI is set (the e2e-real job) or Docker is not installed. */
 function localRails(): boolean {
   if (process.env.CI) return true
@@ -42,6 +66,7 @@ const runsLocally = (): boolean => (cachedLocal ??= localRails())
  * is safe from a test process.
  */
 export function rails(...args: string[]): void {
+  assertLocalStack()
   const [command, argv]: [string, string[]] = runsLocally()
     ? ["bundle", ["exec", "rails", ...args]]
     : ["docker", ["compose", "exec", "-T", "web", "bundle", "exec", "rails", ...args]]
