@@ -71,8 +71,11 @@ export const elementOverflow = (page: Page): Promise<Violation[]> =>
  * no WCAG 2.5.5 spacing alternative and no exclusion for fixed/sticky chrome. Findings that cannot be
  * fixed here are reported verbatim in the report's known-issues table.
  *
- * The one documented exclusion is WCAG 2.5.5's own inline exception: a link that flows inside a sentence
- * is not a standalone target. It is listed under allowances in the report.
+ * A visually hidden control (`sr-only` radio, clipped input) is measured on the label that receives the
+ * click, so an sr-only radio is still checked through its card. Skips are documented in the report's
+ * allowances: WCAG 2.5.5's inline-link exception, disabled controls, `aria-hidden` subtrees, and a
+ * visually hidden control with no label at all (the dropzone's file input is measured on its
+ * `role="button"` surface instead).
  */
 export const tapTargets = (page: Page): Promise<Violation[]> =>
   page.evaluate((ignored) => {
@@ -87,21 +90,32 @@ export const tapTargets = (page: Page): Promise<Violation[]> =>
       const suffix = aria ? `[aria-label="${aria.replace(/"/g, "'")}"]` : type ? `[type="${type}"]` : ""
       return `${tag}${classes.map((name) => `.${name}`).join("")}${suffix}`
     }
+    /** The box the user actually taps: the control itself, or the label of a visually hidden control. */
+    const tapBox = (el: HTMLElement): { rect: DOMRect; on: string } | null => {
+      const rect = el.getBoundingClientRect()
+      if (rect.width > 1 && rect.height > 1) return { rect, on: "" }
+      const label = (el as HTMLInputElement).labels?.[0] ?? el.closest("label")
+      if (label) {
+        const labelRect = label.getBoundingClientRect()
+        if (labelRect.width > 1 && labelRect.height > 1) return { rect: labelRect, on: " (measured on its <label>)" }
+      }
+      return null
+    }
     const violations: { rule: string; detail: string; selector: string; size: string }[] = []
     for (const el of Array.from(document.querySelectorAll<HTMLElement>(`${SELECTOR}:not([${ignored}])`))) {
-      const rect = el.getBoundingClientRect()
-      if (rect.width <= 1 || rect.height <= 1) continue // not rendered (sr-only inputs, hidden panels)
       if (el.closest('[aria-hidden="true"]')) continue
       if ((el as HTMLInputElement).disabled) continue
       const style = getComputedStyle(el)
       if (style.visibility === "hidden" || style.display === "none") continue
       // WCAG 2.5.5 inline exception: a link that flows inside a sentence is not a standalone target.
       if (el.tagName === "A" && style.display === "inline") continue
-      if (rect.width >= 44 && rect.height >= 44) continue
-      const size = `${Math.round(rect.width)}x${Math.round(rect.height)}`
+      const box = tapBox(el)
+      if (!box) continue // visually hidden and has no label: reported as a skip in the report's allowances
+      if (box.rect.width >= 44 && box.rect.height >= 44) continue
+      const size = `${Math.round(box.rect.width)}x${Math.round(box.rect.height)}`
       violations.push({
         rule: "tap-target",
-        detail: `<${el.tagName.toLowerCase()}> "${nameOf(el)}" is ${size}px`,
+        detail: `<${el.tagName.toLowerCase()}> "${nameOf(el)}" is ${size}px${box.on}`,
         selector: compact(el),
         size,
       })
