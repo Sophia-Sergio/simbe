@@ -41,6 +41,15 @@ One Rails 8 app at the repo root (full Rails; backend **packs** in `app/packs/<p
 
 The build is split into 32 independent lanes: [`docs/superpowers/parallel/README.md`](docs/superpowers/parallel/README.md) (matrix, lane rules) and [`playbook.md`](docs/superpowers/parallel/playbook.md) (how to run them with Cursor, OpenCode and Claude Code). Use `bin/lane start <LANE>` / `check` / `pr` / `status` / `stop`. Touch **only** the files in your lane plan's `Owns` list; shared changes go through a Contract Change Request. The only real data is `handoff/takehome/exports/` (local-only; golden numbers in `spec/real_data/golden.json`; see `docs/conventions/real-data.md`).
 
+## Pull requests outside the lanes
+
+`main` requires a `claude-review` status (plus the other checks, linear history, admins included). Lane PRs get it from `bin/lane pr` after the batch "go". For any other PR that Claude Code opened at the owner's request (docs, fixes, tooling), Claude Code posts it itself, with these limits:
+
+- Verify the exact head first (related specs, lint, `make verify-changed`, a gitleaks scan, UI seen at desktop and mobile when it changed) and say what the status rests on.
+- Post once per head with `claude-review <PR>` (a shell function in the owner's `~/.zshrc` that sets `claude-review=success` on the PR's current head). A new commit means verify again and post again.
+- Only for PRs Claude Code opened and verified. Never for someone else's PR or an unverified one.
+- Posting is not merging: do not merge or enable auto-merge unless the owner asks. Never relax branch protection or add scanner exceptions to get a status through.
+
 ## Testing
 
 RSpec + FactoryBot (backend), Vitest + Testing Library + Playwright (frontend). One owner spec per HTTP path (request spec); no duplicate service specs. See `docs/conventions/testing.md`.
