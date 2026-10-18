@@ -74,14 +74,21 @@ export function SignUpPage() {
  * A signed-in visitor: onboarding that never loaded a snapshot resumes at step 3 (the first
  * authenticated step, so a refresh mid-wizard continues instead of restarting); an agency that
  * already has data — or a coordinator, who never onboards — goes to its home instead.
+ *
+ * The "already has data" decision is made once, when the page is entered. The wizard's own load
+ * creates the first snapshot while the owner is still on step 4, and that must not eject them to the
+ * dashboard before "Your data is loaded" and the team step.
  */
 function SignedInOnboarding() {
   const { agency, user, role } = useAuth()
   const snapshot = useCurrentSnapshot()
+  // null until the first answer arrives; never changes after that.
+  const [hadDataOnEntry, setHadDataOnEntry] = useState<boolean | null>(null)
 
   if (snapshot.isPending) return <Skeleton className="h-screen w-full" />
+  if (hadDataOnEntry === null) setHadDataOnEntry(Boolean(snapshot.data?.snapshot))
   if (role === "coordinator") return <Navigate to="/next-actions" replace />
-  if (snapshot.data?.snapshot) return <Navigate to="/" replace />
+  if (hadDataOnEntry ?? Boolean(snapshot.data?.snapshot)) return <Navigate to="/" replace />
   return <Wizard initialStep={3} createdAgencyName={agency?.name} createdOwner={user} />
 }
 
