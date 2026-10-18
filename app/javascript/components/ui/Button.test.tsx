@@ -37,9 +37,9 @@ it("a pending button is busy, disabled, keeps its label and shows a spinner", as
   expect(onClick).not.toHaveBeenCalled()
 })
 
-it("renders a small button at 30px", () => {
+it("renders a small button at 30px on desktop", () => {
   render(<Button size="sm">Small</Button>)
-  expect(screen.getByRole("button", { name: "Small" })).toHaveClass("h-[30px]")
+  expect(screen.getByRole("button", { name: "Small" })).toHaveClass("md:h-[30px]")
 })
 
 it("renders an icon-only button through its aria-label", () => {
