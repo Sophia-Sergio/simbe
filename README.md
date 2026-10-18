@@ -26,6 +26,22 @@ A linked git worktree gets its own isolated stack: `make worktree-env` (run for 
 | `make e2e` | Playwright, `mock-desktop` and `mock-mobile` projects (`E2E_API=real E2E_BASE_URL=… make e2e` for the real stack) |
 | `make verify` | Everything CI runs: ownership + health-data guards, rubocop, brakeman, bundler-audit, boundaries, specs, lint, typecheck, `npm audit --omit=dev`, Vitest |
 
+## Mock vs real
+
+The frontend reads its API mode from `VITE_API_MODE` (`.env.example`):
+
+- **`real` (default)** — the Rails-embedded app talks to `/api/v1` on its own origin (no proxy, no mocks). This is what runs in Docker: `make up` → the app at the `web` port from `make ports`.
+- **`mock`** — the Rails dev server starts MSW in the browser instead of calling Rails (`VITE_API_MODE=mock` in `.env`, restart `web`). Useful for frontend work with no backend data; never enabled in a build (`__MOCKS_ENABLED__` is only true for `vite serve` with `mock`).
+- **`npm run dev:mock`** — the standalone mock host on :5173. It is **always** mock (`vite.mock.config.ts` forces `VITE_API_MODE=mock`), needs no Rails and no Docker, and is what the Playwright `mock-*` projects and Vitest use.
+
+Playwright picks its projects from `E2E_API`: without it, `mock-desktop`/`mock-mobile` start the standalone mock host themselves; with `E2E_API=real` and a base URL it targets a running Rails stack (both viewports):
+
+```bash
+E2E_API=real E2E_BASE_URL="http://127.0.0.1:$(docker compose port web 3000 | cut -d: -f2)" make e2e
+```
+
+The real-export journeys are tagged/skipped by construction (the exports are local-only), so the same command is safe in CI.
+
 ## Where things are
 
 | Path | What |

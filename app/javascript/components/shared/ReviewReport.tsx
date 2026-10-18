@@ -5,9 +5,9 @@ import { formatInt } from "@/lib/format"
 // Local shape of the upload validation report. There is no `app/javascript/api` yet
 // (W0-2/W0-5); replace this with the generated types once they exist — see
 // contracts/openapi/schemas/snapshots.yaml (`UploadReport`).
-export type ReportError = { code: string; file?: string | null; row?: number | null; message: string }
-export type ReportWarning = { code: string; count: number; message: string }
-export type ReportCounts = { current: number; incoming: number; delta: number }
+type ReportError = { code: string; file?: string | null; row?: number | null; message: string }
+type ReportWarning = { code: string; count: number; message: string }
+type ReportCounts = { current: number; incoming: number; delta: number }
 export type Report = {
   ok: boolean
   errors: ReportError[]

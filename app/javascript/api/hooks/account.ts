@@ -7,10 +7,6 @@ type InvitationPreview = components["schemas"]["InvitationPreview"]
 type CoordinatorNames = components["schemas"]["CoordinatorNames"]
 type AdConnections = components["schemas"]["AdConnections"]
 
-export function useAgency() {
-  return useQuery({ queryKey: ["agency"], queryFn: ({ signal }) => jsonRequest<Agency>("GET", `${API}/agency`, undefined, signal) })
-}
-
 /** Optimistically updates the agency (and the copy nested in ["me"]); rolls back on failure. */
 export function useUpdateAgency() {
   const queryClient = useQueryClient()

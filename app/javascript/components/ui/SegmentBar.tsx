@@ -1,6 +1,6 @@
 // KPI bar: a single green (or toned) fill, or the cost card's green/amber/red thirds.
 
-export type SegmentFillTone = "success" | "brand" | "warning" | "danger"
+type SegmentFillTone = "success" | "brand" | "warning" | "danger"
 
 export type SegmentBarProps =
   | { kind: "fill"; pct: number; tone?: SegmentFillTone }

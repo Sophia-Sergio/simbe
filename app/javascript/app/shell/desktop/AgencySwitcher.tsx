@@ -4,7 +4,7 @@ import type { Agency } from "@/api/types"
 const labelCache = new Map<string, string>()
 
 /** "America/Los_Angeles" → "Pacific time"; unknown zones fall back to the raw id. */
-export function timeZoneLabel(timeZone: string): string {
+function timeZoneLabel(timeZone: string): string {
   const cached = labelCache.get(timeZone)
   if (cached) return cached
   const label = computeLabel(timeZone)

@@ -7,7 +7,7 @@ import { DesktopShell } from "./DesktopShell"
 import { COORDINATOR_NAV, OWNER_NAV } from "./fixtures"
 
 export const OWNER: User = { id: "u1", name: "Erin Harbor", email: "erin@harbor.test", role: "owner" }
-export const COORDINATOR: User = { id: "u2", name: "Dana Ortiz", email: "dana@harbor.test", role: "coordinator" }
+const COORDINATOR: User = { id: "u2", name: "Dana Ortiz", email: "dana@harbor.test", role: "coordinator" }
 export const AGENCY: Agency = {
   id: "a1",
   name: "Harbor Surrogacy",

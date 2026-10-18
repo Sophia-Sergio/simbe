@@ -7,8 +7,8 @@ import { useSearchPalette } from "../../searchPalette"
 import { MobileShell } from "./MobileShell"
 import { COORDINATOR_NAV, OWNER_NAV } from "./fixtures"
 
-export const OWNER: User = { id: "u1", name: "Erin Walsh", email: "erin@harbor.test", role: "owner" }
-export const COORDINATOR: User = { id: "u2", name: "Dana Ortiz", email: "dana@harbor.test", role: "coordinator" }
+const OWNER: User = { id: "u1", name: "Erin Walsh", email: "erin@harbor.test", role: "owner" }
+const COORDINATOR: User = { id: "u2", name: "Dana Ortiz", email: "dana@harbor.test", role: "coordinator" }
 const AGENCY = { id: "a1", name: "Harbor Surrogacy", slug: "harbor", timezone: "America/Los_Angeles", qualified_milestone: "consult_attended" as const }
 
 function PaletteProbe() {
