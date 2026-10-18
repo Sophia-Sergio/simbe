@@ -68,9 +68,21 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
 - `POST /agent/messages` — the answer body only matches when the model answer is stubbed; the
   provider is stubbed (WebMock) with a full `respond` payload so the *shape* is comparable.
 - `POST /snapshot_uploads` — the report is produced by the async validator.
-- `GET /leads/{id}` — Alpha carries no `web_sessions` and answers every screener question `yes`, so
-  the two web-derived fields and the coordinator's answer text differ from the hand-authored example
-  (the same canonicalization the leads owner spec documents).
+- `GET /leads/{id}` — three documented normalisations, each limited to what is written here, and each
+  field asserted present/shaped on the real response (`assert_detail_fields`) rather than deleted:
+  - **visit activity**: `leads/detail-{owner,coordinator}.json` are the hand-authored example with a
+    `visit` row; Alpha carries no `web_sessions`, so the response has no visit rows. Asserted: the
+    actual `activity` has no `visit` kind and every row has `at`/`kind`/`title`.
+  - **web-derived source fields**: `source.first_visit` is `null` and `source.pages_viewed` is `0`
+    (both come from `web_sessions`). Asserted: exactly those values on the response.
+  - **`summary.next_step`**: the example hard-codes "Nudge **her** to finish the application…" while
+    the app is gender-neutral ("Nudge **them**…", pinned in `spec/requests/leads_spec.rb`).
+    **Resolution: CCR** — the example (not the app) should change to the neutral wording; the spec
+    compares the sentence with the pronoun masked (`<pronoun>`) and asserts `next_step` is a present
+    string, so any other difference still fails.
+  - the coordinator's raw `screener.items[].answer` text also differs (Alpha answers `yes`); the spec
+    compares the key and asserts the question/verdict/answer keys are present instead of forcing the
+    value, and the owner response must have no `answer` key at all.
 - `contracts/examples/snapshots/upload-{ok,errors,committing,committed}.json` and
   `current-loading.json` are scenario variants of operations already covered; they are exercised by
   `spec/requests/snapshot_uploads_spec.rb`, not duplicated here.

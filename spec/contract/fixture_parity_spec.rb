@@ -116,8 +116,14 @@ RSpec.describe "Contract fixture parity", type: :request do
     body["columns"].transform_values { |column| column.merge("leads" => column["leads"].sort_by { |card| card["id"] }) }
   end
 
-  # Alpha carries no web_sessions and answers every screener question `yes`, so the two web-derived
-  # fields and (for the coordinator) the answer text differ from the hand-authored example.
+  # --- lead-detail normalisation, limited to what integration-log.md documents ----------------
+  #
+  # Alpha carries no `web_sessions`, so the lead detail has no visit activity rows and its two
+  # web-derived source fields are null/0; the contract example is the hand-authored one that does have
+  # a visit. The example also hard-codes the pronoun "her" in `summary.next_step` where the app is
+  # gender-neutral (resolution: CCR — the example should change, the app is right).
+  # `assert_detail_fields` proves every normalised field is still present and shaped on the actual
+  # response, so nothing is merely deleted.
   def prepare_detail(body)
     copy = Marshal.load(Marshal.dump(body))
     copy["activity"].reject! { |entry| entry["kind"] == "visit" }
@@ -126,17 +132,29 @@ RSpec.describe "Contract fixture parity", type: :request do
     copy
   end
 
-  def prepare_detail_coordinator(body)
-    copy = prepare_detail(body)
-    copy["screener"]["items"].each { |item| item["answer"] = "yes" unless item["question"] == "How old are you?" }
-    copy
-  end
-
   def canonical_detail(body)
     copy = Marshal.load(Marshal.dump(body))
     copy["screener"]["items"] = copy["screener"]["items"].sort_by { |item| item["question"] }
-    copy["summary"].delete("next_step")
+    # Only the coordinator (the assigned one) sees raw answers; their text differs from the example,
+    # so the value is compared by key presence and asserted as a present string below.
+    copy["screener"]["items"].each { |item| item["answer"] = "<answer>" if item.key?("answer") }
+    # The example hard-codes "her"; the app is gender-neutral (CCR: the example should change). Applied
+    # to both sides so the rest of the sentence still has to match.
+    copy["summary"]["next_step"] = copy["summary"]["next_step"].to_s.gsub(/\b(her|them)\b/, "<pronoun>")
     copy
+  end
+
+  # Proves the fields `prepare_detail`/`canonical_detail` touch are present and shaped on the real
+  # response: no visit rows (Alpha has no web_sessions), the two source fields are the documented
+  # values, `next_step` exists, and every screener item carries its question and verdict.
+  def assert_detail_fields(actual)
+    expect(actual["activity"]).to be_an(Array)
+    expect(actual["activity"].map { |entry| entry["kind"] }).not_to include("visit")
+    expect(actual["activity"]).to all(include("at", "kind", "title"))
+    expect(actual.dig("source", "first_visit")).to be_nil
+    expect(actual.dig("source", "pages_viewed")).to eq(0)
+    expect(actual.dig("summary", "next_step")).to be_a(String).and be_present
+    expect(actual.dig("screener", "items")).to all(include("question", "verdict"))
   end
 
   AGENT_RESPOND = {
@@ -172,10 +190,10 @@ RSpec.describe "Contract fixture parity", type: :request do
     { name: "GET /leads/board", fixture: "leads/board.json", as: :owner, transform: :canonical_board,
       call: -> { get "/api/v1/leads/board" } },
     { name: "GET /leads/{id} (owner)", fixture: "leads/detail-owner.json", as: :owner,
-      prep: :prepare_detail, transform: :canonical_detail,
+      prep: :prepare_detail, transform: :canonical_detail, assert: :assert_detail_fields,
       call: -> { get "/api/v1/leads/#{lead('L4').external_id}" } },
     { name: "GET /leads/{id} (coordinator)", fixture: "leads/detail-coordinator.json", as: :coordinator,
-      prep: :prepare_detail_coordinator, transform: :canonical_detail,
+      prep: :prepare_detail, transform: :canonical_detail, assert: :assert_detail_fields,
       call: -> { get "/api/v1/leads/#{lead('L4').external_id}" } },
     { name: "GET /next_actions", fixture: "next-actions/next-actions.json", as: :owner,
       call: -> { get "/api/v1/next_actions" } },
@@ -213,6 +231,7 @@ RSpec.describe "Contract fixture parity", type: :request do
 
       expect(response).to have_http_status(contract_case[:status] || :ok)
       actual = response.parsed_body
+      send(contract_case[:assert], actual) if contract_case[:assert]
 
       expected = fixture(contract_case[:fixture])
       expected = send(contract_case[:prep], expected) if contract_case[:prep]
