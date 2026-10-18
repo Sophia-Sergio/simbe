@@ -21,6 +21,15 @@ it("uploadFiles posts multipart without a manual content type", async () => {
   const init = f.mock.calls[0][1];
   expect(init.body).toBeInstanceOf(FormData); expect(init.headers["Content-Type"]).toBeUndefined(); expect(init.headers["X-Requested-With"]).toBe("simbe");
 });
+it("uploadFiles sends every file under `files[]` so Rack keeps them all", async () => {
+  // A plain repeated `files` field makes Rack keep only the last part (the real API then validates
+  // 1 of 7 files); only `files[]` becomes an array.
+  const f = vi.fn().mockResolvedValue(new Response("{}", { status: 201 })); vi.stubGlobal("fetch", f);
+  await uploadFiles("/api/v1/snapshot_uploads", [new File(["a"], "leads.csv"), new File(["b"], "stage_history.csv")]);
+  const body = f.mock.calls[0][1].body as FormData;
+  expect(body.getAll("files[]").map((file) => (file as File).name)).toEqual(["leads.csv", "stage_history.csv"]);
+  expect(body.getAll("files")).toHaveLength(0);
+});
 it("maps a failed fetch to ApiError network_error", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
   await expect(jsonRequest("GET", "/api/v1/x")).rejects.toMatchObject({ status: 0, code: "network_error" });

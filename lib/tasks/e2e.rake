@@ -10,6 +10,12 @@ namespace :e2e do
     require Rails.root.join("spec/support/alpha_spend")
     agency = Agency.find_by!(slug: "harbor")
     Current.agency = agency
+    # Restore the documented Harbor config (docs/conventions/real-data.md): the journeys change the
+    # qualified definition in Settings, so a re-seed must put it back or the next run starts wrong.
+    agency.update!(timezone: "America/Los_Angeles", qualified_milestone: "consult_attended")
+    # A re-seed restores the day's open actions: without this a completion from a previous run
+    # (same Alpha `as_of`) would still read as done and the journeys would not start clean.
+    ActionCompletion.delete_all
     AlphaScenario.load!(agency)                # replaces; idempotent
     AlphaSpend.load!(agency)
     # logins: erin@harbor.test (owner), dana@harbor.test (coordinator "Dana Ortiz"), jess@harbor.test ("Jess Kim"), priya@harbor.test ("Priya Shah") — password simbe-dev-pass
@@ -24,6 +30,22 @@ namespace :e2e do
       user.password = "simbe-dev-pass"
       user.save!
     end
+  end
+
+  desc "Delete agencies a journey run created (name prefix) for a fresh sign-up; dev/test only"
+  task :reset, [ :prefix ] => :environment do |_, a|
+    abort "e2e:reset is dev/test only" unless Rails.env.development? || Rails.env.test?
+    prefix = a[:prefix].to_s
+    # A blank or one-character prefix would match every agency; require something specific.
+    abort "e2e:reset needs a name prefix of at least 4 characters (got #{prefix.inspect})" if prefix.strip.empty? || prefix.length < 4
+    # Sanitize the LIKE pattern so a prefix containing `%` or `_` is matched literally, never as a
+    # wildcard that could delete unrelated agencies (ActiveRecord::Base.sanitize_sql_like).
+    like = "#{ActiveRecord::Base.sanitize_sql_like(prefix)}%"
+    # Every tenant FK is ON DELETE CASCADE (app/packs/identity/app/models/agency.rb), so one
+    # statement removes the agency and its users, leads, snapshots and keys. The prefix keeps two
+    # journey files (or two Playwright projects) from deleting each other's in-flight agency.
+    removed = Agency.where("name LIKE ?", like).delete_all
+    puts "e2e:reset: removed #{removed} agency(ies) named #{prefix.inspect}*"
   end
 
   desc "Write the Alpha CSVs for browser upload tests"

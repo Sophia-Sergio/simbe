@@ -125,7 +125,7 @@ export const snapshotHandlers = [
     if (gated) return gated
     const form = await request.formData().catch(() => null)
     const files: string[] = []
-    if (form) for (const [key, value] of form.entries()) if (key === "files" && typeof value !== "string") files.push(value.name)
+    if (form) for (const [key, value] of form.entries()) if ((key === "files" || key === "files[]") && typeof value !== "string") files.push(value.name)
     const id = uuid()
     db.uploads.set(id, { files, report: null, status: "validating", progress: { phase: "storing", pct: 0 }, polls: 0, commitPolls: 0, commits: 0, snapshot: null })
     return HttpResponse.json({ id, status: "validating", progress: { phase: "storing", pct: 0 }, report: null, snapshot: null, error: null } satisfies SnapshotUpload, { status: 201 })

@@ -35,7 +35,12 @@ export async function jsonRequest<T = unknown>(method: string, path: string, bod
   return parse<T>(res);
 }
 export async function uploadFiles<T = unknown>(path: string, files: File[], signal?: AbortSignal): Promise<T> {
-  const form = new FormData(); files.forEach((f) => form.append("files", f));
+  const form = new FormData();
+  // `files[]`, not `files`: Rack's multipart parser collects repeated parts into an array only when
+  // the field name ends with `[]`. With a plain repeated name it keeps the LAST part alone, so the
+  // API would validate one of the seven exports. (Rails' own request specs post `files: [...]`,
+  // i.e. `files[]` on the wire.)
+  files.forEach((f) => form.append("files[]", f));
   const res = await send(path, { method: "POST", credentials: "same-origin", signal, headers: { Accept: "application/json", "X-Requested-With": "simbe" }, body: form });
   return parse<T>(res);
 }

@@ -55,7 +55,7 @@ RSpec.describe Ai::Client do
   end
 
   it "raises without an API key outside the test environment" do
-    stub_const("ENV", ENV.to_h.except("ANTHROPIC_API_KEY"))
+    stub_const("ENV", ENV.to_h.except(*%w[ANTHROPIC_API_KEY E2E_STUB_ANTHROPIC]))
     allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("development"))
     expect { described_class.new(:agent) }.to raise_error(Ai::Client::ConfigurationError, /ANTHROPIC_API_KEY/)
   end
@@ -63,5 +63,29 @@ RSpec.describe Ai::Client do
   it "falls back to a placeholder key in the test environment" do
     stub_const("ENV", ENV.to_h.except("ANTHROPIC_API_KEY"))
     expect(described_class.api_key).to eq("test")
+  end
+
+  it "replays the canned e2e answer (no provider call) and still records usage" do
+    stub_const("ENV", ENV.to_h.merge("E2E_STUB_ANTHROPIC" => "1"))
+    allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("development"))
+    ledger = Ai::Ledger.new(agency: agency, user: user, task: "agent")
+    reply = described_class.new(:agent).converse(messages: [ { role: "user", content: "q" } ], system: "s", ledger: ledger)
+    expect(reply[:stop_reason]).to eq("tool_use")
+    expect(reply[:content].first).to include("type" => "tool_use", "name" => "respond")
+    expect(reply[:content].first.dig("input", "chart", "title")).to eq("Cost per qualified lead")
+    expect(AiUsageEvent.find(ledger.event_ids.first)).to have_attributes(input_tokens: 812, output_tokens: 104)
+  end
+
+  it "never serves the canned answer outside development (test or production)" do
+    stub_const("ENV", ENV.to_h.merge("E2E_STUB_ANTHROPIC" => "1"))
+    allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("production"))
+    expect(described_class.e2e_stubbed?).to be(false)
+    allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("test"))
+    expect(described_class.e2e_stubbed?).to be(false)
+  end
+
+  it "hands every caller a fresh copy of the canned answer" do
+    described_class.e2e_response[:content].first["input"]["text"] = "mutated"
+    expect(described_class.e2e_response[:content].first["input"]["text"]).not_to eq("mutated")
   end
 end

@@ -12,6 +12,10 @@ const mockURL = `http://127.0.0.1:${mockPort}`
 
 export default defineConfig({
   testDir: "e2e",
+  // `e2e/support/**` holds the journeys' shared helpers and their vitest unit tests
+  // (`seed.test.ts`); Playwright must not collect them as specs (vitest's globals are not defined
+  // in a Playwright worker).
+  testIgnore: ["support/**"],
   outputDir: "e2e/test-results",
   reporter: [["list"]],
   // CI runners are slower than a laptop and the first requests wait on the Vite dev server compiling: allow a retry and a longer
