@@ -78,7 +78,13 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     AlphaSpend.load!(agency)
     @owner_conversation = AgentConversation.create!(agency: agency, user: owner, title: "mine")
     @dana_conversation = AgentConversation.create!(agency: agency, user: dana, title: "hers")
-    @upload = SnapshotUpload.create!(agency: agency, user: owner, status: "validated")
+    # Two non-in-flight uploads so show/commit/cancel each answer their documented success.
+    # The commit fixture carries a contract-shaped ok report (contracts/examples) so the response is
+    # conformant and commit reaches its 202 path rather than the 422 not-validated error.
+    validated_report = JSON.parse(Rails.root.join("contracts/examples/snapshots/upload-ok.json").read).fetch("report")
+    @upload_commit = SnapshotUpload.create!(agency: agency, user: owner, status: "validated",
+                                            progress: nil, report: validated_report)
+    @upload_cancel = SnapshotUpload.create!(agency: agency, user: owner, status: "validated", progress: nil)
     @delete_invitation = Signup::Invitations.issue!(agency: agency, invited_by: owner, email: "delete@harbor.test",
                                                     coordinator_name: "Dana Ortiz").first
     @preview_token = Signup::Invitations.issue!(agency: agency, invited_by: owner, email: "preview@harbor.test",
@@ -183,13 +189,36 @@ RSpec.describe "Role and tenancy matrix", type: :request do
            headers: probe, as: :json
       response.status
     },
-    "createSnapshotUpload" => ->(_p) { post "/api/v1/snapshot_uploads", params: { files: upload_files }, headers: probe; response.status },
-    "getSnapshotUpload" => ->(_p) { get "/api/v1/snapshot_uploads/#{@upload.id}", headers: probe; response.status },
-    "cancelSnapshotUpload" => ->(_p) { delete "/api/v1/snapshot_uploads/#{@upload.id}", headers: probe; response.status },
-    "commitSnapshotUpload" => ->(_p) { post "/api/v1/snapshot_uploads/#{@upload.id}/commit", headers: probe; response.status },
+    # Cancels the in-flight upload it just created so the fixture agency keeps no "validating" upload
+    # (the unique in-flight index would otherwise make commitSnapshotUpload answer 409, not its 202).
+    "createSnapshotUpload" => ->(_p) {
+      post "/api/v1/snapshot_uploads", params: { files: upload_files }, headers: probe
+      status = response.status
+      created = response.parsed_body["id"]
+      delete "/api/v1/snapshot_uploads/#{created}", headers: probe if created
+      status
+    },
+    "getSnapshotUpload" => ->(_p) { get "/api/v1/snapshot_uploads/#{@upload_commit.id}", headers: probe; response.status },
+    "cancelSnapshotUpload" => ->(_p) { delete "/api/v1/snapshot_uploads/#{@upload_cancel.id}", headers: probe; response.status },
+    "commitSnapshotUpload" => ->(_p) { post "/api/v1/snapshot_uploads/#{@upload_commit.id}/commit", headers: probe; response.status },
     "getCurrentSnapshot" => ->(_p) { get "/api/v1/snapshots/current", headers: probe; response.status },
     "getTeam" => ->(_p) { get "/api/v1/team", headers: probe; response.status }
   }.freeze
+
+  # The exact status each operation answers for its owner-column driver payload. Derived from the
+  # contract as the lowest documented 2xx; the overrides are the operations whose driver legitimately
+  # exercises a different documented success (so a 409/422 error path can never count as "exercised").
+  SUCCESS_OVERRIDES = {
+    # A first connect answers 201 (/a repeat connect answers 200 - both documented).
+    "connectAdPlatform" => 201,
+    # A validated upload with an ok report is claimed and queued: 202 committing. 409/422 are the
+    # already-in-progress / not-validated error paths the driver must not hit.
+    "commitSnapshotUpload" => 202
+  }.freeze
+
+  def expected_success(operation)
+    SUCCESS_OVERRIDES.fetch(operation[:id]) { operation[:statuses].select { |status| (200..299).cover?(status) }.min }
+  end
 
   def owner_only?(operation)
     return false if NOT_A_ROLE_GATE.include?(operation[:id])
@@ -226,7 +255,7 @@ RSpec.describe "Role and tenancy matrix", type: :request do
               [ status == 401, 401 ]
             end
           when :owner
-            [ operation[:statuses].include?(status) && ![ 401, 403, 404 ].include?(status), "a documented success" ]
+            [ status == expected_success(operation), expected_success(operation) ]
           when :coordinator
             owner_only?(operation) ? [ status == 403, 403 ] : [ status != 403, "not 403" ]
           when :foreign
