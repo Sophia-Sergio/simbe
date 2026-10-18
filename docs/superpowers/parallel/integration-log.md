@@ -75,6 +75,10 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
   `current-loading.json` are scenario variants of operations already covered; they are exercised by
   `spec/requests/snapshot_uploads_spec.rb`, not duplicated here.
 
+Shape comparison is strict: every element of an actual array is compared against the fixture's element
+shape, and an empty-vs-non-empty array difference fails unless the operation is listed in the spec's
+`SHAPE_EMPTY_ARRAY_EXCEPTIONS` with a reason (today only `GET /snapshots/current`'s `warnings`).
+
 ## Task 3 — Role and tenancy matrix
 
 - Added `spec/security/role_matrix_spec.rb`: the table is generated from the bundled OpenAPI (39

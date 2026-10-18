@@ -73,19 +73,35 @@ RSpec.describe "Contract fixture parity", type: :request do
   end
 
   # Same keys and value types; arrays are compared by their element shape and an empty array is
-  # accepted for any declared array (the snapshot warnings are empty on Alpha, non-empty in the
-  # Harbor-shaped example).
-  def assert_shape(actual, expected, path = "$")
+  # Operations where an empty-vs-non-empty array difference against the fixture is expected, with the
+  # reason. Anything else must fail, so a silently missing (or extra) array element can never pass.
+  SHAPE_EMPTY_ARRAY_EXCEPTIONS = {
+    "GET /snapshots/current" => "the example is the Harbor-sized export: it carries one normalized-source warning, Alpha carries none"
+  }.freeze
+
+  # Same keys and value types. Arrays are compared element by element against the fixture's element
+  # shape (the fixture arrays are homogeneous), and an empty-vs-non-empty difference fails unless the
+  # operation is listed in SHAPE_EMPTY_ARRAY_EXCEPTIONS.
+  def assert_shape(actual, expected, path = "$", operation: nil)
     case expected
     when Hash
       expect(actual).to be_a(Hash), "#{path}: expected an object, got #{actual.class}"
       expect(actual.keys.sort).to eq(expected.keys.sort), "#{path}: keys differ (#{actual.keys.sort} vs #{expected.keys.sort})"
-      expected.each { |key, value| assert_shape(actual[key], value, "#{path}.#{key}") }
+      expected.each { |key, value| assert_shape(actual[key], value, "#{path}.#{key}", operation: operation) }
     when Array
       expect(actual).to be_a(Array), "#{path}: expected an array, got #{actual.class}"
-      return if expected.empty? || actual.empty?
+      if expected.empty? != actual.empty?
+        expect(SHAPE_EMPTY_ARRAY_EXCEPTIONS).to(
+          have_key(operation),
+          "#{path}: fixture has #{expected.size} element(s), response has #{actual.size}: " \
+          "add #{operation.inspect} to SHAPE_EMPTY_ARRAY_EXCEPTIONS with a reason"
+        )
+        return
+      end
+      return if expected.empty?
 
-      assert_shape(actual.first, expected.first, "#{path}[0]")
+      expected.each { |element| assert_shape(element, expected.first, path, operation: operation) }
+      actual.each { |element| assert_shape(element, expected.first, path, operation: operation) }
     when String then expect(actual).to be_a(String), "#{path}: expected a string, got #{actual.class}"
     when Integer, Float then expect(actual).to be_a(Numeric), "#{path}: expected a number, got #{actual.class}"
     when TrueClass, FalseClass then expect(actual).to be_in([ true, false ]), "#{path}: expected a boolean"
@@ -204,7 +220,7 @@ RSpec.describe "Contract fixture parity", type: :request do
       expected = send(contract_case[:transform], expected) if contract_case[:transform]
 
       if contract_case[:shape]
-        assert_shape(actual, expected)
+        assert_shape(actual, expected, operation: contract_case[:name])
       else
         expect(normalize(actual)).to eq(normalize(expected))
       end
