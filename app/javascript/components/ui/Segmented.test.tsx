@@ -25,3 +25,14 @@ it("keeps three options on one line", () => {
   }
   expect(screen.getByRole("group", { name: "Range" })).toHaveClass("flex-nowrap")
 })
+
+it("draws its focus ring inside the button so the scroll container cannot clip it", () => {
+  render(<Segmented aria-label="Range" value="30d" onChange={() => {}} options={options} />)
+  // The track scrolls when a narrow toolbar cannot fit it, and a normal outline (offset 2px) would be cut
+  // off; the inset outline keeps the ring fully visible at every width.
+  expect(screen.getByRole("group", { name: "Range" })).toHaveClass("overflow-x-auto", "max-w-full")
+  for (const button of screen.getAllByRole("button")) {
+    expect(button).toHaveClass("focus-visible:-outline-offset-2")
+    expect(button).toHaveClass("min-h-11", "md:min-h-0", "min-w-11", "md:min-w-0")
+  }
+})

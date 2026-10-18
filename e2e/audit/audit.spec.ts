@@ -6,6 +6,7 @@ import {
   elementOverflow,
   focusOrder,
   fonts,
+  groupedFocusRings,
   reducedMotion,
   tapTargets,
 } from "./checks"
@@ -101,6 +102,7 @@ async function auditScreen(page: Page, screen: Screen, project: string, role: Sc
       ...(width < 860 ? await tapTargets(page) : []),
       ...(await axeViolations(page)),
       ...(width === 390 || width === 1280 ? await focusOrder(page) : []),
+      ...(width === 390 || width === 1280 ? await groupedFocusRings(page) : []),
       ...(await fonts(page)),
       ...(await reducedMotion(page)),
     ]

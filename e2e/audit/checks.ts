@@ -219,6 +219,61 @@ const isAllowedBrandButtonText = (page: Page, selector: string): Promise<boolean
 
 const MAX_TABS = 60
 
+/**
+ * Every control inside a `role="group"`/`role="tablist"` (the kit `Segmented`, `Tabs`, the pipeline chips
+ * and view toggles) shows a focus indicator that no clipping ancestor cuts off. The check focuses each
+ * control with a real keyboard move (Shift+Tab then Tab, so `:focus-visible` matches) and measures it;
+ * the segmented control's `overflow-x-auto` used to clip its 2px outline at every width.
+ */
+export async function groupedFocusRings(page: Page): Promise<Violation[]> {
+  const controls = page.locator('[role="group"] button, [role="tablist"] button')
+  const count = await controls.count()
+  const violations: Violation[] = []
+  for (let index = 0; index < count && violations.length < 6; index++) {
+    const control = controls.nth(index)
+    if (!(await control.isVisible())) continue
+    const name = (await control.getAttribute("aria-label")) ?? ((await control.textContent()) ?? "").trim().slice(0, 24)
+    await control.focus()
+    // Arrive by keyboard so the app's `:focus-visible` style (not the raw focus state) is measured.
+    await page.keyboard.press("Shift+Tab")
+    await page.keyboard.press("Tab")
+    const result = await page.evaluate(() => {
+      const element = document.activeElement as HTMLElement | null
+      if (!element) return { ok: false, why: "could not be focused" }
+      const style = getComputedStyle(element)
+      const width = parseFloat(style.outlineWidth) || 0
+      const offset = parseFloat(style.outlineOffset) || 0
+      const visibleOutline = style.outlineStyle !== "none" && width > 0
+      const visibleShadow = style.boxShadow !== "none"
+      if (!visibleOutline && !visibleShadow) return { ok: false, why: "shows no outline or box-shadow when focused" }
+      const outward = visibleOutline ? Math.max(0, width + offset) : 0
+      if (outward === 0) return { ok: true } // an inset indicator has nothing to clip
+      const rect = element.getBoundingClientRect()
+      const left = rect.left - outward
+      const right = rect.right + outward
+      const top = rect.top - outward
+      const bottom = rect.bottom + outward
+      for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        const ancestorStyle = getComputedStyle(ancestor)
+        if (ancestorStyle.overflowX === "visible" && ancestorStyle.overflowY === "visible") continue
+        const box = ancestor.getBoundingClientRect()
+        const clipLeft = box.left + ancestor.clientLeft
+        const clipRight = clipLeft + ancestor.clientWidth
+        const clipTop = box.top + ancestor.clientTop
+        const clipBottom = clipTop + ancestor.clientHeight
+        if (left < clipLeft - 0.5 || right > clipRight + 0.5 || top < clipTop - 0.5 || bottom > clipBottom + 0.5) {
+          const classes = typeof ancestor.className === "string" ? ancestor.className.split(/\s+/).slice(0, 3).join(".") : ""
+          return { ok: false, why: `has its focus ring clipped by <${ancestor.tagName.toLowerCase()} class="${classes}">` }
+        }
+      }
+      return { ok: true }
+    })
+    if (!result.ok) violations.push({ rule: "focus-ring", detail: `the grouped control "${name}" ${result.why}` })
+  }
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  return violations
+}
+
 /** The computed foreground/background, type and any translucent ancestor a failing contrast node renders with. */
 const contrastDetail = (page: Page, selector: string): Promise<string> =>
   page.evaluate((target) => {

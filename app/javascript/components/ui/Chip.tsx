@@ -24,7 +24,7 @@ export function Chip({
       aria-pressed={selected}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 md:min-h-0 ${
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium transition-colors focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:opacity-50 md:min-h-0 ${
         multiline ? "max-w-full whitespace-normal text-left" : "whitespace-nowrap"
       } ${
         selected
