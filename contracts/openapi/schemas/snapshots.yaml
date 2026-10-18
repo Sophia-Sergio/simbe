@@ -6,7 +6,7 @@ ReportIssue:
   type: object
   required: [code, message]
   properties:
-    code: { type: string, enum: [missing_file, bad_headers, bad_value, duplicate_key, orphan_row, agency_mismatch] }
+    code: { type: string, enum: [missing_file, bad_headers, bad_value, orphan_row, agency_mismatch] }
     file: { type: string }
     row: { type: [integer, 'null'] }
     message: { type: string }
@@ -14,8 +14,8 @@ ReportWarning:
   type: object
   required: [code, count, message]
   properties:
-    code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, source_aliases_normalized] }
-    count: { type: integer, description: "stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails)" }
+    code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, source_aliases_normalized, duplicate_rows_dropped] }
+    count: { type: integer, description: "stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails); duplicate_rows_dropped: rows of ONE file that repeat an earlier row's natural key (only the first is loaded; one warning per file, named in the message)" }
     message: { type: string }
 Report:
   type: object
@@ -34,7 +34,7 @@ Report:
       required: [files_matched, duplicates, screener_encrypted]
       properties:
         files_matched: { type: string, examples: ['7 of 7'] }
-        duplicates: { type: integer }
+        duplicates: { type: integer, description: "duplicate rows dropped across all files (not an error: only the first row of each natural key is loaded)" }
         screener_encrypted: { type: boolean }
     as_of: { $ref: './common.yaml#/Timestamp' }
 UploadStatus: { type: string, enum: [validating, validated, committing, committed, failed, cancelled, expired], description: "validated = validation finished (report.ok may still be false); failed = unexpected job error (see error)" }

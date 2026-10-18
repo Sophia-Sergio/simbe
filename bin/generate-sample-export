@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Synthetic, Harbor-shaped export (seven CSVs) for CI, demos and performance tests when the real exports are unavailable.
 
-  bin/generate-sample-export --out tmp/sample --leads 3500 --seed 7 [--agency-tag acme]
+  bin/generate-sample-export --out tmp/sample --leads 3500 --seed 7 [--agency-tag acme] [--errors]
+
+`--errors` then plants a known set of problems (duplicate rows, blank required values, an uppercase lead_id, orphan rows, a bad
+status and a non-numeric percent) and writes `<out>.notes.txt` listing them, to try the upload review screen and its messages.
 
 Same headers and the same *kinds* of mess as the real files: inconsistent `source` spellings (fb/Facebook/facebook/ig/...), blank
 campaigns, duplicate emails across leads, outcome reasons as labels, scheduled appointments, unsubmitted applications, paused leads.
@@ -34,6 +37,7 @@ def generate(out, n, seed, tag):
     end = datetime(2026, 10, 1, 5, 0, tzinfo=timezone.utc); start = end - timedelta(days=365)
     W = {k: csv.writer(open(os.path.join(out, k + ".csv"), "w", newline=""), lineterminator="\n") for k in HEAD}
     for k, h in HEAD.items(): W[k].writerow(h.split(","))
+    seen_contacts, seen_sessions = set(), set()
     for i in range(n):
         lid = str(uuid.UUID(int=rnd.getrandbits(128), version=4)); created = start + timedelta(seconds=rnd.randrange(int((end - start).total_seconds()) - 86400))
         fn, ln = rnd.choice(FIRST), rnd.choice(LAST)
@@ -60,11 +64,16 @@ def generate(out, n, seed, tag):
                              coord, STAGES[stage_i] if STAGES[stage_i] != "inquiry" else "pre_screen", outcome, reason, upd, paused])
         for s_, ts_ in hist: W["stage_history"].writerow([lid, s_, iso(ts_)])
         for k in range(rnd.choice([1, 1, 2, 3, 3, 4])):
-            W["contact_log"].writerow([lid, iso(min(end, created + timedelta(minutes=rnd.randint(5, 600) + k * 1440))), rnd.choice(["outbound", "outbound", "inbound"]), rnd.choice(["text", "call", "email"]), coord])
+            row = [lid, iso(min(end, created + timedelta(minutes=rnd.randint(5, 600) + k * 1440))), rnd.choice(["outbound", "outbound", "inbound"]), rnd.choice(["text", "call", "email"]), coord]
+            if tuple(row[:4]) not in seen_contacts:                                                    # a clamped timestamp could repeat a key; the importer would drop it
+                seen_contacts.add(tuple(row[:4])); W["contact_log"].writerow(row)
         for qn in QUESTIONS:
             ans = str(rnd.randint(21, 42)) if qn.startswith("How old") else rnd.choice(["Yes", "No"])
             W["screener_answers"].writerow([lid, iso(created), qn, ans, rnd.choices(["yes", "review", "no"], [85, 5, 10])[0]])
-        for _ in range(rnd.choice([1, 1, 2])): W["web_sessions"].writerow([lid, iso(created - timedelta(days=rnd.randint(0, 20))), "https://harbor.example/how-it-works", "/how-it-works|/faq", "https://www.google.com/", rnd.choice(["mobile", "desktop"])])
+        for _ in range(rnd.choice([1, 1, 2])):
+            row = [lid, iso(created - timedelta(days=rnd.randint(0, 20))), "https://harbor.example/how-it-works", "/how-it-works|/faq", "https://www.google.com/", rnd.choice(["mobile", "desktop"])]
+            if tuple(row[:2]) not in seen_sessions:                                                    # two sessions on the same day would share a key
+                seen_sessions.add(tuple(row[:2])); W["web_sessions"].writerow(row)
         if stage_i >= 2:
             st = dict(hist)[STAGES[2]]; done = stage_i >= 3 or rnd.random() < 0.3
             W["applications"].writerow([lid, iso(st), iso(st + timedelta(days=rnd.randint(1, 6))) if done else "", 100 if done else rnd.choice([20, 40, 60, 80]), "review_and_sign" if done else rnd.choice(SECTIONS[:4])])
@@ -72,6 +81,39 @@ def generate(out, n, seed, tag):
             bk = dict(hist)[STAGES[3]]; sf = bk + timedelta(days=rnd.randint(1, 8))
             W["appointments"].writerow([lid, iso(bk), iso(sf), "attended" if sf < end and rnd.random() < 0.86 else ("scheduled" if sf >= end else rnd.choice(["no_show", "cancelled"]))])
 
+def read(out, name):
+    with open(os.path.join(out, name + ".csv"), newline="") as f: return list(csv.reader(f))
+
+def write(out, name, rows):
+    with open(os.path.join(out, name + ".csv"), "w", newline="") as f: csv.writer(f, lineterminator="\n").writerows(rows)
+
+def plant_errors(out):
+    """Break the clean export in known ways; returns the notes describing what the upload review should say."""
+    notes = []
+    web = read(out, "web_sessions"); exact, conflicting = web[1:6], web[6:9]
+    web += [list(r) for r in exact] + [r[:5] + ["desktop" if r[5] == "mobile" else "mobile"] for r in conflicting]
+    write(out, "web_sessions", web); notes.append("web_sessions.csv: 8 duplicate rows (5 exact copies, 3 with the same key but a different device) -> warning, first of each kept")
+    contact = read(out, "contact_log"); contact += [list(r) for r in contact[1:5]]
+    write(out, "contact_log", contact); notes.append("contact_log.csv: 4 exact duplicate rows -> warning, first of each kept")
+    leads = read(out, "leads"); h = leads[0]; stage, created, lid = h.index("current_stage"), h.index("created_at"), h.index("lead_id")
+    leads[3][stage] = ""; leads[4][stage] = ""; leads[7][created] = ""; leads[9][lid] = leads[9][lid].upper()
+    write(out, "leads", leads)
+    notes += ["leads.csv: 2 rows with a blank current_stage (first at row 4) -> error", "leads.csv: 1 row with a blank created_at (first at row 8) -> error",
+              "leads.csv: 1 row where lead_id is not a lowercase UUID (first at row 10) -> error; that lead's rows in the other files then also show as orphans"]
+    screener = read(out, "screener_answers"); screener[2][screener[0].index("question")] = ""
+    write(out, "screener_answers", screener); notes.append("screener_answers.csv: 1 row with a blank question (row 3) -> error")
+    stages = read(out, "stage_history"); ghost = "00000000-0000-4000-8000-000000000000"
+    stages += [[ghost, "inquiry", "2026-09-01T00:00:00.000Z"], [ghost, "pre_screen", "2026-09-02T00:00:00.000Z"]]
+    write(out, "stage_history", stages); notes.append("stage_history.csv: 2 rows whose lead_id is not in leads.csv -> error")
+    appts = read(out, "appointments"); appts[1][appts[0].index("status")] = "maybe"
+    write(out, "appointments", appts); notes.append("appointments.csv: 1 row with an invalid status (row 2) -> error")
+    apps = read(out, "applications"); apps[1][apps[0].index("percent_complete")] = "abc"
+    write(out, "applications", apps); notes.append("applications.csv: 1 non-numeric percent_complete (row 2) -> error")
+    with open(out.rstrip("/") + ".notes.txt", "w") as f:
+        f.write("Planted problems (fictional data). The upload review should be blocked by the errors and announce the duplicates:\n\n- " + "\n- ".join(notes) + "\n")
+
 if __name__ == "__main__":
-    a = argparse.ArgumentParser(); a.add_argument("--out", required=True); a.add_argument("--leads", type=int, default=3500); a.add_argument("--seed", type=int, default=7); a.add_argument("--agency-tag", default="syn")
-    x = a.parse_args(); generate(x.out, x.leads, x.seed, x.agency_tag); print(f"wrote {x.leads} synthetic leads to {x.out}")
+    a = argparse.ArgumentParser(); a.add_argument("--out", required=True); a.add_argument("--leads", type=int, default=3500); a.add_argument("--seed", type=int, default=7); a.add_argument("--agency-tag", default="syn"); a.add_argument("--errors", action="store_true")
+    x = a.parse_args(); generate(x.out, x.leads, x.seed, x.agency_tag)
+    if x.errors: plant_errors(x.out)
+    print(f"wrote {x.leads} synthetic leads to {x.out}")

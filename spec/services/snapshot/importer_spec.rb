@@ -72,6 +72,22 @@ RSpec.describe Snapshot::Importer do
     expect(counts["leads"]).to eq(10)
   end
 
+  it "loads only the first of each duplicated row, matching what the report counted" do
+    path = File.join(dir, "stage_history.csv")
+    rows = File.readlines(path).reject(&:empty?)
+    File.write(path, (rows + [ rows[1], rows[1] ]).join)
+    leads = File.join(dir, "leads.csv")
+    lead_rows = File.readlines(leads).reject(&:empty?)
+    File.write(leads, (lead_rows + [ lead_rows[1] ]).join)
+
+    snapshot = described_class.call(agency: agency, dir: dir)
+
+    expect(counts["leads"]).to eq(10)
+    expect(counts["stage_events"]).to eq(rows.size - 1)
+    expect(snapshot.row_counts["stage_events"]).to eq(rows.size - 1)
+    expect(snapshot.warnings.map { _1["code"] }).to include("duplicate_rows_dropped")
+  end
+
   it "keeps another agency's data untouched" do
     other = create(:agency)
     described_class.call(agency: other, dir: AlphaScenario.copy_dir(:other_leads))

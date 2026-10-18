@@ -36,3 +36,6 @@ config/master.key
 # route probes written by specs; a killed run must not leave one behind in git
 app/packs/*/config/routes/zz_probe.rb
 app/packs/*/config/routes_root/zz_probe.rb
+
+# Generated sample exports (fictional; `bin/generate-sample-export --errors`)
+/db/sample_exports/

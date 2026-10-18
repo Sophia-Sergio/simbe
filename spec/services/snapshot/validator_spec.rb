@@ -29,15 +29,69 @@ RSpec.describe Snapshot::Validator do
     expect(described_class.call(agency: agency, dir: dir)[:errors].map { _1[:code] }).to include("bad_headers")
   end
 
-  it "rejects duplicate natural keys and orphan rows" do
+  it "rejects orphan rows, one issue per file with a count and the first row" do
     path = File.join(dir, "stage_history.csv")
     rows = File.readlines(path).reject(&:empty?)
-    File.write(path, (rows + [ rows[1], "00000000-0000-0000-0000-000000000000,inquiry,2026-09-01T00:00:00.000Z\n" ]).join)
+    orphan = "00000000-0000-4000-8000-000000000000"
+    File.write(path, (rows + [ "#{orphan},inquiry,2026-09-01T00:00:00.000Z\n", "#{orphan},pre_screen,2026-09-02T00:00:00.000Z\n" ]).join)
+
+    issues = described_class.call(agency: agency, dir: dir)[:errors].select { _1[:code] == "orphan_row" }
+    expect(issues.size).to eq(1)
+    expect(issues.first).to include(file: "stage_history.csv", row: rows.size + 1)
+    expect(issues.first[:message]).to eq(
+      "stage_history.csv has 2 rows whose lead_id is not in leads.csv (first at row #{rows.size + 1})"
+    )
+  end
+
+  it "keeps the first of each duplicated row, counts the rest per file and does not block" do
+    path = File.join(dir, "stage_history.csv")
+    rows = File.readlines(path).reject(&:empty?)
+    File.write(path, (rows + [ rows[1], rows[1], rows[2] ]).join)
+    leads = File.join(dir, "leads.csv")
+    lead_rows = File.readlines(leads).reject(&:empty?)
+    File.write(leads, (lead_rows + [ lead_rows[1] ]).join)
 
     report = described_class.call(agency: agency, dir: dir)
-    codes = report[:errors].map { _1[:code] }
-    expect(codes).to include("duplicate_key", "orphan_row")
-    expect(report[:checks][:duplicates]).to eq(1)
+
+    expect(report[:ok]).to be(true)
+    warnings = report[:warnings].select { _1[:code] == "duplicate_rows_dropped" }
+    expect(warnings.map { [ _1[:count], _1[:message] ] }).to contain_exactly(
+      [ 3, "stage_history.csv has 3 duplicate rows: we will keep just one of each" ],
+      [ 1, "leads.csv has 1 duplicate row: we will keep just one of each" ]
+    )
+    expect(report[:checks][:duplicates]).to eq(4)
+    # incoming is what will be loaded: the dropped copies are not counted.
+    expect(report[:diff][:leads]).to eq(current: 0, incoming: 10, delta: 10)
+    expect(report[:diff][:stage_events][:incoming]).to eq(rows.size - 1)
+  end
+
+  it "reports blank required values once per file and column, with the first row" do
+    path = File.join(dir, "leads.csv")
+    lines = File.readlines(path)
+    header = lines.first.chomp.split(",")
+    stage = header.index("current_stage")
+    blanked = lines.each_with_index.map do |line, index|
+      next line unless index == 2 || index == 3
+
+      cells = line.chomp.split(",", -1)
+      cells[stage] = ""
+      "#{cells.join(',')}\n"
+    end
+    File.write(path, blanked.join)
+
+    issue = described_class.call(agency: agency, dir: dir)[:errors].find { _1[:code] == "bad_value" }
+    expect(issue).to include(file: "leads.csv", row: 3)
+    expect(issue[:message]).to eq("leads.csv has 2 rows with a blank current_stage (first at row 3)")
+  end
+
+  it "rejects a lead_id that is not a lowercase UUID" do
+    path = File.join(dir, "leads.csv")
+    lines = File.readlines(path)
+    id = lines[1].split(",").first
+    File.write(path, lines.join.sub(id, id.upcase))
+
+    issue = described_class.call(agency: agency, dir: dir)[:errors].find { _1[:file] == "leads.csv" && _1[:code] == "bad_value" }
+    expect(issue[:message]).to eq("leads.csv has 1 row where lead_id is not a lowercase UUID (first at row 2)")
   end
 
   it "rejects unparseable timestamps with the row number" do
