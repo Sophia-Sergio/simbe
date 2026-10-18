@@ -33,6 +33,27 @@ RSpec.describe "Signup", type: :request do
     expect(response.parsed_body.dig("agency", "slug")).to match(/\Aagency-[a-z0-9]{6}\z/)
   end
 
+  # `parameterize` keeps underscores but the slug format is [a-z0-9-], so a name like `faker_agency`
+  # used to fail the Agency validation and be reported as a time zone problem.
+  it "accepts an agency name with underscores and builds a valid slug" do
+    post "/api/v1/signup", params: payload.deep_merge(agency: { name: "faker_agency" }), headers: headers, as: :json
+
+    expect(response).to have_http_status(:created)
+    expect(response.parsed_body.dig("agency", "name")).to eq("faker_agency")
+    expect(response.parsed_body.dig("agency", "slug")).to eq("faker-agency")
+  end
+
+  it "turns every underscore shape into a valid slug" do
+    { "a__b" => "a-b", "_x_" => "x", "Cafe Nina_2" => "cafe-nina-2" }.each_with_index do |(name, slug), index|
+      post "/api/v1/signup",
+           params: payload.deep_merge(user: { email: "u#{index}@new.test" }, agency: { name: name }),
+           headers: headers, as: :json
+
+      expect(response).to have_http_status(:created), "#{name.inspect} -> #{response.body}"
+      expect(response.parsed_body.dig("agency", "slug")).to eq(slug)
+    end
+  end
+
   it "rejects a taken email" do
     create(:user, email: "erin@new.test")
 
@@ -61,6 +82,15 @@ RSpec.describe "Signup", type: :request do
 
     expect(response).to have_http_status(:unprocessable_entity)
     expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+  end
+
+  it "names the agency name, not the time zone, when the name is blank" do
+    post_invalid(payload.deep_merge(user: { email: "e@new.test" }, agency: { name: "   " }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to match(/agency name/i)
+    expect(response.parsed_body.dig("error", "message")).not_to match(/time zone/i)
   end
 
   it "creates nothing when validation fails (transactional)" do

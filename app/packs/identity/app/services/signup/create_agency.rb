@@ -84,8 +84,10 @@ module Signup
 
     # Parameterized name, falling back to a random slug for names that parameterize to nothing
     # (`"!!!"`), then a numeric suffix while the slug is taken (`harbor`, `harbor-2`, …).
+    # `parameterize` keeps underscores, but the slug format is [a-z0-9-] (`Agency`), so underscores
+    # become spaces first: `faker_agency` -> `faker-agency`.
     def unique_slug(name)
-      base = name.to_s.parameterize.presence || "agency-#{SecureRandom.alphanumeric(6).downcase}"
+      base = name.to_s.tr("_", " ").parameterize.presence || "agency-#{SecureRandom.alphanumeric(6).downcase}"
       candidate = base
       suffix = 2
       while Agency.exists?(slug: candidate)
@@ -103,7 +105,19 @@ module Signup
         # signup payload rather than an agency conflict; keep the closed set of codes.
         Error.new("invalid_agency", "Check the account and agency details")
       else
-        Error.new("invalid_agency", "Pick a supported time zone and definition of qualified")
+        Error.new("invalid_agency", agency_error_message(error.record))
+      end
+    end
+
+    # The message names what actually failed: the wizard shows it under the agency name field, so
+    # blaming the time zone for a bad name (or slug) sends the user to the wrong place.
+    def agency_error_message(agency)
+      if agency.errors.include?(:name)
+        "Enter an agency name"
+      elsif agency.errors.include?(:slug)
+        "That agency name can't be used - try a different one"
+      else
+        "Pick a supported time zone and definition of qualified"
       end
     end
   end
