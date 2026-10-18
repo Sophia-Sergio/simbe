@@ -13,7 +13,9 @@ module Ai
 
     # The canned answer the Playwright real-stack journeys replay (W3-2 Task 4): the model must be
     # deterministic there, and the fixture mirrors the contract's agent example so the UI assertions
-    # (chart, "Open channels" action, follow-ups) are stable.
+    # (chart, "Open channels" action, follow-ups) are stable. It deliberately ignores the role and
+    # the question — one canned reply for every turn — and is only reachable in development
+    # (`e2e_stubbed?`); `Agent::ResponseSanitizer` still drops a route the role may not use.
     E2E_ANSWER_PATH = "spec/fixtures/agent/e2e_answer.json"
 
     attr_reader :model
@@ -30,7 +32,8 @@ module Ai
       Rails.env.development? && ENV["E2E_STUB_ANTHROPIC"] == "1"
     end
 
-    # The canned reply, shaped exactly like `#converse`'s return value.
+    # The canned reply, shaped exactly like `#converse`'s return value. Every caller gets a deep
+    # copy, so one turn mutating the hash (or a nested block) can never corrupt the next.
     def self.e2e_response
       @e2e_response ||= begin
         payload = JSON.parse(Rails.root.join(E2E_ANSWER_PATH).read)
@@ -43,6 +46,7 @@ module Ai
           }
         }
       end
+      @e2e_response.deep_dup
     end
 
     # The real key everywhere; the test environment falls back to a placeholder so specs

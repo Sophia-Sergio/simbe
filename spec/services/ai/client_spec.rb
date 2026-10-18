@@ -83,4 +83,9 @@ RSpec.describe Ai::Client do
     allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("test"))
     expect(described_class.e2e_stubbed?).to be(false)
   end
+
+  it "hands every caller a fresh copy of the canned answer" do
+    described_class.e2e_response[:content].first["input"]["text"] = "mutated"
+    expect(described_class.e2e_response[:content].first["input"]["text"]).not_to eq("mutated")
+  end
 end
