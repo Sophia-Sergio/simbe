@@ -49,7 +49,7 @@ export function isAccountValid(account: AccountDraft): boolean {
 const STEPS = [
   { title: "Create your account", subtitle: "Start your agency workspace in Simbe." },
   { title: "Set up your agency", subtitle: "This sets how Simbe counts success for your agency." },
-  { title: "Connect your ad accounts", subtitle: "Optional — connect now or later in Settings." },
+  { title: "Connect your ad accounts", subtitle: "A preview — connecting ad accounts is coming soon." },
   { title: "Load your data", subtitle: "Upload the seven exports from your CRM." },
   { title: "Invite your team", subtitle: "Add coordinators so they can work their leads." },
 ] as const
@@ -185,7 +185,7 @@ function Wizard({
       </Button>
     )
   } else if (step === 3 || step === 4) {
-    // Step 4 may continue at any time: a load that is still running finishes in the background.
+    // Step 3 is a display-only preview; step 4 may continue at any time (a running load finishes in the background).
     next = <Button onClick={() => setStep(step + 1)}>Continue</Button>
   }
 

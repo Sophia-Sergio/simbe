@@ -44,10 +44,9 @@ test.describe("journey 1 — new agency onboarding", () => {
     await page.screenshot({ path: shot("onboarding-01-agency", testInfo), fullPage: true })
     await page.getByRole("button", { name: "Continue" }).click()
 
-    // Step 3 — optional Meta connection.
+    // Step 3 — display-only preview of the ad-account connections.
     await expect(page.getByRole("heading", { name: "Connect your ad accounts" })).toBeVisible()
-    await page.getByRole("button", { name: "Connect" }).first().click()
-    await expect(page.getByRole("button", { name: "Connected" })).toBeVisible()
+    await expect(page.getByText("Coming soon", { exact: true })).toHaveCount(2)
     await page.screenshot({ path: shot("onboarding-02-meta", testInfo) })
     await page.getByRole("button", { name: "Continue" }).click()
 
