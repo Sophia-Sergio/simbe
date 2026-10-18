@@ -41,7 +41,7 @@ export function WizardShell({
           <BrandMark size={28} />
           <span className="font-display text-[18px] font-semibold text-ink">Simbe</span>
         </span>
-        <Link to="/signin" className="text-[13px] font-semibold text-brand-text">
+        <Link to="/signin" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-brand-text">
           Sign in instead
         </Link>
       </header>

@@ -132,9 +132,9 @@ it("Copy API key is disabled while only the masked key or no key is shown, and e
   await waitFor(() => expect(screen.getByRole("button", { name: "Copy API key" })).toBeEnabled())
 })
 
-it("the configuration Copy button is at least 36px tall (mobile tap target)", async () => {
+it("the configuration Copy button meets the mobile tap target", async () => {
   renderWithProviders(<ConnectPage />)
-  expect(await screen.findByRole("button", { name: "Copy configuration" })).toHaveClass("h-9")
+  expect(await screen.findByRole("button", { name: "Copy configuration" })).toHaveClass("h-11", "md:h-9")
 })
 
 it("a failed clipboard write shows the manual-copy toast", async () => {

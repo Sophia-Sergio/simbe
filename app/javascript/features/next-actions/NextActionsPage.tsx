@@ -45,7 +45,7 @@ function QueueWell({
       <div className="flex flex-col gap-1">
         <div className="flex items-start gap-2">
           <span aria-hidden className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${DOT_TONE[queue.tone]}`} />
-          <h2 className="flex-1 text-[14px] font-semibold text-ink">{queue.title}</h2>
+          <h2 className="min-w-0 flex-1 text-[14px] font-semibold text-ink">{queue.title}</h2>
           <Pill>{queue.count}</Pill>
         </div>
         <p className="text-[12px] text-ink-muted">{queue.hint}</p>
@@ -114,7 +114,7 @@ function PageSkeleton() {
         <Skeleton className="h-7 w-56" />
         <Skeleton className="h-4 w-72" />
       </div>
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 min-[860px]:grid-cols-4">
         {[0, 1, 2, 3].map((index) => (
           <Skeleton key={index} className="h-40 w-full" />
         ))}
@@ -207,7 +207,7 @@ export function NextActionsPage() {
           ))}
         </div>
       )}
-      <div className={isDesktop ? "grid gap-4 md:grid-cols-4" : "flex flex-col gap-4"}>
+      <div className={isDesktop ? "grid grid-cols-4 gap-4" : "flex flex-col gap-4"}>
         {chips ? well(selected) : data.queues.map(well)}
       </div>
     </>

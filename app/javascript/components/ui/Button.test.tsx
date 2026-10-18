@@ -17,7 +17,7 @@ it("renders each variant with its brand classes", () => {
   expect(screen.getByRole("button", { name: "Outline" })).toHaveClass("border-brand-border", "text-brand-text")
   expect(screen.getByRole("button", { name: "Secondary" })).toHaveClass("bg-surface", "border-line", "text-ink")
   expect(screen.getByRole("button", { name: "Ghost" })).toHaveClass("text-ink-secondary")
-  expect(screen.getByRole("button", { name: "Danger" })).toHaveClass("bg-danger", "text-white")
+  expect(screen.getByRole("button", { name: "Danger" })).toHaveClass("bg-danger-text", "text-white")
 })
 
 it("a pending button is busy, disabled, keeps its label and shows a spinner", async () => {
@@ -37,9 +37,9 @@ it("a pending button is busy, disabled, keeps its label and shows a spinner", as
   expect(onClick).not.toHaveBeenCalled()
 })
 
-it("renders a small button at 30px", () => {
+it("renders a small button at 30px on desktop", () => {
   render(<Button size="sm">Small</Button>)
-  expect(screen.getByRole("button", { name: "Small" })).toHaveClass("h-[30px]")
+  expect(screen.getByRole("button", { name: "Small" })).toHaveClass("md:h-[30px]")
 })
 
 it("renders an icon-only button through its aria-label", () => {

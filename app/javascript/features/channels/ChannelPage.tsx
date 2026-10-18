@@ -30,7 +30,7 @@ export function ChannelPage() {
   const list = useChannels(range)
 
   const back = (
-    <Link to={`/channels?range=${range}`} className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-text">
+    <Link to={`/channels?range=${range}`} className="inline-flex min-h-11 items-center gap-1 text-[13px] font-medium text-brand-text">
       <ArrowLeft aria-hidden className="h-4 w-4" />
       Channels
     </Link>

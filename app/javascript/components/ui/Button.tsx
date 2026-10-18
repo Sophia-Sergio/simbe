@@ -12,12 +12,15 @@ const VARIANT: Record<ButtonVariant, string> = {
   "outline-brand": "border border-brand-border text-brand-text hover:bg-brand-tint",
   secondary: "border border-line bg-surface text-ink hover:bg-subtle",
   ghost: "text-ink-secondary hover:bg-subtle",
-  danger: "bg-danger text-white hover:bg-danger-text",
+  // White 14px/600 on the semantic danger fill is ~3.9:1; the darker danger text token clears AA (~5.9:1),
+  // and the hover darkens further so it never drops below AA either.
+  danger: "bg-danger-text text-white hover:brightness-90",
 }
 
 const SIZE: Record<ButtonSize, string> = {
-  md: "h-9 px-4",
-  sm: "h-[30px] px-4",
+  // K1: interactive targets are at least 44px tall below the 860 breakpoint; desktop keeps its height.
+  md: "h-11 px-4 md:h-9",
+  sm: "h-11 px-4 md:h-[30px]",
 }
 
 function buttonClasses(variant: ButtonVariant, size: ButtonSize, className: string): string {

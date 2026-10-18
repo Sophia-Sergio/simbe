@@ -22,26 +22,31 @@ export function AppShell({ registry = defaultRegistry }: { registry?: Registry }
   const onSignOut = () => void signOut()
 
   const Shell = isDesktop ? DesktopShell : MobileShell
+  // The overlays are portals to document.body, so they do not need to live inside a shell. Keeping them
+  // outside the `isDesktop` branch means the 860px shell swap does not unmount an open panel (and its
+  // scroll position) while the route and URL state stay put.
+  const overlays = registry.overlays.map((overlay) => <overlay.component key={overlay.id} />)
   return (
-    <Shell
-      user={user}
-      agency={agency}
-      nav={registry.nav(role)}
-      title={title}
-      overlays={registry.overlays.map((overlay) => (
-        <overlay.component key={overlay.id} />
-      ))}
-      fab={registry.fabs.map((Fab, index) => (
-        <Fab key={index} />
-      ))}
-      topBarRight={registry.topBarRight.map((Item, index) => (
-        <Fragment key={index}>
-          <Item />
-        </Fragment>
-      ))}
-      onSignOut={onSignOut}
-    >
-      <Outlet />
-    </Shell>
+    <>
+      <Shell
+        user={user}
+        agency={agency}
+        nav={registry.nav(role)}
+        title={title}
+        overlays={[]}
+        fab={registry.fabs.map((Fab, index) => (
+          <Fab key={index} />
+        ))}
+        topBarRight={registry.topBarRight.map((Item, index) => (
+          <Fragment key={index}>
+            <Item />
+          </Fragment>
+        ))}
+        onSignOut={onSignOut}
+      >
+        <Outlet />
+      </Shell>
+      {overlays}
+    </>
   )
 }

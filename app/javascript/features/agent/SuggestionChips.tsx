@@ -24,7 +24,7 @@ export function SuggestionChips({
   return (
     <div className="flex flex-wrap gap-2">
       {suggestions.map((suggestion) => (
-        <Chip key={suggestion} onClick={() => onSelect(suggestion)}>
+        <Chip key={suggestion} multiline onClick={() => onSelect(suggestion)}>
           {suggestion}
         </Chip>
       ))}

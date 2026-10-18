@@ -27,7 +27,7 @@ export function SummaryTab({ detail }: { detail: LeadDetail }) {
   return (
     <div className="flex flex-col gap-3">
       <section data-testid="process" className="rounded-card border border-line p-4">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Process</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Process</h3>
         <ul className="mt-3 flex flex-col gap-2.5">
           {detail.process.map((step) => (
             <li key={step.key} className="flex items-center gap-2 text-[13px]">

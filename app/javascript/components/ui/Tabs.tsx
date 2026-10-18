@@ -56,8 +56,8 @@ export function Tabs<T extends string>({
             aria-selected={selected}
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.value)}
-            className={`min-w-0 flex-1 whitespace-nowrap rounded-full px-3 py-1 text-center text-[13px] font-medium transition-colors ${
-              selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink-secondary"
+            className={`min-h-11 min-w-0 flex-1 whitespace-nowrap rounded-full px-3 py-1 text-center text-[13px] font-medium transition-colors md:min-h-0 ${
+              selected ? "bg-surface text-ink shadow-card" : "text-ink-secondary hover:text-ink"
             }`}
           >
             {tab.label}

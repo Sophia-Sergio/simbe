@@ -72,22 +72,9 @@ export function Dropzone({
   }
 
   return (
-    <div
-      role="button"
-      data-testid="dropzone"
-      tabIndex={disabled ? -1 : 0}
-      aria-disabled={disabled || undefined}
-      onClick={openPicker}
-      onKeyDown={onKeyDown}
-      onDragOver={onDragOver}
-      onDragLeave={() => {
-        if (!disabled) setOver(false)
-      }}
-      onDrop={onDrop}
-      className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card border-2 border-dashed px-6 py-8 text-center transition-colors ${
-        over ? "border-brand bg-brand-tint" : "border-line-strong bg-surface"
-      } ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className}`}
-    >
+    <>
+      {/* The input is a sibling, not a child, of the role="button" surface: an interactive control nested
+          inside another interactive control is an axe `nested-interactive` violation. */}
       <input
         ref={inputRef}
         type="file"
@@ -97,15 +84,31 @@ export function Dropzone({
         aria-label={ariaLabel}
         tabIndex={-1}
         className="sr-only"
-        // The container opens the picker; the input's own click must not bubble back into it.
         onClick={(event) => event.stopPropagation()}
         onChange={(event) => {
           deliver(event.target.files)
           event.target.value = ""
         }}
       />
-      <p className="text-[14px] font-medium text-ink">{label}</p>
-      <p className="text-[12px] text-ink-muted">or click to browse</p>
-    </div>
+      <div
+        role="button"
+        data-testid="dropzone"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled || undefined}
+        onClick={openPicker}
+        onKeyDown={onKeyDown}
+        onDragOver={onDragOver}
+        onDragLeave={() => {
+          if (!disabled) setOver(false)
+        }}
+        onDrop={onDrop}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-card border-2 border-dashed px-6 py-8 text-center transition-colors ${
+          over ? "border-brand bg-brand-tint" : "border-line-strong bg-surface"
+        } ${disabled ? "cursor-not-allowed opacity-50" : ""} ${className}`}
+      >
+        <p className="text-[14px] font-medium text-ink">{label}</p>
+        <p className="text-[12px] text-ink-muted">or click to browse</p>
+      </div>
+    </>
   )
 }

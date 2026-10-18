@@ -153,14 +153,14 @@ function CrmExportsCard({
       {pending ? <LoadingStrip status={pending.status} progress={pending.progress} /> : null}
 
       {snapshot ? (
-        <ul className={`mt-3 ${pending ? "opacity-50" : ""}`} aria-hidden={pending ? true : undefined}>
+        <ul className={`mt-3 ${pending ? "opacity-70" : ""}`} aria-hidden={pending ? true : undefined}>
           {files.map((file) => (
             <li key={file.name} className="flex items-center gap-3 border-b border-line-subtle py-2.5 last:border-b-0">
               <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-success" />
               <span className="min-w-0 flex-1 truncate text-[13px] text-ink" title={file.name}>
                 {file.name}
               </span>
-              <span className="shrink-0 text-[12px] text-ink-muted">{`${formatInt(file.rows)} rows`}</span>
+              <span className="shrink-0 text-[12px] text-ink">{`${formatInt(file.rows)} rows`}</span>
             </li>
           ))}
         </ul>

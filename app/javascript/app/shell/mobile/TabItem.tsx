@@ -39,7 +39,7 @@ function Face({ item, label, active }: { item: NavItem; label: string; active: b
   )
 }
 
-const tone = (active: boolean) => (active ? "text-brand" : "text-ink-muted")
+const tone = (active: boolean) => (active ? "text-brand-text" : "text-ink-muted")
 
 function LinkTab({ item, label }: { item: NavItem; label: string }) {
   const { pathname } = useLocation()

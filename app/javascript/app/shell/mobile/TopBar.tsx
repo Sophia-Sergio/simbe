@@ -52,7 +52,7 @@ export function TopBar({ title, user, onSignOut }: { title: string; user: User; 
           className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden bg-transparent"
         >
           <div
-            className={`h-full bg-brand ${typeof pct === "number" ? "" : "w-1/3 animate-pulse"}`}
+            className={`h-full bg-brand motion-reduce:animate-none ${typeof pct === "number" ? "" : "w-1/3 animate-pulse"}`}
             style={typeof pct === "number" ? { width: `${Math.min(100, Math.max(0, pct))}%` } : undefined}
           />
         </div>

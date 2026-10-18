@@ -28,7 +28,7 @@ export function KpiCard({
   return (
     <div className="rounded-card border border-line bg-surface p-4 shadow-card">
       <p className="text-[13px] text-ink-muted">{label}</p>
-      <div className="mt-1 flex items-baseline gap-2">
+      <div className="mt-1 flex flex-wrap items-baseline gap-2">
         <span
           className={`font-display font-semibold tracking-tight text-ink ${
             size === "sm" ? "text-[24px]" : "text-[28px]"

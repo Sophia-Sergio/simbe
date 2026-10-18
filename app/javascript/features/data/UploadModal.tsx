@@ -170,7 +170,7 @@ function UploadModalContent({ onClose, agencyName }: UploadModalProps) {
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="absolute right-0 top-0 rounded-full p-1 text-ink-muted transition-colors hover:bg-subtle"
+          className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-subtle md:h-8 md:w-8"
         >
           <X aria-hidden className="h-4 w-4" />
         </button>

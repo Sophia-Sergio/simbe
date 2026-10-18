@@ -13,7 +13,7 @@ export function ColumnChips({
   onChange: (key: string) => void
 }) {
   return (
-    <div role="group" aria-label="Pipeline columns" className="flex gap-2 overflow-x-auto pb-1">
+    <div role="group" aria-label="Pipeline columns" className="relative flex gap-2 overflow-x-auto pb-1">
       {columns.map((column) => (
         <Chip key={column.key} selected={column.key === value} onClick={() => onChange(column.key)}>
           {/* The visual pieces are aria-hidden and a single sr-only string names the chip, so assistive tech

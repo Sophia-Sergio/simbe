@@ -270,7 +270,7 @@ it("is a full-screen sheet with icon-only controls on mobile", async () => {
   await screen.findByRole("heading", { name: "L4 Alpha" })
   expect(screen.getByRole("dialog")).toHaveAttribute("data-variant", "full")
   expect(screen.getByRole("button", { name: "Previous lead" }).textContent).toBe("")
-  expect(screen.getByRole("button", { name: "Close lead panel" })).toHaveClass("h-8")
+  expect(screen.getByRole("button", { name: "Close lead panel" })).toHaveClass("h-11", "md:h-8")
 })
 
 // jsdom has no layout, so this pins the classes that keep a long value inside its column; the real
