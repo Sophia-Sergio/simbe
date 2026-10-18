@@ -62,7 +62,7 @@ it("submits account and agency at the end of step 2, then lands on Ad accounts",
   ])
 })
 
-it("hides Back once the account exists, so signup can never be submitted twice", async () => {
+it("never offers steps 1–2 once the account exists, so signup can never be submitted twice", async () => {
   let posts = 0
   mockApi({
     "POST /api/v1/signup": () => {
@@ -81,13 +81,17 @@ it("hides Back once the account exists, so signup can never be submitted twice",
   await userEvent.click(screen.getByRole("button", { name: "Continue" }))
   await screen.findByRole("heading", { name: "Connect your ad accounts" })
 
-  for (const [heading, button] of [
-    ["Connect your ad accounts", "Continue"],
-    ["Load your data", "Continue"],
-    ["Invite your team", null],
+  for (const [heading, back, button] of [
+    ["Connect your ad accounts", false, "Continue"],
+    ["Load your data", true, "Continue"],
+    ["Invite your team", true, null],
   ] as const) {
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument()
+    // Back walks among steps 3–5 only; step 3 has nothing before it to go back to.
+    expect(screen.queryByRole("button", { name: "Back" }) !== null).toBe(back)
+    // The stepper never makes steps 1–2 clickable.
+    expect(screen.queryByRole("button", { name: /^Account:/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /^Agency:/ })).not.toBeInTheDocument()
     expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
     if (button) await userEvent.click(screen.getByRole("button", { name: button }))
   }
@@ -115,7 +119,7 @@ it("resumes an unfinished onboarding at step 3 for a signed-in owner", async () 
   renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
 
   expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
-  expect(screen.getByText("Step 3 of 5")).toBeInTheDocument()
+  expect(screen.getByText("Ad accounts: current")).toBeInTheDocument()
   expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument()
 })
@@ -278,3 +282,26 @@ it("keeps any other agency problem under the agency name", async () => {
   expect(screen.queryByText("Pick a supported time zone")).not.toBeInTheDocument()
 })
 
+
+it("moves among steps 3–5 with Back and the stepper, keeping the Load data step alive", async () => {
+  mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
+  renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
+  await screen.findByRole("heading", { name: "Connect your ad accounts" })
+
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  expect(screen.getByRole("heading", { name: "Load your data" })).toHaveFocus()
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  expect(screen.getByRole("heading", { name: "Invite your team" })).toHaveFocus()
+
+  // Step 4 stays mounted (hidden) so an upload in progress is not cancelled by leaving it.
+  expect(document.querySelector('[hidden] input[aria-label="CSV files"]')).not.toBeNull()
+
+  await userEvent.click(screen.getByRole("button", { name: "Back" }))
+  expect(screen.getByRole("heading", { name: "Load your data" })).toHaveFocus()
+  expect(screen.getByLabelText("CSV files")).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole("button", { name: "Ad accounts: done" }))
+  expect(screen.getByRole("heading", { name: "Connect your ad accounts" })).toHaveFocus()
+  await userEvent.click(screen.getByRole("button", { name: "Team: upcoming" }))
+  expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
+})

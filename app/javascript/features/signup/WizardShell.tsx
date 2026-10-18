@@ -8,8 +8,9 @@ import { Stepper } from "./Stepper"
  * The sign-up card: a public page (no app shell), centered at max 600px, with the mark above the
  * stepper, a `28px 24px` body and a footer bar that sticks to the bottom on mobile.
  *
- * Moving forward focuses the step heading so the new step is announced; moving back (a rejected
- * submit) leaves focus alone, so the step can put it on the field that needs fixing.
+ * Moving forward focuses the step heading so the new step is announced; so does any move among the
+ * authenticated steps (3–5), whose Back button vanishes with the step. Moving back to step 1–2 (a
+ * rejected submit) leaves focus alone, so the step can put it on the field that needs fixing.
  */
 export function WizardShell({
   step,
@@ -18,6 +19,8 @@ export function WizardShell({
   alert,
   children,
   footer,
+  firstReachable,
+  onGo,
 }: {
   step: number
   title: string
@@ -25,12 +28,14 @@ export function WizardShell({
   alert?: string | null
   children: ReactNode
   footer: ReactNode
+  firstReachable?: number
+  onGo?: (step: number) => void
 }) {
   const heading = useRef<HTMLHeadingElement>(null)
   const previousStep = useRef(step)
 
   useEffect(() => {
-    if (step > previousStep.current) heading.current?.focus()
+    if (step !== previousStep.current && (step > previousStep.current || step >= 3)) heading.current?.focus()
     previousStep.current = step
   }, [step])
 
@@ -52,7 +57,7 @@ export function WizardShell({
             <BrandMark size={40} />
           </div>
           <div className="rounded-none border-y border-line bg-surface shadow-modal md:rounded-modal md:border">
-            <Stepper step={step} />
+            <Stepper step={step} firstReachable={firstReachable} onGo={onGo} />
             <div className="px-6 py-7">
               <h1 ref={heading} tabIndex={-1} className="font-display text-[21px] font-semibold text-ink focus:outline-none">
                 {title}
