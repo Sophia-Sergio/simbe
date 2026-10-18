@@ -10,6 +10,9 @@ namespace :e2e do
     require Rails.root.join("spec/support/alpha_spend")
     agency = Agency.find_by!(slug: "harbor")
     Current.agency = agency
+    # Restore the documented Harbor config (docs/conventions/real-data.md): the journeys change the
+    # qualified definition in Settings, so a re-seed must put it back or the next run starts wrong.
+    agency.update!(timezone: "America/Los_Angeles", qualified_milestone: "consult_attended")
     AlphaScenario.load!(agency)                # replaces; idempotent
     AlphaSpend.load!(agency)
     # logins: erin@harbor.test (owner), dana@harbor.test (coordinator "Dana Ortiz"), jess@harbor.test ("Jess Kim"), priya@harbor.test ("Priya Shah") — password simbe-dev-pass
