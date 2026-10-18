@@ -112,7 +112,58 @@ and every cross-agency id is 404.
 
 ## Task 4 — Real-data run
 
-_(filled in below)_
+**Recorded per user ruling (2026-10-17). The full-data run was stopped; the oracle was not re-run
+end to end on full data. Steps 3, 4 and 5 are NOT run — do not read them as passed.**
+
+### Step 1 — Oracle is current: RUN ✅
+```
+bin/golden-numbers /Users/sergiotorres/code/simbe/handoff/takehome/exports --check
+golden.json is up to date
+```
+The exports are git-ignored and therefore absent from a linked worktree, so `bin/golden-numbers --check`
+run bare from `.worktrees/w3-1` prints `exports not found:
+/Users/sergiotorres/code/simbe/.worktrees/w3-1/handoff/takehome/exports/harbor` (exit 1). Passing the
+main checkout's exports dir (above) is how this lane checks the committed `golden.json`.
+
+### Step 2 — Backend real-data specs: SAMPLED SMOKE RUN, NOT THE FULL SUITE ⚠️
+`make spec ARGS="--tag real_data"` was started and **stopped after roughly an hour**: every example
+reloads ~625k Lakeside rows, so the full run is ~1 h. Per the user ruling it was **not** re-run.
+
+Instead the user ran the `:real_data` specs on a **5% sample of both exports**:
+
+```
+20 examples, 18 failures
+```
+- **Every failure is a count/value mismatch against `spec/real_data/golden.json`** — expected, because
+  the oracle asserts full-data counts and a 5% sample cannot equal them.
+- **Zero exceptions, zero PG errors, zero 500s.**
+- The upload API loaded exactly the sample's rows for **both** agencies.
+
+Conclusion: the real-data **pipeline** (reader → loader/upload → facts → metrics/leads/actions) runs
+clean on real-shaped data for Harbor and Lakeside, but the plan's acceptance for Step 2 —
+every `:real_data` spec passing for both agencies — is **NOT verified**, and the Lakeside
+**< 120 s timings are NOT measured**.
+
+### Step 3 — Browser journey with real files: NOT RUN ❌
+Not run (user ruling). It needs the full real exports uploaded through sign-up, which is the full-data
+run that was stopped. It would also live under `e2e/journeys/**` (W3-2's `Owns`) or the `@real`
+describe in `e2e/signup.spec.ts` (F-SIGNUP's `Owns`), neither of which this lane may edit.
+Golden assertions listed in the plan (`3,530`/`496`/`14.1%`, funnel `3,530/918/579/496/400/300`,
+Pipeline `90/11/15/321`, coordinators `Dana Ortiz 2,252 · 63.8%` / `overdue 19`, next-actions
+`6/22/3/3`, Lakeside `29,740` / `14,860` / `2,487`, third-agency `674`) are **NOT asserted here**.
+
+### Step 4 — Resilience (reload mid-import, kill the container): NOT RUN ❌
+Not run (user ruling).
+
+### Step 5 — Latency and screenshots: NOT RUN ❌
+The < 500 ms p95 latency assertions on Lakeside and the owner/coordinator/isolation walkthrough are
+**NOT measured**; no screenshots were captured for this lane. (UI/brand screenshots for the integration
+are W3-3's audit; W3-1 owns no UI.)
+
+### Lane note on the unrun browser work
+Task 4 Steps 3–4 are browser journeys. W3-1's `Owns` list has no `e2e/` path: `e2e/journeys/**` and
+`e2e/support/**` belong to **W3-2** (its Task 6 asserts exactly the golden numbers listed above), and
+`e2e/signup.spec.ts` belongs to **F-SIGNUP**. Under the lane rules this lane cannot author them.
 
 ## Task 5 — CI e2e-real job and finish
 

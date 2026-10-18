@@ -71,6 +71,12 @@ end
 
 The only real data is `handoff/takehome/exports/` (local only, never committed) and owners load it **by uploading the seven CSVs during sign-up**; this task proves that path end to end against the independent oracle `spec/real_data/golden.json` (`docs/conventions/real-data.md`).
 
+> **User ruling (2026-10-17):** the full `--tag real_data` run was stopped after ~1 h (each example
+> reloads ~625k Lakeside rows) and not re-run. Step 1 passed; Step 2 was run on a 5% sample of both
+> exports (20 examples, 18 value mismatches vs the full-data oracle, **zero** exceptions/PG errors/500s,
+> upload API loaded exactly the sample rows). Steps 3, 4 and 5 and the Lakeside < 120 s timing were
+> **not run**. Recorded in [`integration-log.md`](../parallel/integration-log.md).
+
 - [ ] **Step 1: Oracle is current:** `bin/golden-numbers --check` → `golden.json is up to date` (exports present locally).
 - [ ] **Step 2: Backend real-data specs:** `make spec ARGS="--tag real_data"` → every `:real_data` spec from B-INGEST, B-METRICS, B-LEADS, B-ACTIONS passes for **both** agencies (Harbor: *attended a consult*, Pacific; Lakeside: *reached records*, Central). Record timings (Lakeside import must be < 120 s).
 - [ ] **Step 3: Browser journey with real files** (Playwright `@real`, local, `E2E_API=real`, Rails running with Solid Queue in Puma): sign up `Harbor demo` → step 4 upload `handoff/takehome/exports/harbor/*.csv` → watch progress → open the dashboard and assert against golden: This week `3,530` leads / `496` qualified / `14.1%`; Funnel rows `3,530 / 918 / 579 / 496 / 400 / 300`; Channels `Facebook`, `Google`, … with `unattributed 29.6%` and `outside your main states 14.9%`; Pipeline column counts `90 / 11 / 15 / 321`; Coordinators: `Dana Ortiz 2,252 · 63.8%`, `overdue 19`; Next actions totals `6 / 22 / 3 / 3`. Repeat for **Lakeside** with `Reached medical records` + Central (leads `29,740` in Coordinators totals; This week 12m `14,860` leads / `2,487` qualified). Then sign up a **third** agency with **Harbor's files again** (Mountain, *Submitted an application*) and assert qualified = golden `qualified_all_time.application_submitted` = `674` while the first agency's numbers are unchanged (same data, many agencies, strict isolation).
