@@ -26,6 +26,8 @@ export type Screen = {
   mockOnly?: boolean
   /** Drives a state that is not URL-addressable (wizard step, overlay, upload modal). */
   drive?: (page: Page, id: string) => Promise<void>
+  /** A stateful drive (a server-side pending upload) is driven once, at the first width. */
+  driveOnce?: boolean
   notes?: string
 }
 
@@ -81,8 +83,12 @@ async function toStep5(page: Page, id: string) {
 
 /** Opens the "Ask Simbe" panel the way each shell does: FAB on desktop, the Ask tab on a phone. */
 async function openAgent(page: Page) {
-  if (currentWidth(page) >= 860) await page.getByRole("button", { name: "Ask Simbe" }).click()
-  else await page.getByRole("button", { name: "Ask" }).click()
+  const trigger =
+    currentWidth(page) >= 860
+      ? page.getByRole("button", { name: "Ask Simbe" })
+      : page.getByRole("button", { name: "Ask", exact: true })
+  await trigger.waitFor({ state: "visible" })
+  await trigger.click()
 }
 
 /** Opens the ⌘K palette the way each shell does: the chord on desktop, the top-bar icon on a phone. */
@@ -118,20 +124,20 @@ export const screens: Screen[] = [
   { id: "week-empty", path: "/?mock=empty", role: "owner", ready: "text=No data yet", mockOnly: true },
   { id: "funnel", path: "/funnel", role: "owner", ready: "text=Inquiry" },
   { id: "channels", path: "/channels", role: "owner", ready: "text=Facebook" },
-  { id: "channel-facebook", path: "/channels/Facebook", role: "owner", ready: "text=c-a" },
+  { id: "channel-facebook", path: "/channels/Facebook", role: "owner", ready: "text=Campaigns" },
   { id: "pipeline", path: "/pipeline", role: "owner", ready: 'section[aria-label="Action needed"]' },
   { id: "pipeline-list", path: "/pipeline?view=list", role: "owner", ready: 'input[aria-label="Filter leads"]' },
-  { id: "pipeline-lead-summary", path: `/pipeline?lead=${LEAD_L4}&tab=summary`, role: "owner", ready: '[role="dialog"]', notes: "lead panel open" },
-  { id: "pipeline-lead-screener", path: `/pipeline?lead=${LEAD_L4}&tab=screener`, role: "owner", ready: '[role="dialog"]', notes: "lead panel open" },
-  { id: "pipeline-lead-activity", path: `/pipeline?lead=${LEAD_L4}&tab=activity`, role: "owner", ready: '[role="dialog"]', notes: "lead panel open" },
-  { id: "pipeline-lead-source", path: `/pipeline?lead=${LEAD_L4}&tab=source`, role: "owner", ready: '[role="dialog"]', notes: "lead panel open" },
+  { id: "pipeline-lead-summary", path: `/pipeline?lead=${LEAD_L4}&tab=summary`, realPath: `/pipeline?lead=${LEAD_L4}&tab=summary`, role: "owner", ready: '[role="dialog"]:has-text("L4 Alpha")', notes: "lead panel open; the ready selector rejects the not-found dialog" },
+  { id: "pipeline-lead-screener", path: `/pipeline?lead=${LEAD_L4}&tab=screener`, realPath: `/pipeline?lead=${LEAD_L4}&tab=screener`, role: "owner", ready: '[role="dialog"]:has-text("L4 Alpha")', notes: "lead panel open; the ready selector rejects the not-found dialog" },
+  { id: "pipeline-lead-activity", path: `/pipeline?lead=${LEAD_L4}&tab=activity`, realPath: `/pipeline?lead=${LEAD_L4}&tab=activity`, role: "owner", ready: '[role="dialog"]:has-text("L4 Alpha")', notes: "lead panel open; the ready selector rejects the not-found dialog" },
+  { id: "pipeline-lead-source", path: `/pipeline?lead=${LEAD_L4}&tab=source`, realPath: `/pipeline?lead=${LEAD_L4}&tab=source`, role: "owner", ready: '[role="dialog"]:has-text("L4 Alpha")', notes: "lead panel open; the ready selector rejects the not-found dialog" },
   { id: "pipeline-loading", path: "/pipeline?mock=loading", role: "owner", ready: "text=Loading your data", mockOnly: true },
   { id: "pipeline-empty", path: "/pipeline?mock=empty", role: "owner", ready: "text=Load your data", mockOnly: true },
   { id: "coordinators", path: "/coordinators", role: "owner", ready: "text=Dana Ortiz" },
   { id: "coordinator-dana", path: "/coordinators/Dana%20Ortiz", role: "owner", ready: "main h1" },
   { id: "data", path: "/data", role: "owner", ready: "text=Meta Ads" },
   { id: "data-upload", path: "/data", role: "owner", ready: '[role="dialog"]', drive: openUpload, notes: "upload modal open" },
-  { id: "data-upload-review", path: "/data", role: "owner", ready: "text=Review changes", mockOnly: true, drive: uploadAndReview, notes: "upload modal, review state" },
+  { id: "data-upload-review", path: "/data", role: "owner", ready: "text=Review changes", mockOnly: true, drive: uploadAndReview, driveOnce: true, notes: "upload modal, review state" },
   { id: "connect", path: "/connect", role: "owner", ready: "text=Server URL" },
   { id: "settings", path: "/settings", role: "owner", ready: "text=Definition of qualified" },
   { id: "agent-panel", path: "/", role: "owner", ready: '[role="dialog"]', drive: openAgent, notes: "Ask Simbe open" },
@@ -141,5 +147,5 @@ export const screens: Screen[] = [
   { id: "next-actions", path: "/next-actions", role: "coordinator", ready: "main h1" },
   { id: "next-actions-empty", path: "/next-actions?mock=empty", role: "coordinator", ready: "text=Ask your agency owner to load data", mockOnly: true },
   { id: "pipeline-coordinator", path: "/pipeline", role: "coordinator", ready: 'section[aria-label="Action needed"]' },
-  { id: "pipeline-coordinator-screener", path: `/pipeline?lead=${LEAD_L4}&tab=screener`, role: "coordinator", ready: '[role="dialog"]', notes: "coordinator sees raw answers" },
+  { id: "pipeline-coordinator-screener", path: `/pipeline?lead=${LEAD_L4}&tab=screener`, realPath: `/pipeline?lead=${LEAD_L4}&tab=screener`, role: "coordinator", ready: '[role="dialog"]:has-text("L4 Alpha")', notes: "coordinator sees raw answers; the ready selector rejects the not-found dialog" },
 ]
