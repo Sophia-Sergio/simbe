@@ -144,6 +144,9 @@ test.describe("responsive", () => {
     // which is what makes the scroll assertion meaningful at both edges.
     const SHORT = 420
     const OFFSET = 80
+    // Chromium's scroll anchoring can nudge a scroll offset by a few pixels when the content above the
+    // viewport reflows during the shell swap; a reset (the failure this guards against) drops it to 0.
+    const TOLERANCE = 8
     await page.setViewportSize({ width: 859, height: SHORT })
     await page.goto(`/pipeline?lead=${LEAD_L4}&tab=screener`)
     const dialog = page.locator('[role="dialog"]')
@@ -202,8 +205,8 @@ test.describe("responsive", () => {
             detail: `the panel content no longer overflows at ${width}px (max ${state.max}), so restoration cannot be asserted`,
           })
         }
-        if (Math.abs(state.top - offset) > 1) {
-          issues.push({ rule: "responsive", detail: `scrollTop at ${width}px is ${state.top}, expected ${offset} (max ${state.max})` })
+        if (Math.abs(state.top - offset) > TOLERANCE) {
+          issues.push({ rule: "responsive", detail: `scrollTop at ${width}px is ${state.top}, expected ${offset} (±${TOLERANCE}, max ${state.max})` })
         }
       }
     }
