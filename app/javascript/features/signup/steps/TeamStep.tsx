@@ -20,8 +20,19 @@ function unknownCoordinator(error: ApiError): string {
   return "Pick one of the coordinators in your data"
 }
 
-/** Step 5: invite coordinators (email + a name that exists in the data) and open the dashboard. */
-export function TeamStep({ owner }: { owner: User | null }) {
+/** Why the Invite button is still disabled, in the user's terms. */
+function inviteHint(emailValid: boolean, coordinatorPicked: boolean): string {
+  if (!emailValid && !coordinatorPicked) return "Enter an email and choose a coordinator to invite."
+  if (!emailValid) return "Enter a valid email to invite."
+  return "Choose a coordinator to invite."
+}
+
+/**
+ * Step 5: invite coordinators (email + a name that exists in the data) and open the dashboard.
+ * Optional: a coordinator's login is tied to a coordinator name in the loaded data, so the picker
+ * is empty until step 4 has run (`onLoadData` takes the user back to it).
+ */
+export function TeamStep({ owner, onLoadData }: { owner: User | null; onLoadData?: () => void }) {
   const team = useTeam()
   const names = useCoordinatorNames()
   const invite = useInviteCoordinator()
@@ -33,7 +44,9 @@ export function TeamStep({ owner }: { owner: User | null }) {
   const [formError, setFormError] = useState<string | null>(null)
 
   const options = (names.data?.names ?? []).map((name) => ({ value: name, label: name }))
-  const ready = EMAIL.test(email.trim()) && coordinator !== ""
+  const emailValid = EMAIL.test(email.trim())
+  const ready = emailValid && coordinator !== ""
+  const noCoordinators = names.isSuccess && options.length === 0
   const ownerUser = team.data?.users.find((user) => user.role === "owner") ?? owner
   const invitations = team.data?.invitations ?? []
   // Everyone who already has a seat or an invitation: inviting them again would be a duplicate.
@@ -77,6 +90,7 @@ export function TeamStep({ owner }: { owner: User | null }) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3">
+        <p className="text-[13px] text-ink-muted">Optional — you can invite coordinators later from your dashboard.</p>
         <Field label="Email" error={emailError ?? undefined}>
           <Input
             type="email"
@@ -88,18 +102,35 @@ export function TeamStep({ owner }: { owner: User | null }) {
             }}
           />
         </Field>
-        <Field label="Coordinator" error={coordinatorError ?? undefined}>
-          <Select
-            aria-label="Coordinator"
-            options={options}
-            value={coordinator}
-            onChange={(value) => {
-              setCoordinator(value)
-              setCoordinatorError(null)
-            }}
-            placeholder="Choose a coordinator"
-          />
-        </Field>
+        {noCoordinators ? (
+          <div className="flex flex-col items-start gap-1 rounded-card border border-line bg-subtle p-3">
+            <p className="text-[13px] text-ink-secondary">
+              No coordinators yet. Coordinators come from your CRM data, so load it first (step 4).
+            </p>
+            {onLoadData ? (
+              <button type="button" onClick={onLoadData} className="inline-flex min-h-11 items-center text-[13px] font-semibold text-brand-text">
+                Go to Load your data
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <Field
+            label="Which coordinator is this?"
+            hint="Pick who they are in your data. They will only see that coordinator's leads."
+            error={coordinatorError ?? undefined}
+          >
+            <Select
+              aria-label="Coordinator"
+              options={options}
+              value={coordinator}
+              onChange={(value) => {
+                setCoordinator(value)
+                setCoordinatorError(null)
+              }}
+              placeholder="Choose a coordinator"
+            />
+          </Field>
+        )}
         {formError ? (
           <p role="alert" className="text-[12px] font-medium text-danger-text">
             {formError}
@@ -108,6 +139,7 @@ export function TeamStep({ owner }: { owner: User | null }) {
         <Button className="self-start" leftIcon={<UserPlus aria-hidden className="h-4 w-4" />} disabled={!ready} pending={send.pending} onClick={() => void send.run()}>
           Invite
         </Button>
+        {!ready && !noCoordinators ? <p className="text-[12px] text-ink-muted">{inviteHint(emailValid, coordinator !== "")}</p> : null}
       </div>
 
       <ul className="flex flex-col divide-y divide-line-subtle">

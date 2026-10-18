@@ -69,3 +69,27 @@ it("offers Open my dashboard as a link to the app root", () => {
 
   expect(screen.getByRole("link", { name: "Open my dashboard" })).toHaveAttribute("href", "/")
 })
+
+it("says why Invite is disabled and that the step is optional", async () => {
+  renderWithProviders(<TeamStep owner={null} />)
+
+  expect(screen.getByText(/^Optional — you can invite coordinators later/)).toBeInTheDocument()
+  expect(screen.getByText("Enter an email and choose a coordinator to invite.")).toBeInTheDocument()
+
+  await userEvent.type(screen.getByLabelText("Email"), "sam@harbor.test")
+  expect(screen.getByText("Choose a coordinator to invite.")).toBeInTheDocument()
+  expect(screen.getByText(/only see that coordinator's leads/)).toBeInTheDocument()
+})
+
+it("explains an empty coordinator list and sends the owner back to the data step", async () => {
+  mockApi({ "GET /api/v1/coordinator_names": { names: [] } })
+  const onLoadData = vi.fn()
+  renderWithProviders(<TeamStep owner={null} onLoadData={onLoadData} />)
+
+  expect(await screen.findByText(/No coordinators yet/)).toBeInTheDocument()
+  expect(screen.queryByLabelText("Coordinator")).not.toBeInTheDocument()
+  expect(screen.queryByText("Choose a coordinator to invite.")).not.toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole("button", { name: "Go to Load your data" }))
+  expect(onLoadData).toHaveBeenCalledOnce()
+})

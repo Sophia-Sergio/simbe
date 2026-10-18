@@ -235,7 +235,7 @@ function Wizard({
           <LoadDataStep agencyName={agencyName} onSkip={() => setStep(5)} />
         </div>
       ) : null}
-      {step === 5 ? <TeamStep owner={owner} /> : null}
+      {step === 5 ? <TeamStep owner={owner} onLoadData={() => go(4)} /> : null}
     </WizardShell>
   )
 }
