@@ -47,7 +47,9 @@ module App
     Rails.autoloaders.main.ignore(*Dir["#{root}/app/packs/*/config"])
 
     # Screener answers are health data (docs/conventions/sensitive-data.md): encrypted at rest.
-    # Keys come from the environment (.env; see .env.example). Tests use fixed, non-secret keys.
+    # Keys come from the environment (.env; see .env.example). Tests and local development fall back
+    # to fixed, non-secret keys (development only ever holds fictional data), so a fresh checkout can
+    # load a snapshot without setting anything up; set the two variables to use your own.
     # Production fails fast at boot rather than mid-upload. No deterministic key: no encrypted
     # column is looked up by exact value, and `encrypts` would otherwise be non-deterministic.
     if Rails.env.production?
@@ -56,9 +58,9 @@ module App
       end
     end
     config.active_record.encryption.primary_key =
-      ENV["AR_ENCRYPTION_PRIMARY_KEY"].presence || ("test-primary-key" if Rails.env.test?)
+      ENV["AR_ENCRYPTION_PRIMARY_KEY"].presence || ("#{Rails.env}-primary-key" if Rails.env.local?)
     config.active_record.encryption.key_derivation_salt =
-      ENV["AR_ENCRYPTION_KEY_DERIVATION_SALT"].presence || ("test-key-derivation-salt" if Rails.env.test?)
+      ENV["AR_ENCRYPTION_KEY_DERIVATION_SALT"].presence || ("#{Rails.env}-key-derivation-salt" if Rails.env.local?)
 
     # Configuration for the application, engines, and railties goes here.
     #
