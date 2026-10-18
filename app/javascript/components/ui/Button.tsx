@@ -12,7 +12,8 @@ const VARIANT: Record<ButtonVariant, string> = {
   "outline-brand": "border border-brand-border text-brand-text hover:bg-brand-tint",
   secondary: "border border-line bg-surface text-ink hover:bg-subtle",
   ghost: "text-ink-secondary hover:bg-subtle",
-  danger: "bg-danger text-white hover:bg-danger-text",
+  // White 14px/600 on `danger` (#E5484D) is ~3.9:1; the darker `danger.text` token clears AA (~5.9:1).
+  danger: "bg-danger-text text-white hover:bg-danger",
 }
 
 const SIZE: Record<ButtonSize, string> = {

@@ -29,7 +29,7 @@ export function RecommendationCard({
       </div>
       <h3 className="mt-2 text-[15px] font-semibold text-ink">{rec.title}</h3>
       <p className="mt-1 text-[13px] text-ink-secondary">{rec.why}</p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-3">
         <Button variant="outline-brand" size="sm" onClick={() => onOpen(rec.cta.route)}>
           {rec.cta.label}
         </Button>

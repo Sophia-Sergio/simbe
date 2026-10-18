@@ -19,7 +19,7 @@ export function Segmented<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className={`inline-flex flex-nowrap items-center gap-0.5 rounded-full bg-subtle p-0.5 ${className}`}
+      className={`inline-flex flex-nowrap items-center gap-1 rounded-full bg-subtle p-0.5 ${className}`}
     >
       {options.map((option) => {
         const selected = option.value === value
