@@ -13,6 +13,9 @@ namespace :e2e do
     # Restore the documented Harbor config (docs/conventions/real-data.md): the journeys change the
     # qualified definition in Settings, so a re-seed must put it back or the next run starts wrong.
     agency.update!(timezone: "America/Los_Angeles", qualified_milestone: "consult_attended")
+    # A re-seed restores the day's open actions: without this a completion from a previous run
+    # (same Alpha `as_of`) would still read as done and the journeys would not start clean.
+    ActionCompletion.delete_all
     AlphaScenario.load!(agency)                # replaces; idempotent
     AlphaSpend.load!(agency)
     # logins: erin@harbor.test (owner), dana@harbor.test (coordinator "Dana Ortiz"), jess@harbor.test ("Jess Kim"), priya@harbor.test ("Priya Shah") — password simbe-dev-pass

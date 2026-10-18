@@ -65,13 +65,9 @@ function withLock<T>(work: () => T): T {
   }
 }
 
-let seeded = false
-
-/** Loads the Alpha dataset + the owner/coordinator logins; idempotent, once per worker. */
+/** Loads the Alpha dataset + the owner/coordinator logins. Idempotent; run in every `beforeAll`. */
 export function seed(): void {
-  if (seeded) return
   withLock(() => rails("e2e:seed"))
-  seeded = true
 }
 
 /** Drops agencies a previous run created (name prefix), then reseeds Alpha. */
@@ -80,7 +76,6 @@ export function reset(prefix = "E2E "): void {
     rails(`e2e:reset[${prefix}]`)
     rails("e2e:seed")
   })
-  seeded = true
 }
 
 const alphaDir = resolve(repo, "tmp/e2e-alpha")
