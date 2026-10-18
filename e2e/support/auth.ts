@@ -1,5 +1,6 @@
 import { expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
+import { isDesktop } from "./viewport"
 
 // Sign-in against the real stack. The mock projects use the MSW placeholder password `x`; the real
 // API needs the logins `rails e2e:seed` creates (`lib/tasks/e2e.rake`).
@@ -39,4 +40,15 @@ export async function signIn(page: Page, who: Who, query = ""): Promise<void> {
     break
   }
   await expect(page.locator("[data-shell]")).toBeVisible({ timeout: 20_000 })
+}
+
+/** Signs out the way each shell does: the sidebar button on desktop, the Account sheet on mobile. */
+export async function signOut(page: Page): Promise<void> {
+  if (isDesktop(page)) {
+    await page.getByRole("button", { name: "Sign out", exact: true }).first().click()
+  } else {
+    await page.getByRole("button", { name: "Account" }).click()
+    await page.getByRole("dialog", { name: "Account" }).getByRole("button", { name: "Sign out" }).click()
+  }
+  await expect(page).toHaveURL(/\/signin$/)
 }

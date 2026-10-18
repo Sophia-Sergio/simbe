@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test"
-import type { Page } from "@playwright/test"
+import type { Locator, Page } from "@playwright/test"
 import { isDesktop } from "./viewport"
 
 // Navigation by role: the desktop sidebar and the mobile tab bar / More sheet expose the same
@@ -52,4 +52,13 @@ export async function navTo(page: Page, destination: Destination): Promise<void>
     await page.getByRole("dialog", { name: "More" }).getByRole("link", { name: label(target.more ?? destination) }).click()
   }
   await expect(page.locator("[data-shell]")).toBeVisible()
+}
+
+/** Opens "Ask Simbe" the way the user does — the FAB on desktop, the Ask tab on mobile. */
+export async function openAgent(page: Page): Promise<Locator> {
+  if (isDesktop(page)) await page.getByRole("button", { name: "Ask Simbe" }).click()
+  else await page.getByRole("button", { name: "Ask", exact: true }).click()
+  const panel = page.getByRole("dialog", { name: "Ask Simbe" })
+  await expect(panel).toBeVisible()
+  return panel
 }
