@@ -14,7 +14,7 @@ require "csv"
 class Snapshot
   module Validator
     # Blocking error codes (contracts/openapi/schemas/snapshots.yaml#/ReportIssue).
-    ERROR_CODES = %w[missing_file bad_headers bad_value duplicate_key orphan_row agency_mismatch].freeze
+    ERROR_CODES = %w[missing_file bad_headers bad_value orphan_row agency_mismatch].freeze
 
     TABLES = %i[
       leads stage_events contacts screener_answers web_sessions appointments applications
@@ -32,16 +32,23 @@ class Snapshot
       applications: "applications.csv"
     }.freeze
 
-    # Natural keys, unique per agency (spec 2002 decision 2). Rows linked by `:external_id`.
-    NATURAL_KEYS = {
-      leads: %i[external_id],
-      stage_events: %i[external_id stage],
-      contacts: %i[external_id contacted_at direction channel],
+    NATURAL_KEYS = Dedupe::NATURAL_KEYS
+
+    # Columns the database cannot store a row without (NOT NULL) plus the natural-key parts, so a blank
+    # one is reported here with its row instead of failing the load later.
+    REQUIRED = {
+      leads: %i[external_id created_at current_stage outcome],
+      stage_events: %i[external_id stage entered_at],
+      contacts: %i[external_id contacted_at],
       screener_answers: %i[external_id question],
       web_sessions: %i[external_id started_at],
       appointments: %i[external_id booked_at],
       applications: %i[external_id started_at]
     }.freeze
+
+    # Lead ids must be lowercase, hyphenated UUIDs: the importer links child rows to leads through the
+    # id Postgres stores, which is always that form.
+    UUID = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/
 
     CHILD_TABLES = %i[
       stage_events contacts screener_answers web_sessions appointments applications
@@ -71,24 +78,22 @@ class Snapshot
       rows ||= Reader.call(dir)
       errors = reader_errors(rows) + header_errors(dir) + missing_file_errors(dir)
 
-      duplicates = duplicate_keys(rows)
-      duplicates.each { |table, key| push(errors, duplicate_issue(table, key)) }
+      dropped = Dedupe.dropped_counts(rows)
 
-      orphans = orphan_external_ids(rows)
-      orphans.each { |(table, external_id)| push(errors, orphan_issue(table, external_id)) }
-
+      required_errors(rows).each { |issue| push(errors, issue) }
+      orphan_errors(rows).each { |issue| push(errors, issue) }
       enum_errors(rows).each { |issue| push(errors, issue) }
       push(errors, mismatch_issue) if agency_mismatch?(agency, rows)
 
       {
         ok: errors.empty?,
         errors: errors,
-        warnings: warnings(rows),
+        warnings: duplicate_row_warnings(dropped) + warnings(rows),
         ignored: ignored || ignored_files(dir),
-        diff: diff(agency, rows),
+        diff: diff(agency, rows, dropped),
         checks: {
           files_matched: "#{present_files(dir).size} of #{Constants::REQUIRED_FILES.size}",
-          duplicates: duplicates.size,
+          duplicates: dropped.values.sum,
           screener_encrypted: true
         },
         as_of: AsOf.call(rows)
@@ -132,62 +137,69 @@ class Snapshot
       nil
     end
 
-    # [[table, key_tuple], ...] for every natural key that appears more than once.
-    def self.duplicate_keys(rows)
-      NATURAL_KEYS.flat_map do |table, columns|
-        seen = Hash.new(0)
-        rows[table].each { |row| seen[columns.map { |column| row[column] }] += 1 }
-        seen.select { |_key, count| count > 1 }.keys.map { |key| [ table, key ] }
-      end
-    end
+    # Blank required cells and malformed lead ids, one issue per file and column with the count and
+    # the first offending row (row = the record's position in the file, the header being row 1).
+    def self.required_errors(rows)
+      tally = Tally.new
+      REQUIRED.each do |table, columns|
+        rows[table].each_with_index do |row, index|
+          columns.each do |column|
+            next unless row[column].nil?
 
-    def self.duplicate_issue(table, key)
-      columns = NATURAL_KEYS.fetch(table).join(", ")
-      issue("duplicate_key", file: FILE_FOR.fetch(table),
-                             message: "Duplicate (#{columns}) in #{FILE_FOR.fetch(table)}")
-    end
+            tally.add([ table, column, :blank ], index + 2)
+          end
+          next unless table == :leads && row[:external_id] && !UUID.match?(row[:external_id])
 
-    # [[table, external_id], ...] unique, for child rows whose lead_id is not in leads.csv.
-    def self.orphan_external_ids(rows)
-      lead_ids = {}
-      rows[:leads].each { |row| lead_ids[row[:external_id]] = true }
-      seen = {}
-      orphans = []
-      CHILD_TABLES.each do |table|
-        rows[table].each do |row|
-          external_id = row[:external_id]
-          next if lead_ids[external_id] || seen[[ table, external_id ]]
-
-          seen[[ table, external_id ]] = true
-          orphans << [ table, external_id ]
-          return orphans if orphans.size >= MAX_ERRORS
+          tally.add([ table, :external_id, :uuid ], index + 2)
         end
       end
-      orphans
+      tally.issues do |(table, column, problem), count, first|
+        file = FILE_FOR.fetch(table)
+        header = header_for(table, column)
+        message = if problem == :uuid
+          "#{file} has #{rows_phrase(count)} where #{header} is not a lowercase UUID (first at row #{first})"
+        else
+          "#{file} has #{rows_phrase(count)} with a blank #{header} (first at row #{first})"
+        end
+        issue("bad_value", file: file, row: first, message: message)
+      end
     end
 
-    def self.orphan_issue(table, _external_id)
-      issue("orphan_row", file: FILE_FOR.fetch(table),
-                          message: "#{FILE_FOR.fetch(table)} has rows whose lead_id is not in leads.csv")
+    # Child rows whose lead_id is not in leads.csv, one issue per file.
+    def self.orphan_errors(rows)
+      lead_ids = {}
+      rows[:leads].each { |row| lead_ids[row[:external_id]] = true }
+      tally = Tally.new
+      CHILD_TABLES.each do |table|
+        rows[table].each_with_index do |row, index|
+          external_id = row[:external_id]
+          # A blank lead_id is already reported as a missing value.
+          tally.add([ table ], index + 2) unless external_id.nil? || lead_ids[external_id]
+        end
+      end
+      tally.issues do |(table), count, first|
+        file = FILE_FOR.fetch(table)
+        issue("orphan_row", file: file, row: first,
+                            message: "#{file} has #{rows_phrase(count)} whose lead_id is not in leads.csv (first at row #{first})")
+      end
     end
 
     def self.enum_errors(rows)
-      errors = []
+      tally = Tally.new
       ENUMS.each do |table, columns|
         columns.each do |column, allowed|
-          rows[table].each do |row|
+          rows[table].each_with_index do |row, index|
             value = row[column]
-            next if value.nil? || allowed.include?(value)
-
-            push(errors, issue("bad_value", file: FILE_FOR.fetch(table),
-                                          message: "invalid #{column} in #{FILE_FOR.fetch(table)}"))
-            break if errors.size >= MAX_ERRORS
+            # Blank is the required-value check's business, not an enum miss.
+            tally.add([ table, column ], index + 2) unless value.nil? || allowed.include?(value)
           end
-          break if errors.size >= MAX_ERRORS
         end
-        break if errors.size >= MAX_ERRORS
       end
-      errors
+      tally.issues do |(table, column), count, first|
+        file = FILE_FOR.fetch(table)
+        issue("bad_value", file: file, row: first,
+                           message: "#{file} has #{rows_phrase(count)} with an invalid #{column} (first at row #{first})")
+      end
     end
 
     # If this agency already has a snapshot, at least half of its current external ids must be
@@ -208,6 +220,14 @@ class Snapshot
     end
 
     # ---- warnings -----------------------------------------------------------------------
+
+    # One warning per file that had duplicate rows: the report says how many and that one is kept.
+    def self.duplicate_row_warnings(dropped)
+      dropped.map do |table, count|
+        warning("duplicate_rows_dropped", count,
+                "#{FILE_FOR.fetch(table)} has #{count} duplicate #{count == 1 ? 'row' : 'rows'}: we will keep just one of each")
+      end
+    end
 
     # Only non-zero warnings are listed (the contract examples show just the ones that fired).
     # Counts follow spec 2002 decision 7 and mirror bin/golden-numbers:
@@ -269,10 +289,11 @@ class Snapshot
     # ---- diff / files -------------------------------------------------------------------
 
     # Per-table { current:, incoming:, delta: } (spec decision 7), in export order.
-    def self.diff(agency, rows)
+    # `incoming` counts the rows that will be loaded, so duplicates dropped by Snapshot::Dedupe are not in it.
+    def self.diff(agency, rows, dropped = {})
       counts = current_counts(agency)
       TABLES.index_with do |table|
-        incoming = rows[table].size
+        incoming = rows[table].size - dropped.fetch(table, 0)
         current = counts.fetch(table)
         { current: current, incoming: incoming, delta: incoming - current }
       end
@@ -311,6 +332,33 @@ class Snapshot
     end
 
     # ---- helpers ------------------------------------------------------------------------
+
+    def self.rows_phrase(count)
+      "#{count} #{count == 1 ? 'row' : 'rows'}"
+    end
+
+    # The CSV header of a typed column (external_id is lead_id in the files).
+    def self.header_for(table, column)
+      spec = Reader::SPEC.values.find { |entry| entry[:table] == table }
+      spec[:columns].find { |_header, (key, _type)| key == column }.first
+    end
+
+    # Groups hits by key, remembering how many and the first row, so a systematically broken file
+    # yields one issue per problem instead of one per row.
+    class Tally
+      def initialize
+        @groups = {}
+      end
+
+      def add(key, row)
+        group = (@groups[key] ||= { count: 0, first: row })
+        group[:count] += 1
+      end
+
+      def issues(&block)
+        @groups.map { |key, group| block.call(key, group[:count], group[:first]) }
+      end
+    end
 
     def self.issue(code, file: nil, row: nil, message: nil)
       { code: code, file: file, row: row, message: message }

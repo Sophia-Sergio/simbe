@@ -19,7 +19,7 @@ One workflow, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), on `
 | `test_frontend` | Vitest, incl. mock-conformance against the contract. | yes |
 | `e2e_mock` | Playwright desktop + mobile against the standalone mock host; screenshots uploaded **always**. | yes |
 | `e2e_real` | Full Rails + Solid Queue + the **synthetic** Harbor-shaped export; `@real` journeys skipped. | informational until W3-1 |
-| `guards` | No exports/`.env`/stray CSVs tracked; `golden.json` is valid JSON; lane tooling loads; `gitleaks`. | yes |
+| `guards` | No exports/`.env`/stray CSVs tracked (generated fictional samples under `db/sample_exports/` are allowed); `golden.json` is valid JSON; lane tooling loads; `gitleaks`. | yes |
 | `ownership_check` | PRs from `lane/*` branches: changed files are inside the lane's `Owns` list (`bin/lane-id-from-branch` derives the id). | no: not in the required list (it only runs on lane PRs); the review gate checks ownership too |
 | `docker_build` | The production image builds (no push) and ships no source maps. | yes |
 | `deploy` | Fly deploy + post-deploy health checks (`/up`, `/`, `/api/v1/me` → 401; each failure fails the job). `main` only. | no: runs after merge, not a PR gate |
@@ -57,7 +57,7 @@ docker compose exec web bundle exec rails boundaries:check
 
 The only real data (`handoff/takehome/exports/{harbor,lakeside}/`, up to 69 MB / ~625k rows) is health-like and lives **only on the owner's machine** ([`real-data.md`](./real-data.md)). CI has no exports and must never have them:
 
-- `guards` fails if any export path, `.env`, key or stray CSV is tracked.
+- `guards` fails if any export path, `.env`, key or stray CSV is tracked (CSVs are allowed only under `spec/fixtures/`, `contracts/` and `db/sample_exports/`).
 - `:real_data` RSpec tags and `@real` Playwright tags are skipped by construction.
 - `e2e_real` uploads a **synthetic** export built by `bin/generate-sample-export` (Harbor-shaped, seeded) through the browser instead.
 

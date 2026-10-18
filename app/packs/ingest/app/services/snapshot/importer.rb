@@ -181,8 +181,11 @@ class Snapshot
       raw = connection.raw_connection
       sql = "COPY #{table} (#{COPY_COLUMNS.fetch(table).join(', ')}) FROM STDIN WITH (FORMAT csv)"
       batch = []
+      # The first row of each natural key is loaded; later copies are the duplicates the report announced.
+      dedupe = Dedupe::Filter.new(table)
       CSV.foreach(path, headers: true, encoding: "bom|utf-8") do |csv_row|
-        batch << typed_row(spec, csv_row)
+        row = typed_row(spec, csv_row)
+        batch << row if dedupe.keep?(row)
         next if batch.size < BATCH
 
         write_batch(raw, sql, table, batch, agency, lead_ids, now)

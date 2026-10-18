@@ -17,7 +17,9 @@ it("prints the green check rows for a valid upload", () => {
 
 it("marks failed checks with danger styling", () => {
   render(<ReviewReport report={uploadErrors.report as unknown as Report} agencyName="Harbor Surrogacy" />)
-  expect(screen.getByText("Duplicate rows 1")).toHaveClass("text-danger-text")
+  // Duplicates are announced per file as a warning, not as a failed check.
+  expect(screen.queryByText(/^Duplicate rows/)).not.toBeInTheDocument()
+  expect(screen.getByText("web_sessions.csv has 4 duplicate rows: we will keep just one of each")).toHaveClass("text-warning-text")
   expect(screen.getByText("Files matched to Harbor Surrogacy 6 of 7")).toHaveClass("text-danger-text")
   // upload-errors.json still has screener_encrypted: true, so that row stays a success.
   expect(screen.getByText("Screener answers Encrypted")).toHaveClass("text-ink-secondary")
@@ -44,7 +46,7 @@ it("marks an unencrypted screener check as a failure", () => {
 
 it("prints red error rows with the file and row", () => {
   render(<ReviewReport report={uploadErrors.report as unknown as Report} agencyName="Harbor Surrogacy" />)
-  expect(screen.getByText(/stage_history\.csv row 12/)).toHaveClass("text-danger-text")
+  expect(screen.getByText(/leads\.csv row 7/)).toHaveClass("text-danger-text")
   expect(screen.getByText(/appointments\.csv/)).toHaveClass("text-danger-text")
 })
 

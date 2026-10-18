@@ -54,9 +54,8 @@ export function ReviewReport({ report, agencyName }: { report: Report; agencyNam
             {`Leads ${formatInt(leads.current)} → ${formatInt(leads.incoming)} (${signedDelta(leads.delta)})`}
           </CheckRow>
         ) : null}
-        {duplicates !== undefined ? (
-          <CheckRow ok={duplicates === 0}>{`Duplicate rows ${formatInt(duplicates)}`}</CheckRow>
-        ) : null}
+        {/* Duplicates are not a failure (we keep one of each): when there are some, the warnings below name each file. */}
+        {duplicates === 0 ? <CheckRow ok>Duplicate rows 0</CheckRow> : null}
         {checks?.files_matched ? (
           <CheckRow ok={checks.files_matched.trim() === "7 of 7"}>
             {`Files matched to ${agencyName} ${checks.files_matched}`}
@@ -72,7 +71,10 @@ export function ReviewReport({ report, agencyName }: { report: Report; agencyNam
           {report.warnings.map((warning) => (
             <li key={`${warning.code}-${warning.message}`} className="flex items-start gap-2">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
-              <span className="text-warning-text">{`${warning.message} (${formatInt(warning.count)})`}</span>
+              <span className="text-warning-text">
+                {/* The duplicate-rows message already says how many. */}
+                {warning.code === "duplicate_rows_dropped" ? warning.message : `${warning.message} (${formatInt(warning.count)})`}
+              </span>
             </li>
           ))}
         </ul>

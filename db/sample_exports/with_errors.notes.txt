@@ -1,0 +1,11 @@
+Planted problems (fictional data). The upload review should be blocked by the errors and announce the duplicates:
+
+- web_sessions.csv: 8 duplicate rows (5 exact copies, 3 with the same key but a different device) -> warning, first of each kept
+- contact_log.csv: 4 exact duplicate rows -> warning, first of each kept
+- leads.csv: 2 rows with a blank current_stage (first at row 4) -> error
+- leads.csv: 1 row with a blank created_at (first at row 8) -> error
+- leads.csv: 1 row where lead_id is not a lowercase UUID (first at row 10) -> error; that lead's rows in the other files then also show as orphans
+- screener_answers.csv: 1 row with a blank question (row 3) -> error
+- stage_history.csv: 2 rows whose lead_id is not in leads.csv -> error
+- appointments.csv: 1 row with an invalid status (row 2) -> error
+- applications.csv: 1 non-numeric percent_complete (row 2) -> error

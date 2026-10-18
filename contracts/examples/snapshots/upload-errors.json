@@ -12,13 +12,19 @@
         "message": "appointments.csv was not uploaded"
       },
       {
-        "code": "duplicate_key",
-        "file": "stage_history.csv",
-        "row": 12,
-        "message": "Duplicate (lead, stage) - row 12 repeats row 7"
+        "code": "bad_value",
+        "file": "leads.csv",
+        "row": 7,
+        "message": "leads.csv has 3 rows with a blank current_stage (first at row 7)"
       }
     ],
-    "warnings": [],
+    "warnings": [
+      {
+        "code": "duplicate_rows_dropped",
+        "count": 4,
+        "message": "web_sessions.csv has 4 duplicate rows: we will keep just one of each"
+      }
+    ],
     "ignored": [
       "notes.txt"
     ],
@@ -61,7 +67,7 @@
     },
     "checks": {
       "files_matched": "6 of 7",
-      "duplicates": 1,
+      "duplicates": 4,
       "screener_encrypted": true
     }
   },

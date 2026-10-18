@@ -722,15 +722,15 @@ export interface components {
         };
         ReportIssue: {
             /** @enum {string} */
-            code: "missing_file" | "bad_headers" | "bad_value" | "duplicate_key" | "orphan_row" | "agency_mismatch";
+            code: "missing_file" | "bad_headers" | "bad_value" | "orphan_row" | "agency_mismatch";
             file?: string;
             row?: number | null;
             message: string;
         };
         ReportWarning: {
             /** @enum {string} */
-            code: "stage_mismatch" | "unknown_source" | "duplicate_email" | "source_aliases_normalized";
-            /** @description stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails) */
+            code: "stage_mismatch" | "unknown_source" | "duplicate_email" | "source_aliases_normalized" | "duplicate_rows_dropped";
+            /** @description stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails); duplicate_rows_dropped: rows of ONE file that repeat an earlier row's natural key (only the first is loaded; one warning per file, named in the message) */
             count: number;
             message: string;
         };
@@ -752,6 +752,7 @@ export interface components {
             checks: {
                 /** @example 7 of 7 */
                 files_matched: string;
+                /** @description duplicate rows dropped across all files (not an error: only the first row of each natural key is loaded) */
                 duplicates: number;
                 screener_encrypted: boolean;
             };
