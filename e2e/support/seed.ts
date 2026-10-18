@@ -3,9 +3,10 @@ import { closeSync, mkdirSync, openSync, readFileSync, unlinkSync } from "node:f
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-// State bootstrap for the real-stack journeys. Everything runs through THIS worktree's own Docker
-// stack (`COMPOSE_PROJECT_NAME` from its `.env`) and never another lane's (docs/conventions/worktrees.md).
-// The CLI approach is the one the plan asks for: `docker compose exec web rails e2e:seed`.
+// State bootstrap for the real-stack journeys. Locally every command runs inside THIS worktree's
+// own Docker stack (`COMPOSE_PROJECT_NAME` from its `.env`), never another lane's
+// (docs/conventions/worktrees.md). The CI `e2e-real` job runs Rails natively on the runner (no
+// compose stack), so there the same commands run as plain `bundle exec rails …`.
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
 const lockFile = resolve(repo, "tmp/e2e-seed.lock") // `tmp/` is git-ignored
@@ -21,18 +22,36 @@ export const EXPORT_FILES = [
   "applications.csv",
 ] as const
 
+/** Rails runs on this host when CI is set (the e2e-real job) or Docker is not installed. */
+function localRails(): boolean {
+  if (process.env.CI) return true
+  try {
+    execFileSync("docker", ["--version"], { stdio: "ignore" })
+    return false
+  } catch {
+    return true
+  }
+}
+
+let cachedLocal: boolean | undefined
+const runsLocally = (): boolean => (cachedLocal ??= localRails())
+
 /**
- * Runs a Rails task in this worktree's stack. `-T` disables the TTY so it is safe from a test
- * process; the stack must be up (`make up`) or this throws with that hint.
+ * Runs a Rails task against the stack behind the tests: `docker compose exec web bundle exec rails`
+ * locally, `bundle exec rails` when CI is set or Docker is unavailable. `-T` disables the TTY so it
+ * is safe from a test process.
  */
 export function rails(...args: string[]): void {
+  const [command, argv]: [string, string[]] = runsLocally()
+    ? ["bundle", ["exec", "rails", ...args]]
+    : ["docker", ["compose", "exec", "-T", "web", "bundle", "exec", "rails", ...args]]
   try {
-    execFileSync("docker", ["compose", "exec", "-T", "web", "bundle", "exec", "rails", ...args], {
-      cwd: repo,
-      stdio: ["ignore", "inherit", "inherit"],
-    })
+    execFileSync(command, argv, { cwd: repo, stdio: ["ignore", "inherit", "inherit"] })
   } catch (error) {
-    throw new Error(`docker compose exec failed — is this worktree's stack up (\`make up\`)?\n${String(error)}`, { cause: error })
+    throw new Error(
+      `\`${command} ${argv.slice(0, 3).join(" ")} …\` failed — is the stack up (\`make up\`) locally, or the database prepared in CI?\n${String(error)}`,
+      { cause: error },
+    )
   }
 }
 
