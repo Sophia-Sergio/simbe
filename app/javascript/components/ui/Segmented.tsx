@@ -29,7 +29,7 @@ export function Segmented<T extends string>({
             type="button"
             aria-pressed={selected}
             onClick={() => onChange(option.value)}
-            className={`whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-medium transition-colors ${
+            className={`min-h-11 min-w-11 whitespace-nowrap rounded-full px-3 py-1 text-[13px] font-medium transition-colors focus-visible:-outline-offset-2 md:min-h-0 md:min-w-0 ${
               selected ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink-secondary"
             }`}
           >

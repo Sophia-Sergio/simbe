@@ -38,7 +38,7 @@ export function Select({
         aria-invalid={isInvalid ? true : undefined}
         aria-describedby={field?.describedBy}
         onChange={(event) => onChange?.(event.target.value)}
-        className={`h-10 w-full appearance-none rounded-input border border-line bg-surface pl-3 pr-9 text-[14px] text-ink disabled:bg-subtle disabled:text-ink-muted ${
+        className={`h-11 w-full appearance-none rounded-input border border-line bg-surface pl-3 pr-9 text-[14px] text-ink disabled:bg-subtle disabled:text-ink-muted md:h-10 ${
           isInvalid ? "border-danger" : ""
         } ${className}`}
       >
