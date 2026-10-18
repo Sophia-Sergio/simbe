@@ -1,8 +1,10 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { HttpResponse } from "msw"
+import { HttpResponse, http } from "msw"
 import meOwner from "@contracts/examples/auth/me-owner.json"
+import { EXPORT_FILES } from "@/components/shared/FileChecklist"
 import { db } from "@/mocks/db"
+import { server } from "@/mocks/server"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { SignUpPage } from "./SignUpPage"
@@ -305,3 +307,76 @@ it("moves among steps 3–5 with Back and the stepper, keeping the Load data ste
   await userEvent.click(screen.getByRole("button", { name: "Team: upcoming" }))
   expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
 })
+
+/** A signed-in owner at step 4 who has uploaded the seven files and is looking at the review. */
+async function reachUploadReview() {
+  mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
+  server.use(
+    http.post("/api/v1/snapshot_uploads", () =>
+      HttpResponse.json(
+        { id: "u-test", status: "validating", progress: { phase: "storing", pct: 0 }, report: null, snapshot: null, error: null },
+        { status: 201 },
+      ),
+    ),
+    http.get("/api/v1/snapshot_uploads/:id", () =>
+      HttpResponse.json({
+        id: "u-test",
+        status: "validated",
+        progress: null,
+        report: {
+          ok: true,
+          errors: [],
+          warnings: [],
+          ignored: [],
+          diff: { leads: { current: 0, incoming: 10, delta: 10 } },
+          checks: { files_matched: "7 of 7", duplicates: 0, screener_encrypted: true },
+        },
+        snapshot: null,
+        error: null,
+      }),
+    ),
+    http.delete("/api/v1/snapshot_uploads/:id", () => new HttpResponse(null, { status: 204 })),
+  )
+  renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
+  await screen.findByRole("heading", { name: "Connect your ad accounts" })
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  const files = EXPORT_FILES.map((name) => new File(["a,b\n1,2\n"], name, { type: "text/csv" }))
+  await userEvent.upload(screen.getByLabelText(/csv files/i), files)
+  await screen.findByText("Review changes")
+}
+
+it("warns before leaving step 4 with files uploaded but not loaded", async () => {
+  await reachUploadReview()
+
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  expect(screen.getByText(/your data hasn't been loaded yet/i)).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: "Load your data" })).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole("button", { name: "Stay and load" }))
+  expect(screen.queryByText(/your data hasn't been loaded yet/i)).not.toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Load data" })).toBeInTheDocument()
+
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  await userEvent.click(screen.getByRole("button", { name: "Continue without loading" }))
+  expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
+}, 20000)
+
+it("asks the same when skipping or jumping ahead with the stepper", async () => {
+  await reachUploadReview()
+
+  await userEvent.click(screen.getByRole("button", { name: "Skip for now" }))
+  expect(screen.getByText(/your data hasn't been loaded yet/i)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Stay and load" }))
+
+  await userEvent.click(screen.getByRole("button", { name: "Team: upcoming" }))
+  expect(screen.getByText(/your data hasn't been loaded yet/i)).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: "Load your data" })).toBeInTheDocument()
+}, 20000)
+
+it("does not warn once the upload was cancelled or when nothing was uploaded", async () => {
+  await reachUploadReview()
+
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Continue" }))
+  expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
+}, 20000)
