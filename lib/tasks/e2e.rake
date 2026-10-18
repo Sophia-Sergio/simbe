@@ -26,6 +26,17 @@ namespace :e2e do
     end
   end
 
+  desc "Delete agencies a journey run created (name prefix) for a fresh sign-up; dev/test only"
+  task :reset, [ :prefix ] => :environment do |_, a|
+    abort "e2e:reset is dev/test only" unless Rails.env.development? || Rails.env.test?
+    prefix = a[:prefix].presence || "E2E "
+    # Every tenant FK is ON DELETE CASCADE (app/packs/identity/app/models/agency.rb), so one
+    # statement removes the agency and its users, leads, snapshots and keys. The prefix keeps
+    # two journey files (or two Playwright projects) from deleting each other's in-flight agency.
+    removed = Agency.where("name LIKE ?", "#{prefix}%").delete_all
+    puts "e2e:reset: removed #{removed} agency(ies) named #{prefix.inspect}*"
+  end
+
   desc "Write the Alpha CSVs for browser upload tests"
   task :alpha_files, [ :dir ] => :environment do |_, a|
     abort "e2e:alpha_files is dev/test only" unless Rails.env.development? || Rails.env.test?
