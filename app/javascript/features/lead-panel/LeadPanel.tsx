@@ -60,7 +60,7 @@ const TAB_ITEMS: TabItem<LeadTab>[] = [
 
 // Same shape as `components/ui/Button`, for the two actions that must be real links (sms:/tel:).
 const LINK_BASE =
-  "inline-flex h-[30px] items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors"
+  "inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors md:h-[30px]"
 const LINK_OUTLINE = `${LINK_BASE} border border-brand-border text-brand-text hover:bg-brand-tint`
 const LINK_SECONDARY = `${LINK_BASE} border border-line bg-surface text-ink hover:bg-subtle`
 
@@ -142,7 +142,7 @@ function PanelHeader({
   }, [nameId])
 
   const navButton =
-    "inline-flex h-8 items-center gap-1 rounded-full px-3 text-[13px] font-medium text-ink-secondary transition-colors hover:bg-subtle disabled:pointer-events-none disabled:opacity-40"
+    "inline-flex h-11 min-w-11 items-center justify-center gap-1 rounded-full px-3 text-[13px] font-medium text-ink-secondary transition-colors hover:bg-subtle disabled:pointer-events-none disabled:opacity-40 md:h-8 md:min-w-0"
 
   return (
     <div ref={ref} className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4">

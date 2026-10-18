@@ -42,9 +42,9 @@ function CopyField({ label, value, mono = true, copyable = true }: { label: stri
           id={id}
           readOnly
           value={value}
-          className={`h-10 min-w-0 flex-1 rounded-input border border-line bg-subtle px-3 text-[13px] text-ink ${mono ? "font-mono" : ""}`}
+          className={`h-11 min-w-0 flex-1 rounded-input border border-line bg-subtle px-3 text-[13px] text-ink md:h-10 ${mono ? "font-mono" : ""}`}
         />
-        <Button variant="secondary" size="sm" className="h-10" leftIcon={<Copy aria-hidden className="h-3.5 w-3.5" />} onClick={copy} disabled={!copyable} aria-label={`Copy ${label}`}>
+        <Button variant="secondary" size="sm" className="h-11 md:h-10" leftIcon={<Copy aria-hidden className="h-3.5 w-3.5" />} onClick={copy} disabled={!copyable} aria-label={`Copy ${label}`}>
           Copy
         </Button>
       </div>
@@ -169,7 +169,7 @@ export function ConnectPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-9"
+                className="h-11 md:h-9"
                 aria-label="Copy configuration"
                 onClick={async () => {
                   try {
@@ -183,7 +183,7 @@ export function ConnectPage() {
                 Copy
               </Button>
             </div>
-            <pre aria-label="Claude configuration" tabIndex={0} className="max-w-full overflow-x-auto rounded-[10px] bg-dark p-4 font-mono text-[12px] leading-relaxed text-white">
+            <pre role="region" aria-label="Claude configuration" tabIndex={0} className="max-w-full overflow-x-auto rounded-[10px] bg-dark p-4 font-mono text-[12px] leading-relaxed text-white">
               {configJson(url, configKey)}
             </pre>
           </div>

@@ -131,7 +131,7 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
         Screener answers are encrypted
       </p>
 
-      <button type="button" onClick={onSkip} className="self-start text-[13px] font-semibold text-brand-text">
+      <button type="button" onClick={onSkip} className="inline-flex min-h-11 items-center self-start text-[13px] font-semibold text-brand-text">
         Skip for now
       </button>
     </div>

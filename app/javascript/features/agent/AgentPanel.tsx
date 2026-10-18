@@ -122,7 +122,7 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-subtle hover:text-ink"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-muted hover:bg-subtle hover:text-ink md:h-8 md:w-8"
         >
           <X aria-hidden className="h-4 w-4" />
         </button>
@@ -181,7 +181,7 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
             disabled={pending}
             placeholder="Ask about your business…"
             autoComplete="off"
-            className="h-[38px] w-full rounded-input border border-line bg-surface px-3 text-[14px] text-ink placeholder:text-ink-faint disabled:bg-subtle"
+            className="h-11 w-full rounded-input border border-line bg-surface px-3 text-[14px] text-ink placeholder:text-ink-faint disabled:bg-subtle md:h-[38px]"
           />
           {nearLimit && (
             <p
@@ -202,7 +202,7 @@ function PanelBody({ titleId, onClose }: { titleId: string; onClose: () => void 
           type="submit"
           aria-label="Send"
           disabled={pending || !draft.trim() || tooLong}
-          className="inline-flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:pointer-events-none disabled:opacity-50"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:pointer-events-none disabled:opacity-50 md:h-[38px] md:w-[38px]"
         >
           <Send aria-hidden className="h-4 w-4" />
         </button>

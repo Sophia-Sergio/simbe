@@ -178,7 +178,7 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
               // Keep focus on the input so `aria-activedescendant` stays meaningful while clicking.
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => select(lead)}
-              className={`flex cursor-pointer items-center gap-2 rounded-row px-2 py-2 ${
+              className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-row px-2 py-2 md:min-h-0 ${
                 index === active ? "bg-subtle" : ""
               }`}
             >

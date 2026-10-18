@@ -63,7 +63,7 @@ export function CoordinatorPage() {
   const snapshot = useCurrentSnapshot()
 
   const back = (
-    <Link to="/coordinators" className="inline-flex items-center gap-1 text-[13px] font-medium text-brand-text">
+    <Link to="/coordinators" className="inline-flex min-h-11 items-center gap-1 text-[13px] font-medium text-brand-text">
       <ArrowLeft aria-hidden className="h-4 w-4" />
       Coordinators
     </Link>
