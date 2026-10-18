@@ -291,35 +291,56 @@ handling from a shared helper (W3-2's `e2e/support/auth.ts` is the designed home
   `app/javascript/api/generated/**` ignore, redundant entry patterns) are left as-is: acting on them
   would make knip report the ignored dev dependencies (msw, ajv, wait-on, …) as unused and force
   `package.json` edits, which is not what the plan asks.
-- **Ownership deviation:** `knip.json` is W0-7's and the 13 frontend files belong to
-  W0-2/W0-4A/W0-4B/W0-5/W0-6A/W0-6B. Required by plan Task 5 Step 2b (not a user instruction — the
-  plan's `Owns` line was extended at review, R2); needs an ownership
-  change (or merge as a `ccr`-style exception) before the PR.
+- **Ownership:** the files were outside W3-1's `Owns` when first changed. The change is **required by
+  plan Task 5 Step 2b** (not a user instruction), and the plan's `Owns` line was extended at review
+  (ruling R2) to list `knip.json`, `README.md` and the 13 frontend files, so `bin/lane check` now
+  prints `ok: all changes are inside lane W3-1`.
 
 ### Step 3 — `make verify` and `make contract-coverage`
-Full run on this worktree (host Node 20; the repo asks for 22 but Playwright/Vitest ran fine):
+Verbatim tail of the final `make verify` (exit code 0; the process printed no error and returned
+success), host Node 20 — the repo asks for 22, but Playwright and Vitest ran fine:
 
 ```
-make verify                         -> exit 0
-  check-ownership.sh                -> 32 lanes checked, 0 conflicts
-  guard-no-health-data              -> guard ok
-  npm run contract / npm run types  -> valid; generated types unchanged
-  rubocop                           -> 273 files, no offenses
-  brakeman                          -> 0 warnings
-  bundler-audit                     -> no vulnerabilities
-  boundaries:check                  -> ok
-  rspec                             -> 602 examples, 0 failures
-  contract-coverage                 -> 39/39 operations exercised
-  npm run lint / npm run typecheck  -> clean
-  npm audit --omit=dev              -> 0 vulnerabilities
-  vitest                            -> 120 files, 815 tests, all pass
-  npx playwright test (mock)        -> 94 passed, 16 skipped
-  npx knip                          -> exit 0 (configuration hints only)
-  bin/ci-parity                     -> parity steps checked: 17
-make spec ARGS="spec/contract spec/security spec/isolation" -> 31 examples, 0 failures
-make contract-coverage              -> 39/39 operations exercised
+273 files inspected, no offenses detected
+Security Warnings: 0
+No vulnerabilities found
+boundaries:check ok
+Finished in 52.23 seconds (files took 1.96 seconds to load)
+605 examples, 0 failures
+Finished in 8.67 seconds (files took 0.29627 seconds to load)
+169 examples, 0 failures
+
+39/39 operations exercised
+npm run lint  / npm run typecheck                 -> clean
+npm audit --omit=dev --audit-level=high           -> found 0 vulnerabilities
+ Test Files  120 passed (120)
+      Tests  815 passed (815)
+  16 skipped
+  94 passed (58.3s)
+npx knip
+Configuration hints (11)
+  app/javascript/api/generated/**    knip.json  Remove from ignore
+  @tanstack/react-query              knip.json  Remove from ignoreDependencies
+  @testing-library/react             knip.json  Remove from ignoreDependencies
+  @testing-library/user-event        knip.json  Remove from ignoreDependencies
+  msw                                knip.json  Remove from ignoreDependencies
+  ajv                                knip.json  Remove from ignoreDependencies
+  ajv-formats                        knip.json  Remove from ignoreDependencies
+  wait-on                            knip.json  Remove from ignoreDependencies
+  tailwind.config.ts                 knip.json  Remove redundant entry pattern
+  playwright.config.ts               knip.json  Remove redundant entry pattern
+  .css                               knip.json  Compiled extension excluded by project (imports not followed)
+bin/ci-parity
+parity steps checked: 17
+CI parity ok: every run step is marked and every # parity step is in `make verify` with the same flags.
+```
+(The earlier `make verify` in this log said 602 examples; the final run says 605 — the review fixes
+added the role-matrix examples. `check-ownership.sh` printed `32 lanes checked, 0 conflicts`.)
+
+```
+make spec ARGS="spec/contract spec/security spec/isolation"  -> 31 examples, 0 failures
+make contract-coverage                                       -> 39/39 operations exercised
 ```
 
-`bin/lane check` fails by design on the 14 files of Step 2b (13 frontend files + `knip.json`, all
-outside W3-1's `Owns`) — see the ownership deviation above. Everything else this lane changed is
-inside `Owns`.
+`bin/lane check` now prints `ok: all changes are inside lane W3-1` (the plan's `Owns` line was
+extended at review, ruling R2).
