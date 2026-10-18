@@ -35,11 +35,16 @@ namespace :e2e do
   desc "Delete agencies a journey run created (name prefix) for a fresh sign-up; dev/test only"
   task :reset, [ :prefix ] => :environment do |_, a|
     abort "e2e:reset is dev/test only" unless Rails.env.development? || Rails.env.test?
-    prefix = a[:prefix].presence || "E2E "
+    prefix = a[:prefix].to_s
+    # A blank or one-character prefix would match every agency; require something specific.
+    abort "e2e:reset needs a name prefix of at least 4 characters (got #{prefix.inspect})" if prefix.strip.empty? || prefix.length < 4
+    # Sanitize the LIKE pattern so a prefix containing `%` or `_` is matched literally, never as a
+    # wildcard that could delete unrelated agencies (ActiveRecord::Base.sanitize_sql_like).
+    like = "#{ActiveRecord::Base.sanitize_sql_like(prefix)}%"
     # Every tenant FK is ON DELETE CASCADE (app/packs/identity/app/models/agency.rb), so one
-    # statement removes the agency and its users, leads, snapshots and keys. The prefix keeps
-    # two journey files (or two Playwright projects) from deleting each other's in-flight agency.
-    removed = Agency.where("name LIKE ?", "#{prefix}%").delete_all
+    # statement removes the agency and its users, leads, snapshots and keys. The prefix keeps two
+    # journey files (or two Playwright projects) from deleting each other's in-flight agency.
+    removed = Agency.where("name LIKE ?", like).delete_all
     puts "e2e:reset: removed #{removed} agency(ies) named #{prefix.inspect}*"
   end
 

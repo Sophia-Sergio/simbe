@@ -114,8 +114,8 @@ export function seed(): void {
   withLock(() => rails("e2e:seed"))
 }
 
-/** Drops agencies a previous run created (name prefix), then reseeds Alpha. */
-export function reset(prefix = "E2E "): void {
+/** Drops agencies a previous run created (exact name prefix), then reseeds Alpha. */
+export function reset(prefix: string): void {
   withLock(() => {
     rails(`e2e:reset[${prefix}]`)
     rails("e2e:seed")
