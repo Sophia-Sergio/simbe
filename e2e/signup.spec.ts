@@ -34,11 +34,10 @@ async function fillAccount(page: Page, email = "erin@new.test") {
   await expect(page.getByRole("heading", { name: "Set up your agency" })).toBeVisible()
 }
 
-/** Step 3 is optional: connect Meta, then continue. */
-async function connectMetaAndContinue(page: Page) {
+/** Step 3 is a display-only preview: Meta and Google are "Coming soon"; just continue. */
+async function previewAdAccountsAndContinue(page: Page) {
   await expect(page.getByRole("heading", { name: "Connect your ad accounts" })).toBeVisible()
-  await page.getByRole("button", { name: "Connect" }).first().click()
-  await expect(page.getByRole("button", { name: "Connected" })).toBeVisible()
+  await expect(page.getByText("Coming soon", { exact: true })).toHaveCount(2)
   await page.getByRole("button", { name: "Continue" }).click()
 }
 
@@ -61,7 +60,7 @@ test("signs up, loads the seven exports and invites a coordinator", async ({ pag
   await page.screenshot({ path: screenshot("signup-agency", testInfo), fullPage: true })
   await page.getByRole("button", { name: "Continue" }).click()
 
-  await connectMetaAndContinue(page)
+  await previewAdAccountsAndContinue(page)
 
   await expect(page.getByRole("heading", { name: "Load your data" })).toBeVisible()
   await expect(page.getByText("Screener answers are encrypted")).toBeVisible()

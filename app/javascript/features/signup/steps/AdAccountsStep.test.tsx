@@ -1,17 +1,12 @@
-import { screen, waitFor } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { screen } from "@testing-library/react"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { AdAccountsStep } from "./AdAccountsStep"
 
-it("connects Meta and Google and turns each button into a green Connected pill", async () => {
+it("shows Meta and Google as coming soon, with nothing to connect", () => {
   renderWithProviders(<AdAccountsStep />)
 
-  expect(screen.getAllByText("Sample spend — live sync coming")).toHaveLength(2)
-
-  await userEvent.click(screen.getAllByRole("button", { name: "Connect" })[0])
-  expect(await screen.findByRole("button", { name: "Connected" })).toBeInTheDocument()
-
-  await userEvent.click(screen.getByRole("button", { name: "Connect" }))
-  await waitFor(() => expect(screen.getAllByRole("button", { name: "Connected" })).toHaveLength(2))
-  expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument()
+  expect(screen.getByText("Meta Ads")).toBeInTheDocument()
+  expect(screen.getByText("Google Ads")).toBeInTheDocument()
+  expect(screen.getAllByText("Coming soon")).toHaveLength(2)
+  expect(screen.queryByRole("button")).not.toBeInTheDocument()
 })
