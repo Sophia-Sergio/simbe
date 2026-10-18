@@ -233,6 +233,15 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     expect(OPERATIONS.size).to eq(39)
   end
 
+  # A CONTRACT_GAPS entry records "the app is owner-only but the contract omits the 403". Once the
+  # contract documents the 403 the entry is stale and must be deleted: this example fails then.
+  it "has no stale CONTRACT_GAPS entry (a gap whose contract now documents a 403)" do
+    by_id = OPERATIONS.index_by { |operation| operation[:id] }
+    stale = CONTRACT_GAPS.keys.select { |id| by_id.fetch(id)[:owner_only] }
+    expect(stale).to be_empty,
+                   "the contract now documents a 403 for #{stale.join(', ')}; delete those CONTRACT_GAPS entries"
+  end
+
   %i[signed_out owner coordinator foreign].each do |principal|
     it "matches the #{principal} column of the matrix for every operation" do
       failures = []
@@ -257,7 +266,7 @@ RSpec.describe "Role and tenancy matrix", type: :request do
           when :owner
             [ status == expected_success(operation), expected_success(operation) ]
           when :coordinator
-            owner_only?(operation) ? [ status == 403, 403 ] : [ status != 403, "not 403" ]
+            owner_only?(operation) ? [ status == 403, 403 ] : [ status == expected_success(operation), expected_success(operation) ]
           when :foreign
             next unless FOREIGN_ID_OPERATIONS.include?(operation[:id])
 
