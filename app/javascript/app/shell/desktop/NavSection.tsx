@@ -16,7 +16,7 @@ export function NavSection({ label, items, collapsed }: { label: string; items: 
     <div role="group" aria-labelledby={id} className="flex flex-col gap-0.5">
       <h2
         id={id}
-        className={collapsed ? "sr-only" : "px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint"}
+        className={collapsed ? "sr-only" : "px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-muted"}
       >
         {label}
       </h2>

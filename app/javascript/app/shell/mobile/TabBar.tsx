@@ -25,7 +25,7 @@ export function TabBar({ tabs, hasMore, onMore, moreActive }: TabBarProps) {
           type="button"
           onClick={onMore}
           aria-haspopup="dialog"
-          className={`flex h-[58px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${moreActive ? "text-brand" : "text-ink-muted"}`}
+          className={`flex h-[58px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium ${moreActive ? "text-brand-text" : "text-ink-muted"}`}
         >
           <MoreHorizontal aria-hidden className="h-[22px] w-[22px]" strokeWidth={moreActive ? 2.2 : 1.8} />
           <span>More</span>

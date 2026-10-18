@@ -75,7 +75,7 @@ it("marks nested routes active, and More active for more-items", () => {
   expect(tabs().getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current")
   nested.unmount()
   renderMobile({ role: "owner", route: "/funnel" })
-  expect(tabs().getByRole("button", { name: "More" })).toHaveClass("text-brand")
+  expect(tabs().getByRole("button", { name: "More" })).toHaveClass("text-brand-text")
   expect(tabs().getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current")
 })
 
@@ -89,12 +89,12 @@ it("Ask is an action: calls its handler, does not navigate, never aria-current",
   await userEvent.click(tabs().getByRole("button", { name: "Ask" }))
   expect(askCalls.count).toBe(1)
   expect(location().pathname).toBe("/pipeline")
-  expect(tabs().getByRole("button", { name: "Ask" })).not.toHaveClass("text-brand")
+  expect(tabs().getByRole("button", { name: "Ask" })).not.toHaveClass("text-brand-text")
 })
 
 it("Ask looks active only while the agent is open", () => {
   renderMobile({ role: "owner", agentOpen: true })
-  expect(tabs().getByRole("button", { name: "Ask" })).toHaveClass("text-brand")
+  expect(tabs().getByRole("button", { name: "Ask" })).toHaveClass("text-brand-text")
 })
 
 it("shows a badge on tabs with useBadge, kept out of the accessible name", () => {

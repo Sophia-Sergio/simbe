@@ -20,7 +20,7 @@ export function AgentFab() {
       onClick={() => open()}
       tabIndex={hidden ? -1 : undefined}
       aria-hidden={hidden || undefined}
-      className={`inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-brand text-white shadow-fab transition-transform hover:scale-[1.03] ${
+      className={`inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-gradient-brand text-white shadow-fab transition-transform hover:scale-[1.03] motion-reduce:transition-none motion-reduce:hover:scale-100 ${
         hidden ? "pointer-events-none opacity-0" : ""
       }`}
     >

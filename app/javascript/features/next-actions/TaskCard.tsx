@@ -43,7 +43,7 @@ export function TaskCard({
         <span className="text-[13px] text-ink-secondary">{item.reason}</span>
       </button>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button
           variant="outline-brand"
           size="sm"

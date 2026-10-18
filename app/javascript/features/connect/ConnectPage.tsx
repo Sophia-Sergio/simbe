@@ -183,7 +183,7 @@ export function ConnectPage() {
                 Copy
               </Button>
             </div>
-            <pre aria-label="Claude configuration" className="max-w-full overflow-x-auto rounded-[10px] bg-dark p-4 font-mono text-[12px] leading-relaxed text-white">
+            <pre aria-label="Claude configuration" tabIndex={0} className="max-w-full overflow-x-auto rounded-[10px] bg-dark p-4 font-mono text-[12px] leading-relaxed text-white">
               {configJson(url, configKey)}
             </pre>
           </div>

@@ -198,7 +198,7 @@ function PaletteSearch({ onClose }: { onClose: () => void }) {
         {announcement}
       </p>
 
-      <p className="px-1 text-[11px] text-ink-faint">↑ ↓ to navigate · Enter to open · Esc to close</p>
+      <p className="px-1 text-[11px] text-ink-muted">↑ ↓ to navigate · Enter to open · Esc to close</p>
     </div>
   )
 }
