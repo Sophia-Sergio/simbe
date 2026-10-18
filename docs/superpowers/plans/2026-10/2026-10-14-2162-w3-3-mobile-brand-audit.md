@@ -21,15 +21,15 @@
 ---
 
 ## Task 1: Automated audit harness
-- [ ] Add `@axe-core/playwright`. `e2e/audit/screens.ts` lists every route with its role and a ready-state selector: `/`, `/funnel`, `/channels`, `/channels/Facebook`, `/pipeline` (+ `?lead=…&tab=summary|screener|activity|source`), `/coordinators`, `/coordinators/Dana%20Ortiz`, `/data` (+ upload modal states), `/connect`, `/settings`, `/next-actions`, `/signin`, `/signup` (5 steps), `/invite/<token>`, agent panel open, search palette open, `/__kit`.
-- [ ] `audit.spec.ts` loops screens × widths: asserts `scrollWidth <= innerWidth`, no element overflowing its container (`el.scrollWidth > el.clientWidth` on non-scroll containers), interactive targets ≥ 44×44 px on `<860px` widths, axe has no `serious|critical` violations, focus order reaches the primary action by keyboard, `prefers-reduced-motion` disables slide/pulse animations. Writes a table to `docs/superpowers/parallel/audit-report.md`.
-- [ ] Run it; commit the harness and the first report.
+- [x] Add `@axe-core/playwright`. `e2e/audit/screens.ts` lists every route with its role and a ready-state selector: `/`, `/funnel`, `/channels`, `/channels/Facebook`, `/pipeline` (+ `?lead=…&tab=summary|screener|activity|source`), `/coordinators`, `/coordinators/Dana%20Ortiz`, `/data` (+ upload modal states), `/connect`, `/settings`, `/next-actions`, `/signin`, `/signup` (5 steps), `/invite/<token>`, agent panel open, search palette open, `/__kit`.
+- [x] `audit.spec.ts` loops screens × widths: asserts `scrollWidth <= innerWidth`, no element overflowing its container (`el.scrollWidth > el.clientWidth` on non-scroll containers), interactive targets ≥ 44×44 px on `<860px` widths, axe has no `serious|critical` violations, focus order reaches the primary action by keyboard, `prefers-reduced-motion` disables slide/pulse animations. Writes a table to `docs/superpowers/parallel/audit-report.md`.
+- [x] Run it; commit the harness and the first report.
 
 ## Task 2: Fix pass (one PR per screen)
-- [ ] For each failing screen/width fix in the owning feature (or kit) and re-run only that screen. Typical fixes: wrap/truncate long text, `min-w-0` on flex children, sticky footers with safe-area padding, bigger hit areas via padding, `aria-label`s, focus-visible rings, `brand.text` for small links.
+- [x] For each failing screen/width fix in the owning feature (or kit) and re-run only that screen. Typical fixes: wrap/truncate long text, `min-w-0` on flex children, sticky footers with safe-area padding, bigger hit areas via padding, `aria-label`s, focus-visible rings, `brand.text` for small links.
 
 ## Task 3: Brand and design parity review
-- [ ] For each screen take desktop (1280) and mobile (390) screenshots (the journeys already produce many), place them next to the matching `handoff/design/screenshots/*.png` and the phone frames in `handoff/design/prototype/Simbe Screens.dc.html`; record deviations in the audit report as **Intentional** (documented in `docs/design/brand.md`: colors, fonts, pill shapes, logo, no "view as" toggle, Reveal→Generate key) or **Bug** (fix it). Run `grep -rnE '#[0-9a-fA-F]{6}' app/javascript | grep -v "ChannelTile\|tailwind\|tokens.css\|\.test\."` → empty; fonts verified via computed styles in the audit spec (`font-family` of body starts with Inter, headings Outfit).
+- [x] For each screen take desktop (1280) and mobile (390) screenshots (the journeys already produce many), place them next to the matching `handoff/design/screenshots/*.png` and the phone frames in `handoff/design/prototype/Simbe Screens.dc.html`; record deviations in the audit report as **Intentional** (documented in `docs/design/brand.md`: colors, fonts, pill shapes, logo, no "view as" toggle, Reveal→Generate key) or **Bug** (fix it). Run `grep -rnE '#[0-9a-fA-F]{6}' app/javascript | grep -v "ChannelTile\|tailwind\|tokens.css\|\.test\."` → empty; fonts verified via computed styles in the audit spec (`font-family` of body starts with Inter, headings Outfit).
 
 ## Task 4: Finish
 - [ ] Final report committed (`audit-report.md`: widths × screens matrix all green, list of intentional deviations). `make verify` → exit 0. Open PR.

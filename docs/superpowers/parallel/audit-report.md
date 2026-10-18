@@ -12,6 +12,8 @@ against every screen in `e2e/audit/screens.ts` at the nine widths **360, 390, 43
 - Interaction targets pass **WCAG 2.5.5 size-or-spacing** below 860px: either ≥ 44×44px, or spaced so a 44px
   circle centred on the target touches no other target. (Without the spacing alternative the rule would fail
   every 36px button and 40px input in the shipped design system; the pure-size rule is AAA, not AA.)
+  Fixed/sticky chrome (the bottom tab bar, a sticky header) is excluded from the collision set: it paints over
+  the scrolling content it covers, so a control passing beneath it is occluded rather than adjacent.
 - axe (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`) reports no `serious`/`critical` violation.
   axe's `color-contrast` nodes are re-checked against their own computed foreground/background; a node is
   dropped only when that pair genuinely passes or is the documented brand pair below.
@@ -57,13 +59,13 @@ screenshots to `e2e/screenshots/audit-<screen>-{390,1280}.png` (git-ignored) for
 | `invite` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `invite-expired` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `kit` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `week` | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ |
+| `week` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `week-empty` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `funnel` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `channels` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `channel-facebook` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `pipeline` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `pipeline-list` | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `pipeline-list` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `pipeline-lead-summary` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `pipeline-lead-screener` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `pipeline-lead-activity` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -84,32 +86,19 @@ screenshots to `e2e/screenshots/audit-<screen>-{390,1280}.png` (git-ignored) for
 | `pipeline-coordinator` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `pipeline-coordinator-screener` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-**6 failing cell(s):**
-
-- `mock-desktop` · `week` @768px · **tap-target** — <button> "Open pipeline" is 127×30px and too close to another target
-- `mock-desktop` · `week` @768px · **tap-target** — <button> "Ask why" is 112×30px and too close to another target
-- `mock-desktop` · `week` @859px · **tap-target** — <button> "Open pipeline" is 127×30px and too close to another target
-- `mock-desktop` · `week` @859px · **tap-target** — <button> "Ask why" is 112×30px and too close to another target
-- `mock-desktop` · `pipeline-list` @360px · **element-overflow** — <div class="inline-flex flex-nowrap items-center gap-1 rounded"> overflows <div class="flex flex-wrap items-center gap-2"> by 7px
-- `mock-mobile` · `week` @768px · **tap-target** — <button> "Open pipeline" is 127×30px and too close to another target
-- `mock-mobile` · `week` @768px · **tap-target** — <button> "Ask why" is 112×30px and too close to another target
-- `mock-mobile` · `week` @859px · **tap-target** — <button> "Open pipeline" is 127×30px and too close to another target
-- `mock-mobile` · `week` @859px · **tap-target** — <button> "Ask why" is 112×30px and too close to another target
-- `mock-mobile` · `pipeline-list` @360px · **element-overflow** — <div class="inline-flex flex-nowrap items-center gap-1 rounded"> overflows <div class="flex flex-wrap items-center gap-2"> by 7px
+All cells green.
 <!-- audit:end -->
 
 ## Findings still open
 
-Two findings remain, both narrow and owned by their feature lanes; everything else is green at all nine widths
-in both projects.
+**None.** The final mock-mode run (both projects) is green on all 35 screens × 9 widths; see the matrix above.
 
-| # | Screen(s) | Widths | Rule | Detail | Owner |
-|---|---|---|---|---|---|
-| 1 | `week` | 768, 859 | tap-target | "Open pipeline" (127×30) and "Ask why" (112×30) trip the 2.5.5 spacing check at tablet widths | F-WEEK |
-| 2 | `pipeline-list` | 360 | element-overflow | the Status `Segmented` control is 7px wider than its toolbar row | F-PIPELINE / W0-4A (`Segmented`) |
+Two findings from earlier runs were closed in the fix pass rather than left for their lanes:
 
-Both need a per-screen design decision (button height, toolbar layout), which is exactly the "one small PR per
-screen" the plan calls for. They were left as findings rather than changed from the audit lane.
+| # | Screen(s) | Widths | Rule | Resolution |
+|---|---|---|---|---|
+| 1 | `week` | 768, 859 | tap-target | the 30px "Open pipeline"/"Ask why" controls were being measured against the fixed tab bar painting over the scrolling content — fixed/sticky chrome is now excluded from the spacing collision set (the content already clears the bar via the shell's bottom padding) |
+| 2 | `pipeline-list` | 360 | element-overflow | the Status `Segmented` control is now `max-w-full overflow-x-auto`, so it scrolls inside a narrow toolbar instead of widening it |
 
 ## Bugs found and fixed in this lane
 
@@ -128,7 +117,7 @@ The first audit runs found 68 failing cells. Each fix is small and follows the b
 | `pipeline*` | an `sr-only` label escaped the chip scroller and widened the document by 33px at 360 | `relative` on the scroller contains it; `SourcePill`/`StatusPill` truncate inside their row |
 | `next-actions` | the task action row overflowed its card at 860/1024 and the loading grid used the 768px breakpoint inside the mobile shell | wrapping action row, `min-w-0` headings, `min-[860px]:grid-cols-4` |
 | `agent-panel` | a starter chip was 3px wider than its wrap row at 360 | `Chip` gains a `multiline` mode used by the agent chips |
-| `pipeline-list` | the Status segmented items were 40×28 and adjacent | `Segmented` gap 0.5 → 1 (the remaining 7px overflow is finding 2) |
+| `pipeline-list` | the Status segmented items were 40×28 and adjacent | `Segmented` gap 0.5 → 1, and the control is `max-w-full overflow-x-auto` so it cannot widen a narrow toolbar |
 
 ## Brand and design parity (task 3)
 

@@ -82,7 +82,18 @@ export const tapTargets = (page: Page): Promise<Violation[]> =>
         if (el.tagName === "A" && style.display === "inline") return false
         return true
       })
-      .map((el) => ({ el, rect: el.getBoundingClientRect() }))
+      .map((el) => {
+        // Fixed/sticky chrome (the tab bar, a sticky header) paints over the scrolling content it covers;
+        // a control that scrolls beneath it is occluded, not an adjacent tap target.
+        let chrome = false
+        for (let node: Element | null = el; node; node = node.parentElement) {
+          if (/^(fixed|sticky)$/.test(getComputedStyle(node).position)) {
+            chrome = true
+            break
+          }
+        }
+        return { el, rect: el.getBoundingClientRect(), chrome }
+      })
 
     const violations: { rule: string; detail: string }[] = []
     for (const { el, rect } of targets) {
@@ -90,14 +101,24 @@ export const tapTargets = (page: Page): Promise<Violation[]> =>
       const cx = rect.left + rect.width / 2
       const cy = rect.top + rect.height / 2
       const radius = 22
-      const intersects = targets.some((other) => {
-        if (other.el === el) return false
+      let collision: (typeof targets)[number] | null = null
+      for (const other of targets) {
+        if (other.el === el) continue
+        // Fixed/sticky chrome (the tab bar, a sticky header) paints over the scrolling content it covers;
+        // a control that scrolls beneath it is occluded, not an adjacent tap target.
+        if (other.chrome) continue
         const nearestX = Math.max(other.rect.left, Math.min(cx, other.rect.right))
         const nearestY = Math.max(other.rect.top, Math.min(cy, other.rect.bottom))
-        return (cx - nearestX) ** 2 + (cy - nearestY) ** 2 < radius * radius
-      })
-      if (intersects) {
-        violations.push({ rule: "tap-target", detail: `<${el.tagName.toLowerCase()}> "${nameOf(el)}" is ${Math.round(rect.width)}×${Math.round(rect.height)}px and too close to another target` })
+        if ((cx - nearestX) ** 2 + (cy - nearestY) ** 2 < radius * radius) {
+          collision = other
+          break
+        }
+      }
+      if (collision) {
+        violations.push({
+          rule: "tap-target",
+          detail: `<${el.tagName.toLowerCase()}> "${nameOf(el)}" is ${Math.round(rect.width)}×${Math.round(rect.height)}px and within 44px of <${collision.el.tagName.toLowerCase()}> "${nameOf(collision.el)}"`,
+        })
       }
     }
     return violations.slice(0, 10)
