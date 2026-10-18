@@ -43,8 +43,33 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     "commitSnapshotUpload" => "snapshot_uploads_controller requires owner; contract declares no 403",
     "getAgency" => "agencies_controller requires owner; contract declares only 200/401"
   }.freeze
-  FOREIGN_ID_OPERATIONS = %w[getLead completeNextAction undoNextAction getCoordinator
-                             getAgentConversation deleteInvitation].freeze
+
+  # Path parameters per operation (path-item level and operation level merged), so "which operations
+  # address another tenant's row" is derived from the contract, not hand-listed.
+  PATH_PARAMETERS = CONTRACT_DOCUMENT["paths"].each_with_object({}) do |(path, item), out|
+    (item.keys & HTTP_METHODS).each do |method|
+      operation = item[method]
+      next unless operation.is_a?(Hash) && operation["operationId"]
+
+      params = ((item["parameters"] || []) + (operation["parameters"] || [])).select { |param| param["in"] == "path" }
+      out[operation["operationId"]] = params unless params.empty?
+    end
+  end.freeze
+
+  # Operations that address another tenant's ROW by id (a uuid path parameter): for agency A these
+  # must answer 404 with agency B's id - never 200 (a leak) and never 403 (an existence oracle).
+  ID_OPERATIONS = PATH_PARAMETERS.select { |_id, params|
+    params.any? { |param| param["in"] == "path" && param.dig("schema", "format") == "uuid" }
+  }.keys.freeze
+  OTHER_TENANT_404_OPERATIONS = (ID_OPERATIONS + %w[getCoordinator]).freeze
+
+  # Path-parameter operations deliberately not asserted as cross-tenant 404s, each with its reason.
+  CROSS_TENANT_EXCLUSIONS = {
+    "getMetricsChannel" => "the parameter is a channel name, not a row; A only ever sees A's channels",
+    "getInvitation" => "public: the token names its own agency by design (no signed-in tenant to cross)",
+    "acceptInvitation" => "public: the token names its own agency by design (no signed-in tenant to cross)",
+    "disconnectAdPlatform" => "the parameter is a platform name, not a row: 204 + B's row intact, checked separately"
+  }.freeze
 
   let(:agency) { create(:agency, slug: "harbor", name: "Harbor Surrogacy") }
   let!(:owner) { create(:user, agency: agency, email: "erin@harbor.test", name: "Erin Walsh") }
@@ -69,6 +94,15 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     Current.set(agency: beta) do
       Signup::Invitations.issue!(agency: beta, invited_by: beta_owner, email: "guest@beta.test",
                                  coordinator_name: "Beta Only").first
+    end
+  end
+  # Agency B's own upload and ad connection, so every cross-tenant 404 has a real row to miss.
+  let!(:beta_upload) do
+    Current.set(agency: beta) { SnapshotUpload.create!(agency: beta, user: beta_owner, status: "validated", progress: nil) }
+  end
+  let!(:beta_connection) do
+    Current.set(agency: beta) do
+      AdConnection.create!(agency: beta, platform: "meta", status: "connected", connected_at: Time.current)
     end
   end
 
@@ -125,8 +159,9 @@ RSpec.describe "Role and tenancy matrix", type: :request do
 
   def sign_in_as(principal)
     user = principal == :coordinator ? dana : owner
+    # No `Current.agency =` here: Rails 8.1's request cycle clears the execution context, and the
+    # spec must not depend on test-side Current writes after a request (all reads below are unscoped).
     post "/api/v1/session", params: { email: user.email, password: "secret-pass-1" }, headers: probe, as: :json
-    Current.agency = user.agency
   end
 
   def sign_out
@@ -198,9 +233,9 @@ RSpec.describe "Role and tenancy matrix", type: :request do
       delete "/api/v1/snapshot_uploads/#{created}", headers: probe if created
       status
     },
-    "getSnapshotUpload" => ->(_p) { get "/api/v1/snapshot_uploads/#{@upload_commit.id}", headers: probe; response.status },
-    "cancelSnapshotUpload" => ->(_p) { delete "/api/v1/snapshot_uploads/#{@upload_cancel.id}", headers: probe; response.status },
-    "commitSnapshotUpload" => ->(_p) { post "/api/v1/snapshot_uploads/#{@upload_commit.id}/commit", headers: probe; response.status },
+    "getSnapshotUpload" => ->(p) { get "/api/v1/snapshot_uploads/#{p == :foreign ? beta_upload.id : @upload_commit.id}", headers: probe; response.status },
+    "cancelSnapshotUpload" => ->(p) { delete "/api/v1/snapshot_uploads/#{p == :foreign ? beta_upload.id : @upload_cancel.id}", headers: probe; response.status },
+    "commitSnapshotUpload" => ->(p) { post "/api/v1/snapshot_uploads/#{p == :foreign ? beta_upload.id : @upload_commit.id}/commit", headers: probe; response.status },
     "getCurrentSnapshot" => ->(_p) { get "/api/v1/snapshots/current", headers: probe; response.status },
     "getTeam" => ->(_p) { get "/api/v1/team", headers: probe; response.status }
   }.freeze
@@ -242,6 +277,25 @@ RSpec.describe "Role and tenancy matrix", type: :request do
                    "the contract now documents a 403 for #{stale.join(', ')}; delete those CONTRACT_GAPS entries"
   end
 
+  it "covers every path-parameter operation (cross-tenant 404, or an exclusion with a reason)" do
+    uncovered = PATH_PARAMETERS.keys - OTHER_TENANT_404_OPERATIONS - CROSS_TENANT_EXCLUSIONS.keys
+    expect(uncovered).to be_empty,
+                   "assert 404 for #{uncovered.join(', ')} or add it to CROSS_TENANT_EXCLUSIONS with a reason"
+    expect(ID_OPERATIONS).to include("getSnapshotUpload", "cancelSnapshotUpload", "commitSnapshotUpload",
+                                     "getLead", "completeNextAction", "undoNextAction", "getAgentConversation",
+                                     "deleteInvitation")
+  end
+
+  # disconnectAdPlatform's parameter is a platform name, not another tenant's row: A deleting a
+  # platform must answer its documented 204 and must never touch B's connection (never 200/403).
+  it "does not let A disconnect B's ad platform (204, B's row intact)" do
+    sign_in_as(:owner)
+    delete "/api/v1/ad_connections/meta", headers: probe
+    expect(response).to have_http_status(:no_content)
+    expect(AdConnection.unscoped.where(agency_id: beta.id).pluck(:platform)).to eq([ "meta" ])
+    expect(AdConnection.unscoped.where(agency_id: agency.id).count).to eq(0)
+  end
+
   %i[signed_out owner coordinator foreign].each do |principal|
     it "matches the #{principal} column of the matrix for every operation" do
       failures = []
@@ -268,7 +322,7 @@ RSpec.describe "Role and tenancy matrix", type: :request do
           when :coordinator
             owner_only?(operation) ? [ status == 403, 403 ] : [ status == expected_success(operation), expected_success(operation) ]
           when :foreign
-            next unless FOREIGN_ID_OPERATIONS.include?(operation[:id])
+            next unless OTHER_TENANT_404_OPERATIONS.include?(operation[:id])
 
             [ status == 404, 404 ]
           end

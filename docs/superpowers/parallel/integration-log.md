@@ -80,19 +80,40 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
 - Added `spec/security/role_matrix_spec.rb`: the table is generated from the bundled OpenAPI (39
   operations), and "owner-only" is derived from each operation's documented `403`. Each operation is
   called as `:signed_out`, `:owner`, `:coordinator` and with another agency's ids (`:foreign`), on the
-  real app: signed-out → 401 (public operations must answer a documented status), owner → a documented
-  success (never 401/403/404), coordinator → 403 on owner-only operations, foreign ids → 404
-  (exhaustive per-route sweep: `spec/isolation/isolation_spec.rb`).
+  real app:
+  - **signed-out** → 401, except the public operations (`createSession`, `signup`, `getInvitation`,
+    `acceptInvitation`), which must answer one of their documented statuses.
+  - **owner** → the exact success status the operation documents for the driver payload: the lowest
+    documented 2xx, with two explicit overrides (`connectAdPlatform` 201 for a *first* connect;
+    `commitSnapshotUpload` 202 for a validated, ok report). A 409/422 error path can never count.
+  - **coordinator** → 403 for owner-only operations; otherwise the same documented success status as
+    the owner (never a bare "not 403", which would have accepted a 401/404/500).
+  - **other tenant's ids** → 404. The covered set is **derived from the contract**: every operation
+    with a uuid path parameter (`getLead`, `completeNextAction`, `undoNextAction`,
+    `getAgentConversation`, `deleteInvitation`, `getSnapshotUpload`, `cancelSnapshotUpload`,
+    `commitSnapshotUpload`) plus the name-addressed `getCoordinator` (called with a coordinator name
+    that exists only in agency B). Agency B is given its own lead, invitation, conversation, upload
+    and ad connection so each call has a real row to miss. A completeness example fails when a
+    path-parameter operation is neither in that set nor in `CROSS_TENANT_EXCLUSIONS` with a reason:
+    `getMetricsChannel` (a channel name, not a row), `getInvitation`/`acceptInvitation` (public
+    tokens that name their own agency by design) and `disconnectAdPlatform`.
+  - `disconnectAdPlatform` takes a platform *name*, not another tenant's row: asserted separately as
+    its documented **204** with agency B's connection left intact (never 200/403, never B's row
+    deleted). No operation in the contract takes a campaign id, so none is asserted.
 
   ```
-  docker compose exec -e RAILS_ENV=test web bundle exec rspec spec/contract spec/security
-  27 examples, 0 failures
+  docker compose exec -e RAILS_ENV=test web bundle exec rspec spec/security/role_matrix_spec.rb
+  8 examples, 0 failures
   ```
+
+- The owner/coordinator success columns are cross-checked against `spec/isolation/isolation_spec.rb`,
+  which sweeps every registered tenant route with another agency's resource and expects 404.
 
 ### Contract gaps found by the matrix (owner-only in the app, 403 missing from the contract → CCRs)
 These are **not** app authorization bugs: the matrix proves coordinators are refused (403) on each. The
 contract omits the 403, so a `ccr` PR should add it. The spec encodes them in `CONTRACT_GAPS` and
-asserts the secure (403) behaviour.
+asserts the secure (403) behaviour. A dedicated example fails when an entry becomes **stale** (the
+contract now documents the 403), so the list cannot linger after those CCRs merge.
 
 | Operation | App gate | Contract declares |
 |---|---|---|
