@@ -14,13 +14,24 @@ Environment: worktree `.worktrees/w3-1` (own stack `simbe-wt-w3-1`), host ports 
   `vite.mock.config.ts` already forces `mock` for the standalone host, so no change was needed there.
   Playwright's `real-*` projects stay selected by `E2E_API=real` + `E2E_BASE_URL` (playwright.config.ts).
 - Created `lib/tasks/e2e.rake` (`e2e:seed`, `e2e:alpha_files`).
-- `docker compose exec web bundle exec rails e2e:seed` **twice** → both print nothing and leave the
-  same counts (idempotent):
+- `docker compose exec web bundle exec rails e2e:seed` **twice** → both print nothing. Counting the rows
+  after each run (the runner sets `Current.agency` so the scoped reads work):
 
   ```
+  $ docker compose exec web bundle exec rails e2e:seed && docker compose exec web bundle exec rails e2e:seed
+  (no output)
+
+  $ docker compose exec web bundle exec rails runner \
+      'a=Agency.find_by!(slug: "harbor"); Current.agency=a; puts "leads=#{Lead.count} stage_events=#{StageEvent.count} screener=#{ScreenerAnswer.count} users=#{User.where(agency_id: a.id).count} spend=#{AdSpendDay.count} snapshots=#{Snapshot.count}"'
   leads=10 stage_events=32 screener=100 users=5 spend=3 snapshots=2
+
+  $ docker compose exec web bundle exec rails e2e:seed && docker compose exec web bundle exec rails runner \
+      'a=Agency.find_by!(slug: "harbor"); Current.agency=a; puts "leads=#{Lead.count} stage_events=#{StageEvent.count} screener=#{ScreenerAnswer.count} users=#{User.where(agency_id: a.id).count} spend=#{AdSpendDay.count}"'
   leads=10 stage_events=32 screener=100 users=5 spend=3
   ```
+
+  The counts are identical after the second seed (idempotent: the reload replaces, it never double
+  counts). `snapshots` grows by one per load — a snapshot row is the load's record, not duplicated data.
 
 - HTTP check (host `curl` through Puma, cookie jar):
 
