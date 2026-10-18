@@ -76,10 +76,22 @@ module Signup
     end
 
     def validate_agency!
-      return if TIMEZONES.include?(@agency[:timezone].to_s) &&
-                Agency::MILESTONES.include?(@agency[:qualified_milestone].to_s)
+      timezone_bad = !TIMEZONES.include?(@agency[:timezone].to_s)
+      milestone_bad = !Agency::MILESTONES.include?(@agency[:qualified_milestone].to_s)
+      return unless timezone_bad || milestone_bad
 
-      raise Error.new("invalid_agency", "Pick a supported time zone and definition of qualified")
+      raise Error.new("invalid_agency", agency_input_message(timezone: timezone_bad, milestone: milestone_bad))
+    end
+
+    # Names only the inputs that are missing or unsupported; the wizard shows each part under its input.
+    def agency_input_message(timezone:, milestone:)
+      if timezone && milestone
+        "Pick a supported time zone and a definition of qualified"
+      elsif timezone
+        "Pick a supported time zone"
+      else
+        "Pick a definition of qualified"
+      end
     end
 
     # Parameterized name, falling back to a random slug for names that parameterize to nothing
@@ -116,8 +128,10 @@ module Signup
         "Enter an agency name"
       elsif agency.errors.include?(:slug)
         "That agency name can't be used - try a different one"
+      elsif agency.errors.include?(:timezone) || agency.errors.include?(:qualified_milestone)
+        agency_input_message(timezone: agency.errors.include?(:timezone), milestone: agency.errors.include?(:qualified_milestone))
       else
-        "Pick a supported time zone and definition of qualified"
+        "Check the agency details"
       end
     end
   end

@@ -77,11 +77,41 @@ RSpec.describe "Signup", type: :request do
     expect(response.parsed_body.dig("error", "code")).to eq("weak_password")
   end
 
-  it "rejects an unsupported time zone" do
+  it "rejects an unsupported time zone and says only that" do
     post_invalid(payload.deep_merge(user: { email: "d@new.test" }, agency: { timezone: "Mars/Base" }))
 
     expect(response).to have_http_status(:unprocessable_entity)
     expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a supported time zone")
+  end
+
+  it "says only the time zone is missing when it is blank" do
+    post_invalid(payload.deep_merge(user: { email: "d2@new.test" }, agency: { timezone: "" }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a supported time zone")
+  end
+
+  it "rejects an unsupported definition of qualified and says only that" do
+    post_invalid(payload.deep_merge(user: { email: "f@new.test" }, agency: { qualified_milestone: "nonsense" }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a definition of qualified")
+  end
+
+  it "says only the definition is missing when it is absent" do
+    post_invalid(payload.deep_merge(user: { email: "f2@new.test" }).tap { |body| body[:agency].delete(:qualified_milestone) })
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a definition of qualified")
+  end
+
+  it "names both inputs only when both are missing or unsupported" do
+    post_invalid(payload.deep_merge(user: { email: "g@new.test" }, agency: { timezone: "Mars/Base", qualified_milestone: "" }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a supported time zone and a definition of qualified")
   end
 
   it "names the agency name, not the time zone, when the name is blank" do

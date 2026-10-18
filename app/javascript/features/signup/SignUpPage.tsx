@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { useAsyncAction } from "@/hooks/useAsyncAction"
 import { WizardShell } from "./WizardShell"
+import { agencyFieldErrors } from "./agencyErrors"
 import { AccountStep } from "./steps/AccountStep"
 import { AdAccountsStep } from "./steps/AdAccountsStep"
 import { AgencyStep } from "./steps/AgencyStep"
@@ -113,7 +114,8 @@ function Wizard({
     ...(touched.password ? { password: messages.password } : {}),
     ...serverErrors,
   }
-  const agencyError = serverAgencyError ?? (touched.agency && agency.name.trim() === "" ? AGENCY_NAME_REQUIRED : null)
+  const serverAgencyErrors = agencyFieldErrors(serverAgencyError)
+  const agencyError = serverAgencyErrors.name ?? (touched.agency && agency.name.trim() === "" ? AGENCY_NAME_REQUIRED : null)
   // A rejected submit gets one live region above the fields; blur messages speak for themselves.
   const alert = Object.values(serverErrors).some(Boolean) || serverAgencyError ? ERROR_SUMMARY : null
 
@@ -202,6 +204,8 @@ function Wizard({
         <AgencyStep
           value={agency}
           error={agencyError}
+          timezoneError={serverAgencyErrors.timezone}
+          milestoneError={serverAgencyErrors.milestone}
           onChange={(patch) => {
             setAgency((previous) => ({ ...previous, ...patch }))
             setServerAgencyError(null)
