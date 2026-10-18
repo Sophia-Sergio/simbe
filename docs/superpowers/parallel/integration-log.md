@@ -218,7 +218,8 @@ handling from a shared helper (W3-2's `e2e/support/auth.ts` is the designed home
   would make knip report the ignored dev dependencies (msw, ajv, wait-on, …) as unused and force
   `package.json` edits, which is not what the plan asks.
 - **Ownership deviation:** `knip.json` is W0-7's and the 13 frontend files belong to
-  W0-2/W0-4A/W0-4B/W0-5/W0-6A/W0-6B. Done on the user's explicit instruction; needs an ownership
+  W0-2/W0-4A/W0-4B/W0-5/W0-6A/W0-6B. Required by plan Task 5 Step 2b (not a user instruction — the
+  plan's `Owns` line was extended at review, R2); needs an ownership
   change (or merge as a `ccr`-style exception) before the PR.
 
 ### Step 3 — `make verify` and `make contract-coverage`
