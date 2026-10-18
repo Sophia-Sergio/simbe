@@ -222,4 +222,29 @@ handling from a shared helper (W3-2's `e2e/support/auth.ts` is the designed home
   change (or merge as a `ccr`-style exception) before the PR.
 
 ### Step 3 — `make verify` and `make contract-coverage`
-See the final summary; both were run at the end of the lane.
+Full run on this worktree (host Node 20; the repo asks for 22 but Playwright/Vitest ran fine):
+
+```
+make verify                         -> exit 0
+  check-ownership.sh                -> 32 lanes checked, 0 conflicts
+  guard-no-health-data              -> guard ok
+  npm run contract / npm run types  -> valid; generated types unchanged
+  rubocop                           -> 273 files, no offenses
+  brakeman                          -> 0 warnings
+  bundler-audit                     -> no vulnerabilities
+  boundaries:check                  -> ok
+  rspec                             -> 602 examples, 0 failures
+  contract-coverage                 -> 39/39 operations exercised
+  npm run lint / npm run typecheck  -> clean
+  npm audit --omit=dev              -> 0 vulnerabilities
+  vitest                            -> 120 files, 815 tests, all pass
+  npx playwright test (mock)        -> 94 passed, 16 skipped
+  npx knip                          -> exit 0 (configuration hints only)
+  bin/ci-parity                     -> parity steps checked: 17
+make spec ARGS="spec/contract spec/security spec/isolation" -> 31 examples, 0 failures
+make contract-coverage              -> 39/39 operations exercised
+```
+
+`bin/lane check` fails by design on the 14 files of Step 2b (13 frontend files + `knip.json`, all
+outside W3-1's `Owns`) — see the ownership deviation above. Everything else this lane changed is
+inside `Owns`.
