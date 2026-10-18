@@ -138,45 +138,49 @@ test.describe("responsive", () => {
     test.setTimeout(Number(process.env.AUDIT_TIMEOUT ?? 300_000))
     test.skip(!ENABLED, "audit runs with E2E_AUDIT=1 or E2E_API=real")
     await signIn(page, "owner")
-    await page.setViewportSize({ width: 859, height: 844 })
+    // A short viewport so the screener panel overflows in both shells (the 620px side panel and full screen),
+    // which is what makes the scroll assertion meaningful at both edges.
+    const SHORT = 420
+    const OFFSET = 80
+    await page.setViewportSize({ width: 859, height: SHORT })
     await page.goto(`/pipeline?lead=${LEAD_L4}&tab=screener`)
     const dialog = page.locator('[role="dialog"]')
     await expect(dialog).toBeVisible({ timeout: 30_000 })
     await settle(page)
     await expect(page.locator("[data-shell]")).toHaveAttribute("data-shell", "mobile")
 
-    // Scroll the panel's own scroll container (or the page if the panel fits) and remember how to find it.
-    const before = await page.evaluate(() => {
+    // Tag and scroll the panel's own scroll container, then require it to survive the shell switch.
+    const before = await page.evaluate((offset) => {
       const nodes = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] *'))
       const scroller = nodes.find(
         (el) => el.scrollHeight > el.clientHeight + 20 && /(auto|scroll)/.test(getComputedStyle(el).overflowY),
       )
-      if (scroller) {
-        scroller.setAttribute("data-audit-scroller", "1")
-        scroller.scrollTop = 120
-        return {
-          kind: "element" as const,
-          index: nodes.indexOf(scroller),
-          value: scroller.scrollTop,
-          max: scroller.scrollHeight - scroller.clientHeight,
-          name: scroller.className.slice(0, 60),
-        }
+      if (!scroller) return null
+      scroller.setAttribute("data-audit-scroller", "1")
+      scroller.scrollTop = offset
+      return {
+        value: scroller.scrollTop,
+        max: scroller.scrollHeight - scroller.clientHeight,
+        name: scroller.className.slice(0, 60),
       }
-      window.scrollTo(0, 120)
-      return { kind: "window" as const, index: -1, value: window.scrollY, max: 0, name: "window" }
-    })
+    }, OFFSET)
     const route = new URL(page.url()).pathname + new URL(page.url()).search
     const issues: Violation[] = []
-    if (before.value < 1) issues.push({ rule: "responsive", detail: "the lead panel and page did not scroll before the resize" })
-    // The panel's content is shorter at 860 (a 620px side panel) than at 859 (full screen), so a valid
-    // offset can legitimately clamp when the content fits; it must never reset while the content scrolls.
-    let expectedTop = before.value
+    if (!before) {
+      issues.push({ rule: "responsive", detail: "the lead panel has no scroll container at 859px" })
+    } else if (before.max < OFFSET || before.value < OFFSET) {
+      issues.push({
+        rule: "responsive",
+        detail: `the panel is not scrollable enough at 859px to assert an offset (max ${before.max}, top ${before.value})`,
+      })
+    }
+    const offset = before?.value ?? 0
 
     for (const [width, shell] of [
       [860, "desktop"],
       [859, "mobile"],
     ] as const) {
-      await page.setViewportSize({ width, height: width >= 860 ? 800 : 844 })
+      await page.setViewportSize({ width, height: SHORT })
       await expect(page.locator("[data-shell]")).toHaveAttribute("data-shell", shell, { timeout: 15_000 })
       await settle(page)
       const after = new URL(page.url()).pathname + new URL(page.url()).search
@@ -184,31 +188,21 @@ test.describe("responsive", () => {
       if (!(await dialog.isVisible())) issues.push({ rule: "responsive", detail: `the lead panel closed at ${width}px` })
       const state = await page.evaluate(() => {
         const tagged = document.querySelector<HTMLElement>('[data-audit-scroller="1"]')
-        if (tagged) {
-          return {
-            top: tagged.scrollTop,
-            max: Math.max(0, tagged.scrollHeight - tagged.clientHeight),
-            present: true,
-            name: tagged.className.slice(0, 60),
-          }
-        }
-        const nodes = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"] *'))
-        const scroller = nodes.find(
-          (el) => el.scrollHeight > el.clientHeight + 20 && /(auto|scroll)/.test(getComputedStyle(el).overflowY),
-        )
-        return {
-          top: scroller ? scroller.scrollTop : window.scrollY,
-          max: scroller ? Math.max(0, scroller.scrollHeight - scroller.clientHeight) : 0,
-          present: false,
-          name: scroller?.className.slice(0, 60) ?? "window",
-        }
+        if (!tagged) return null
+        return { top: tagged.scrollTop, max: Math.max(0, tagged.scrollHeight - tagged.clientHeight) }
       })
-      expectedTop = Math.min(expectedTop, state.max)
-      if (Math.abs(state.top - expectedTop) > 1) {
-        issues.push({
-          rule: "responsive",
-          detail: `scrollTop at ${width}px is ${state.top}, expected ${expectedTop} (before ${before.value}, max ${state.max}; ${before.name} -> ${state.name}${state.present ? "" : ", original scroller no longer in the DOM"})`,
-        })
+      if (!state) {
+        issues.push({ rule: "responsive", detail: `the panel's scroll container was replaced or removed at ${width}px` })
+      } else {
+        if (state.max < OFFSET) {
+          issues.push({
+            rule: "responsive",
+            detail: `the panel content no longer overflows at ${width}px (max ${state.max}), so restoration cannot be asserted`,
+          })
+        }
+        if (Math.abs(state.top - offset) > 1) {
+          issues.push({ rule: "responsive", detail: `scrollTop at ${width}px is ${state.top}, expected ${offset} (max ${state.max})` })
+        }
       }
     }
 
