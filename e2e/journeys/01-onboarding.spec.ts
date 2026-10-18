@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { alphaFiles, reset } from "../support/seed"
+import { signIn } from "../support/auth"
 import { expectNoHorizontalScroll, shot, viewportName } from "../support/viewport"
 
 // Journey 1 — a new agency onboards from zero (handoff/design/prototype/Simbe Flows.dc.html, flow
@@ -7,14 +8,18 @@ import { expectNoHorizontalScroll, shot, viewportName } from "../support/viewpor
 // Alpha CSVs (review `Leads 0 → 10 (+10)`) → load → invite Jess Kim → the dashboard shows 10 leads
 // and 3 qualified. Real stack only; the layout is compared against
 // handoff/design/screenshots/02-signup-agency.png and 03-signup-load-data.png.
+//
+// It ends with the cross-agency check the other journeys cannot make: the invitation the new agency
+// just created is invisible to the seeded `harbor` owner, and deleting it by id is a 404
+// (docs/conventions/multi-tenancy.md).
 
 test.describe("journey 1 — new agency onboarding", () => {
   test.skip(process.env.E2E_API !== "real", "journeys run against the real stack (E2E_API=real)")
 
-  test("signs up, connects Meta, loads the Alpha export and opens the dashboard", async ({ page }, testInfo) => {
+  test("signs up, connects Meta, loads the Alpha export and opens the dashboard", async ({ page, browser }, testInfo) => {
     test.setTimeout(180_000)
     const viewport = viewportName(testInfo)
-    // Project-scoped so the two Playwright projects never delete each other's in-flight agency.
+    // The agency name carries the viewport, so the two Playwright projects never reset each other's.
     const agency = `E2E Onboarding ${viewport}`
     // A previous run's agency of the same name would collide on the unique slug; drop it, then reseed.
     reset(agency)
@@ -76,5 +81,28 @@ test.describe("journey 1 — new agency onboarding", () => {
     await expect(page.getByText("30.0%")).toBeVisible()
     await expectNoHorizontalScroll(page)
     await page.screenshot({ path: shot("onboarding-06-dashboard", testInfo), fullPage: true })
+
+    // Cross-agency isolation. A lead's id is its export `external_id`, which two agencies that
+    // uploaded the same file share by design, so the probe is a per-agency row: the invitation this
+    // agency just created. Another agency's owner can neither see it nor delete it by id.
+    const team = await page.request.get("/api/v1/team")
+    expect(team.status()).toBe(200)
+    const { invitations } = (await team.json()) as { invitations: { id: string; email: string }[] }
+    const invitation = invitations.find((row) => row.email.startsWith("jess+"))
+    if (!invitation) throw new Error("the invite step did not create an invitation")
+
+    const baseURL = String(testInfo.project.use.baseURL)
+    const harborContext = await browser.newContext({ viewport: page.viewportSize() ?? undefined, baseURL })
+    const harborPage = await harborContext.newPage()
+    await signIn(harborPage, "owner") // erin@harbor.test
+    const harborTeam = await harborPage.request.get("/api/v1/team")
+    expect(harborTeam.status()).toBe(200)
+    expect(JSON.stringify(await harborTeam.json())).not.toContain(invitation.email)
+    // A mutation needs the CSRF header the app's client sends (api/base_controller.rb).
+    const deleted = await harborPage.request.delete(`/api/v1/invitations/${invitation.id}`, {
+      headers: { "X-Requested-With": "simbe" },
+    })
+    expect(deleted.status()).toBe(404)
+    await harborContext.close()
   })
 })
