@@ -127,7 +127,7 @@ it("blocks Replace and lists errors when the report has errors", async () => {
 
   expect(screen.getByText("Review changes")).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Replace snapshot" })).toBeDisabled()
-  expect(screen.getByText(/stage_history\.csv row 12/)).toBeInTheDocument()
+  expect(screen.getByText(/leads\.csv row 7/)).toBeInTheDocument()
   expect(screen.getByText(/appointments\.csv was not uploaded/)).toBeInTheDocument()
 })
 
