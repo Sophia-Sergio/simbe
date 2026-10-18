@@ -26,7 +26,16 @@ const UNCOMMITTED: ReadonlyArray<string> = ["uploading", "validating", "review",
  * An upload this step started but nobody committed is cancelled when the step goes away (leaving it
  * pending would block the agency's next load with `409 already_in_progress`).
  */
-export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSkip: () => void }) {
+export function LoadDataStep({
+  agencyName,
+  onSkip,
+  onUnloadedChange,
+}: {
+  agencyName: string
+  onSkip: () => void
+  /** Told whether files are uploaded but not loaded yet, so the wizard can warn before leaving the step. */
+  onUnloadedChange?: (unloaded: boolean) => void
+}) {
   const upload = useSnapshotUpload()
   const snapshot = useCurrentSnapshot()
   const [rejected, setRejected] = useState<File[]>([])
@@ -46,6 +55,11 @@ export function LoadDataStep({ agencyName, onSkip }: { agencyName: string; onSki
     },
     [],
   )
+
+  const unloaded = upload.state === "uploading" || upload.state === "validating" || upload.state === "review"
+  useEffect(() => {
+    onUnloadedChange?.(unloaded)
+  }, [unloaded, onUnloadedChange])
 
   const statuses = Object.fromEntries((snapshot.data?.files ?? []).map((file) => [file.name, file.rows]))
   const ignored = [...(upload.report?.ignored ?? []), ...rejected.map((file) => file.name)]

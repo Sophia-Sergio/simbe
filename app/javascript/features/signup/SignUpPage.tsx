@@ -9,6 +9,7 @@ import { useAuth } from "@/app/auth/useAuth"
 import type { Milestone } from "@/components/shared/options"
 import { TIMEZONES } from "@/components/shared/options"
 import { Button } from "@/components/ui/Button"
+import { ConfirmInline } from "@/components/ui/ConfirmInline"
 import { Skeleton } from "@/components/ui/Skeleton"
 import { useAsyncAction } from "@/hooks/useAsyncAction"
 import { WizardShell } from "./WizardShell"
@@ -102,6 +103,13 @@ function Wizard({
   const [serverAgencyError, setServerAgencyError] = useState<string | null>(null)
   // Step 4 owns an upload; once visited it stays mounted (hidden) so Back/Continue never cancel it.
   const [loadDataVisited, setLoadDataVisited] = useState(initialStep === 4)
+  // Files uploaded to step 4 but not loaded: leaving the step then asks first (the dashboard would be empty).
+  const [unloaded, setUnloaded] = useState(false)
+  const [confirmingLeave, setConfirmingLeave] = useState(false)
+  const leaveLoadData = () => {
+    if (unloaded) setConfirmingLeave(true)
+    else go(5)
+  }
   const go = (target: number) => {
     if (target === 4) setLoadDataVisited(true)
     setStep(target)
@@ -196,17 +204,37 @@ function Wizard({
         Continue
       </Button>
     )
-  } else if (step === 3 || step === 4) {
-    // Step 3 is a display-only preview; step 4 may continue at any time (a running load finishes in the background).
-    next = <Button onClick={() => go(step + 1)}>Continue</Button>
+  } else if (step === 3) {
+    // Step 3 is a display-only preview.
+    next = <Button onClick={() => go(4)}>Continue</Button>
+  } else if (step === 4) {
+    // Step 4 may continue at any time (a running load finishes in the background), but not silently
+    // with files that were uploaded and never loaded.
+    next = <Button onClick={leaveLoadData}>Continue</Button>
   }
+  const leaveWarning =
+    step === 4 && unloaded && confirmingLeave ? (
+      <div role="alert" className="w-full">
+        <ConfirmInline
+          tone="brand"
+          message="Your files are uploaded but your data hasn't been loaded yet, so your dashboard will be empty. Load it first, or continue without it."
+          cancelLabel="Stay and load"
+          confirmLabel="Continue without loading"
+          onCancel={() => setConfirmingLeave(false)}
+          onConfirm={() => {
+            setConfirmingLeave(false)
+            go(5)
+          }}
+        />
+      </div>
+    ) : null
 
   return (
     <WizardShell
       step={step}
       firstReachable={step >= 3 ? 3 : undefined}
-      onGo={go}
-      title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} alert={alert} footer={<>{back}{next}</>}>
+      onGo={(target) => (step === 4 && target > 4 ? leaveLoadData() : go(target))}
+      title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} alert={alert} footer={leaveWarning ?? <>{back}{next}</>}>
       {step === 1 ? (
         <AccountStep
           value={account}
@@ -232,7 +260,7 @@ function Wizard({
       {step === 3 ? <AdAccountsStep /> : null}
       {loadDataVisited || step === 4 ? (
         <div hidden={step !== 4}>
-          <LoadDataStep agencyName={agencyName} onSkip={() => setStep(5)} />
+          <LoadDataStep agencyName={agencyName} onSkip={leaveLoadData} onUnloadedChange={setUnloaded} />
         </div>
       ) : null}
       {step === 5 ? <TeamStep owner={owner} onLoadData={() => go(4)} /> : null}
