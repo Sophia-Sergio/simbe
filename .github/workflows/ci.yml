@@ -236,7 +236,9 @@ jobs:
           npx --yes wait-on http://127.0.0.1:3000/up --timeout 90000
       - name: "Playwright against the real API (real-exports journeys are skipped - the exports are never in CI)"
         env: { E2E_BASE_URL: "http://127.0.0.1:3000", E2E_SYNTHETIC_DIR: "e2e/fixtures/synthetic" }
-        run: npx playwright test --grep-invert @real   # ci-only
+        # One worker: the journeys share the seeded agency and journey 2 changes its qualified
+        # definition, so real-stack runs are serial (W3-2). The retries come from playwright.config.ts.
+        run: npx playwright test --grep-invert @real --workers=1   # ci-only
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: e2e-real-screenshots, path: "e2e/screenshots\ne2e/test-results", if-no-files-found: ignore }
