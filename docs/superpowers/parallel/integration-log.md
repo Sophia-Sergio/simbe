@@ -167,4 +167,59 @@ Task 4 Steps 3–4 are browser journeys. W3-1's `Owns` list has no `e2e/` path: 
 
 ## Task 5 — CI e2e-real job and finish
 
-_(filled in below)_
+### Step 1 — `e2e-real` job
+The job already exists (added by W0-7) in the plan's shape: Rails + Solid Queue on a Postgres 16
+service, `db:create db:schema:load db:seed e2e:seed`, a synthetic Harbor export
+(`bin/generate-sample-export`), `bin/vite build` + `SOLID_QUEUE_IN_PUMA=true rails server`,
+`E2E_API: real` + `npx playwright test --grep-invert @real`, screenshots uploaded always. Nothing
+functional needed adding; the comment above the job now records the W3-1 result below.
+
+**The `continue-on-error` flip is withhold** because running the lane specs against this stack does
+not pass yet (Step 2). Making a known-red job required would redden `main`; the flip waits for the
+fix PRs.
+
+### Step 2 — Lane e2e specs against the real backend: FAILED (fix PRs needed)
+```
+E2E_API=real E2E_BASE_URL=http://127.0.0.1:57558 npx playwright test --grep-invert "real exports"
+7 passed, 86 failed, 15 skipped (3.1m)   [both real-desktop and real-mobile projects]
+```
+The real stack itself is fine (the SPA loads through the Rails `/vite-dev` proxy and the sign-in form
+renders); the specs are **mock-only**:
+- every lane spec signs in with the MSW password `"x"` (`page.getByLabel("Password").fill("x")`); the
+  real API requires `simbe-dev-pass` → 401, so `[data-shell]` never appears. This is 80+ of the
+  failures.
+- several specs assert `?mock=empty|loading|new` scenarios the real API ignores.
+- `E2E_STUB_ANTHROPIC=1` is set by the CI job but **not read by the app** (no `Ai::Client` stub
+  exists), so the agent specs cannot be isolated from the provider.
+- `mock-smoke` receives **429** — Rack::Attack throttles repeated sign-ins on the real backend.
+
+Fix PRs (ownership relaxed per the plan): one per `F-*` lane to take the sign-in password/scenario
+handling from a shared helper (W3-2's `e2e/support/auth.ts` is the designed home) and to wire the
+`E2E_STUB_ANTHROPIC` stub. Logged, not fixed here: all 18 e2e files are outside W3-1's `Owns`.
+
+### Step 2b — Dead-code guard restored (knip) ✅
+- `knip.json`: deleted `"rules": { "exports": "warn", "types": "warn" }` (not re-added).
+- `npx knip --fix --fix-type exports,types` removed 21 unused exports/types; 6 declarations that were
+  entirely unused were then deleted by hand (`useAgency` + `Milestone`, `FunnelStage`, `ChannelRow`,
+  `Status`, `McpSettings`) because removing only the `export` keyword left `tsc` `noUnusedLocals`
+  errors. Files touched: `app/javascript/api/hooks/{account,snapshots}.ts`,
+  `app/javascript/api/types.ts`, `app/javascript/app/auth/AuthProvider.tsx`,
+  `app/javascript/app/shell/{desktop/{AgencySwitcher,NavLink,renderShell},mobile/renderMobile}.tsx`,
+  `app/javascript/components/shared/ReviewReport.tsx`,
+  `app/javascript/components/ui/{Button,Modal,Pill,SegmentBar}.tsx`.
+- ```
+  npx knip        -> exit 0 (only 11 configuration hints, which do not fail)
+  npm run lint    -> clean
+  npm run typecheck -> clean
+  npx vitest run  -> 120 files, 815 tests, all pass
+  ```
+- The 11 remaining knip **configuration hints** (drop `ignoreDependencies`, drop the
+  `app/javascript/api/generated/**` ignore, redundant entry patterns) are left as-is: acting on them
+  would make knip report the ignored dev dependencies (msw, ajv, wait-on, …) as unused and force
+  `package.json` edits, which is not what the plan asks.
+- **Ownership deviation:** `knip.json` is W0-7's and the 13 frontend files belong to
+  W0-2/W0-4A/W0-4B/W0-5/W0-6A/W0-6B. Done on the user's explicit instruction; needs an ownership
+  change (or merge as a `ccr`-style exception) before the PR.
+
+### Step 3 — `make verify` and `make contract-coverage`
+See the final summary; both were run at the end of the lane.

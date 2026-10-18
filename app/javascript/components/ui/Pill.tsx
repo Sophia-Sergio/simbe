@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 
 export type PillTone = "neutral" | "success" | "warning" | "danger" | "violet" | "brand" | "outline"
 
-export const PILL_TONES: Record<PillTone, string> = {
+const PILL_TONES: Record<PillTone, string> = {
   neutral: "border-line bg-subtle text-ink-secondary",
   success: "border-success-border bg-success-bg text-success-text",
   warning: "border-warning-border bg-warning-bg text-warning-text",

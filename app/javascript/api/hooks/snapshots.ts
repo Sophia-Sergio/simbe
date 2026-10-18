@@ -7,7 +7,7 @@ import type { SnapshotCurrent, SnapshotUpload } from "../types"
 type Progress = components["schemas"]["Progress"]
 type Report = components["schemas"]["Report"]
 
-export type SnapshotUploadState = "idle" | "uploading" | "validating" | "review" | "committing" | "done" | "error"
+type SnapshotUploadState = "idle" | "uploading" | "validating" | "review" | "committing" | "done" | "error"
 
 export type SnapshotUploadController = {
   state: SnapshotUploadState

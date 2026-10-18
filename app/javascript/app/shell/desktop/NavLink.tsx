@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom"
 import type { NavItem } from "../../feature"
 
 /** `/` matches only itself; every other target also matches its nested routes (`/channels/Facebook`). Case-insensitive, like the router. */
-export function isActivePath(pathname: string, to: string): boolean {
+function isActivePath(pathname: string, to: string): boolean {
   const path = pathname.toLowerCase()
   const target = to.toLowerCase()
   if (target === "/") return path === "/"

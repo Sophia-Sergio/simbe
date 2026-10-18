@@ -87,10 +87,16 @@ The only real data is `handoff/takehome/exports/` (local only, never committed) 
 
 ## Task 5: CI `e2e-real` job and finish
 
-- [ ] **Step 1:** Add the `e2e-real` job: `docker compose up -d db api web`, `rails db:setup e2e:seed`, `E2E_API=real make e2e` (all lane e2e specs), upload screenshots as artifacts.
+> **W3-1 result:** Step 1 — the job already exists (W0-7) in this shape and its comment now records
+> the result; the `continue-on-error` flip is withheld because Step 2 fails. Step 2 — ran
+> `E2E_API=real`: **7 passed / 86 failed / 15 skipped**; the specs are mock-only (password `"x"`),
+> so this is a batch of fix PRs (logged). Step 2b — done. Step 3 — see the summary.
+> Details: [`integration-log.md`](../parallel/integration-log.md).
+
+- [x] **Step 1:** Add the `e2e-real` job: `docker compose up -d db api web`, `rails db:setup e2e:seed`, `E2E_API=real make e2e` (all lane e2e specs), upload screenshots as artifacts.
 - [ ] **Step 2:** All lane e2e specs pass against the real backend in both viewports (`make e2e` with `E2E_API=real`); anything failing becomes a fix PR (ownership relaxed), logged.
-- [ ] **Step 2b:** Restore the dead-code guard: in `knip.json` delete `"rules": { "exports": "warn", "types": "warn" }` (it was relaxed in Wave 0 because the kit and hooks export APIs that Wave-1 lanes consume). `npx knip` must exit 0 with the rules back at error: delete every export that is still unused, do not re-add the relaxation.
-- [ ] **Step 3:** `make verify` → exit 0; `make contract-coverage` → `39/39`. Commit; open PR. Hand off to W3-2/W3-3.
+- [x] **Step 2b:** Restore the dead-code guard: in `knip.json` delete `"rules": { "exports": "warn", "types": "warn" }` (it was relaxed in Wave 0 because the kit and hooks export APIs that Wave-1 lanes consume). `npx knip` must exit 0 with the rules back at error: delete every export that is still unused, do not re-add the relaxation.
+- [x] **Step 3:** `make verify` → exit 0; `make contract-coverage` → `39/39`. Commit; open PR. Hand off to W3-2/W3-3.
 
 ## Done when (acceptance commands)
 ```bash

@@ -4,8 +4,8 @@ import { Link } from "react-router-dom"
 import type { LinkProps } from "react-router-dom"
 import { Spinner } from "./Spinner"
 
-export type ButtonVariant = "primary" | "outline-brand" | "secondary" | "ghost" | "danger"
-export type ButtonSize = "md" | "sm"
+type ButtonVariant = "primary" | "outline-brand" | "secondary" | "ghost" | "danger"
+type ButtonSize = "md" | "sm"
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "bg-brand text-white hover:bg-brand-hover",

@@ -5,7 +5,7 @@ import { ApiError } from "@/api/client"
 import { useMe, useSignIn, useSignOut } from "@/api/hooks/auth"
 import type { Agency, Role, User } from "@/api/types"
 
-export type AuthStatus = "loading" | "authenticated" | "anonymous"
+type AuthStatus = "loading" | "authenticated" | "anonymous"
 
 export type Auth = {
   status: AuthStatus
