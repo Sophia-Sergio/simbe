@@ -189,9 +189,10 @@ Compared the generated `audit-<screen>-{390,1280}.png` pair with `handoff/design
   `brand.tint` + `brand.text`; the FAB is the only gradient surface. Radii match `docs/design/brand.md`
   (pill controls, 16px rows, 20px wells/KPIs, 24px auth card/modal, `24px 24px 0 0` sheets).
 - **Type.** Computed styles are asserted in every cell: body starts with Inter, `font-display` with Outfit.
-- **Raw hex** (`grep -rnE '#[0-9a-fA-F]{6}' app/javascript | grep -v "ChannelTile\|tailwind\|tokens.css\|\.test\."`):
-  the only matches are `styles/tokens.css` (excluded by the plan), `ChannelTile.tsx` and `ChannelTile.test.tsx`
-  (excluded by the plan). No other file carries a literal colour.
+- **Raw hex.** The plan's exact command
+  `grep -rnE '#[0-9a-fA-F]{6}' app/javascript | grep -v "ChannelTile\|tailwind\|tokens.css\|\.test\."`
+  was run in the web container and printed **nothing** (exit 1 — no matching line). Without the exclusions it
+  only matches `styles/tokens.css`, `ChannelTile.tsx` and `ChannelTile.test.tsx`, which the plan excludes.
 
 ### Intentional deviations (documented in `docs/design/brand.md`)
 
