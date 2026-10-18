@@ -231,3 +231,50 @@ it("posts signup once when Continue is double-clicked on step 2", async () => {
   await waitFor(() => expect(posts).toBe(1))
   expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
 })
+
+/** Submit step 2 with the server rejecting the agency with `message`. */
+async function submitRejectedAgency(message: string) {
+  mockApi({
+    "POST /api/v1/signup": () => HttpResponse.json({ error: { code: "invalid_agency", message } }, { status: 422 }),
+  })
+  renderWithProviders(<SignUpPage />, { role: null })
+  await reachAgencyStep()
+  await userEvent.type(screen.getByLabelText("Agency name"), "Harbor")
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+}
+
+it("shows a time zone problem under the time zone chips, not under the agency name", async () => {
+  await submitRejectedAgency("Pick a supported time zone")
+
+  const alert = await screen.findByText("Pick a supported time zone")
+  expect(alert).toHaveAttribute("role", "alert")
+  expect(alert.previousElementSibling).toBe(screen.getByRole("group", { name: "Time zone" }))
+  expect(screen.getByLabelText("Agency name")).not.toHaveAttribute("aria-invalid", "true")
+})
+
+it("shows a definition problem under the qualified cards, not under the agency name", async () => {
+  await submitRejectedAgency("Pick a definition of qualified")
+
+  const alert = await screen.findByText("Pick a definition of qualified")
+  expect(alert).toHaveAttribute("role", "alert")
+  expect(alert.previousElementSibling).toBe(screen.getByRole("radiogroup", { name: "Definition of qualified" }))
+  expect(screen.getByLabelText("Agency name")).not.toHaveAttribute("aria-invalid", "true")
+})
+
+it("splits a combined message so each input gets its own", async () => {
+  await submitRejectedAgency("Pick a supported time zone and a definition of qualified")
+
+  const zone = await screen.findByText("Pick a supported time zone")
+  const definition = screen.getByText("Pick a definition of qualified")
+  expect(zone.previousElementSibling).toBe(screen.getByRole("group", { name: "Time zone" }))
+  expect(definition.previousElementSibling).toBe(screen.getByRole("radiogroup", { name: "Definition of qualified" }))
+})
+
+it("keeps any other agency problem under the agency name", async () => {
+  await submitRejectedAgency("That agency name can't be used - try a different one")
+
+  expect(await screen.findByText("That agency name can't be used - try a different one")).toBeInTheDocument()
+  expect(screen.getByLabelText("Agency name")).toHaveAttribute("aria-invalid", "true")
+  expect(screen.queryByText("Pick a supported time zone")).not.toBeInTheDocument()
+})
+

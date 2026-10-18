@@ -33,6 +33,27 @@ RSpec.describe "Signup", type: :request do
     expect(response.parsed_body.dig("agency", "slug")).to match(/\Aagency-[a-z0-9]{6}\z/)
   end
 
+  # `parameterize` keeps underscores but the slug format is [a-z0-9-], so a name like `faker_agency`
+  # used to fail the Agency validation and be reported as a time zone problem.
+  it "accepts an agency name with underscores and builds a valid slug" do
+    post "/api/v1/signup", params: payload.deep_merge(agency: { name: "faker_agency" }), headers: headers, as: :json
+
+    expect(response).to have_http_status(:created)
+    expect(response.parsed_body.dig("agency", "name")).to eq("faker_agency")
+    expect(response.parsed_body.dig("agency", "slug")).to eq("faker-agency")
+  end
+
+  it "turns every underscore shape into a valid slug" do
+    { "a__b" => "a-b", "_x_" => "x", "Cafe Nina_2" => "cafe-nina-2" }.each_with_index do |(name, slug), index|
+      post "/api/v1/signup",
+           params: payload.deep_merge(user: { email: "u#{index}@new.test" }, agency: { name: name }),
+           headers: headers, as: :json
+
+      expect(response).to have_http_status(:created), "#{name.inspect} -> #{response.body}"
+      expect(response.parsed_body.dig("agency", "slug")).to eq(slug)
+    end
+  end
+
   it "rejects a taken email" do
     create(:user, email: "erin@new.test")
 
@@ -56,11 +77,50 @@ RSpec.describe "Signup", type: :request do
     expect(response.parsed_body.dig("error", "code")).to eq("weak_password")
   end
 
-  it "rejects an unsupported time zone" do
+  it "rejects an unsupported time zone and says only that" do
     post_invalid(payload.deep_merge(user: { email: "d@new.test" }, agency: { timezone: "Mars/Base" }))
 
     expect(response).to have_http_status(:unprocessable_entity)
     expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a supported time zone")
+  end
+
+  it "says only the time zone is missing when it is blank" do
+    post_invalid(payload.deep_merge(user: { email: "d2@new.test" }, agency: { timezone: "" }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a supported time zone")
+  end
+
+  it "rejects an unsupported definition of qualified and says only that" do
+    post_invalid(payload.deep_merge(user: { email: "f@new.test" }, agency: { qualified_milestone: "nonsense" }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a definition of qualified")
+  end
+
+  it "says only the definition is missing when it is absent" do
+    post_invalid(payload.deep_merge(user: { email: "f2@new.test" }).tap { |body| body[:agency].delete(:qualified_milestone) })
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a definition of qualified")
+  end
+
+  it "names both inputs only when both are missing or unsupported" do
+    post_invalid(payload.deep_merge(user: { email: "g@new.test" }, agency: { timezone: "Mars/Base", qualified_milestone: "" }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "message")).to eq("Pick a supported time zone and a definition of qualified")
+  end
+
+  it "names the agency name, not the time zone, when the name is blank" do
+    post_invalid(payload.deep_merge(user: { email: "e@new.test" }, agency: { name: "   " }))
+
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response.parsed_body.dig("error", "code")).to eq("invalid_agency")
+    expect(response.parsed_body.dig("error", "message")).to match(/agency name/i)
+    expect(response.parsed_body.dig("error", "message")).not_to match(/time zone/i)
   end
 
   it "creates nothing when validation fails (transactional)" do

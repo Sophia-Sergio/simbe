@@ -76,16 +76,30 @@ module Signup
     end
 
     def validate_agency!
-      return if TIMEZONES.include?(@agency[:timezone].to_s) &&
-                Agency::MILESTONES.include?(@agency[:qualified_milestone].to_s)
+      timezone_bad = !TIMEZONES.include?(@agency[:timezone].to_s)
+      milestone_bad = !Agency::MILESTONES.include?(@agency[:qualified_milestone].to_s)
+      return unless timezone_bad || milestone_bad
 
-      raise Error.new("invalid_agency", "Pick a supported time zone and definition of qualified")
+      raise Error.new("invalid_agency", agency_input_message(timezone: timezone_bad, milestone: milestone_bad))
+    end
+
+    # Names only the inputs that are missing or unsupported; the wizard shows each part under its input.
+    def agency_input_message(timezone:, milestone:)
+      if timezone && milestone
+        "Pick a supported time zone and a definition of qualified"
+      elsif timezone
+        "Pick a supported time zone"
+      else
+        "Pick a definition of qualified"
+      end
     end
 
     # Parameterized name, falling back to a random slug for names that parameterize to nothing
     # (`"!!!"`), then a numeric suffix while the slug is taken (`harbor`, `harbor-2`, …).
+    # `parameterize` keeps underscores, but the slug format is [a-z0-9-] (`Agency`), so underscores
+    # become spaces first: `faker_agency` -> `faker-agency`.
     def unique_slug(name)
-      base = name.to_s.parameterize.presence || "agency-#{SecureRandom.alphanumeric(6).downcase}"
+      base = name.to_s.tr("_", " ").parameterize.presence || "agency-#{SecureRandom.alphanumeric(6).downcase}"
       candidate = base
       suffix = 2
       while Agency.exists?(slug: candidate)
@@ -103,7 +117,21 @@ module Signup
         # signup payload rather than an agency conflict; keep the closed set of codes.
         Error.new("invalid_agency", "Check the account and agency details")
       else
-        Error.new("invalid_agency", "Pick a supported time zone and definition of qualified")
+        Error.new("invalid_agency", agency_error_message(error.record))
+      end
+    end
+
+    # The message names what actually failed: the wizard shows it under the agency name field, so
+    # blaming the time zone for a bad name (or slug) sends the user to the wrong place.
+    def agency_error_message(agency)
+      if agency.errors.include?(:name)
+        "Enter an agency name"
+      elsif agency.errors.include?(:slug)
+        "That agency name can't be used - try a different one"
+      elsif agency.errors.include?(:timezone) || agency.errors.include?(:qualified_milestone)
+        agency_input_message(timezone: agency.errors.include?(:timezone), milestone: agency.errors.include?(:qualified_milestone))
+      else
+        "Check the agency details"
       end
     end
   end
