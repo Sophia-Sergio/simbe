@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import type { Page } from "@playwright/test"
 import { alphaFiles, reset } from "../support/seed"
 import { signIn } from "../support/auth"
 import { expectNoHorizontalScroll, shot, viewportName } from "../support/viewport"
@@ -12,6 +13,9 @@ import { expectNoHorizontalScroll, shot, viewportName } from "../support/viewpor
 // It ends with the cross-agency check the other journeys cannot make: the invitation the new agency
 // just created is invisible to the seeded `harbor` owner, and deleting it by id is a 404
 // (docs/conventions/multi-tenancy.md).
+
+/** The KPI card whose label is `label`, so a value like "10" is never matched anywhere on the page. */
+const kpi = (page: Page, label: string) => page.getByText(label, { exact: true }).locator("..")
 
 test.describe("journey 1 — new agency onboarding", () => {
   test.skip(process.env.E2E_API !== "real", "journeys run against the real stack (E2E_API=real)")
@@ -74,11 +78,12 @@ test.describe("journey 1 — new agency onboarding", () => {
     await page.getByRole("link", { name: "Open my dashboard" }).click()
     await expect(page.locator("[data-shell]")).toBeVisible()
 
-    // The dashboard, in the new agency's own numbers: 10 leads, 3 qualified (30.0%).
+    // The dashboard, in the new agency's own numbers: 10 leads, 3 qualified (30.0%) — each value
+    // read from its KPI card, never from any "10" on the page.
     await expect(page.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening), Erin/ })).toBeVisible()
-    await expect(page.getByText("10", { exact: true }).first()).toBeVisible()
-    await expect(page.getByText("Qualified", { exact: true }).locator("..").getByText("3", { exact: true })).toBeVisible()
-    await expect(page.getByText("30.0%")).toBeVisible()
+    await expect(kpi(page, "Leads").getByText("10", { exact: true })).toBeVisible()
+    await expect(kpi(page, "Qualified").getByText("3", { exact: true })).toBeVisible()
+    await expect(kpi(page, "Qualified rate").getByText("30.0%", { exact: true })).toBeVisible()
     await expectNoHorizontalScroll(page)
     await page.screenshot({ path: shot("onboarding-06-dashboard", testInfo), fullPage: true })
 
