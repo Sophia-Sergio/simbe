@@ -21,10 +21,10 @@ const dir = join(process.cwd(), "e2e/audit")
 const reportPath = join(process.cwd(), "docs/superpowers/parallel/audit-report.md")
 const START = "<!-- audit:start -->"
 const END = "<!-- audit:end -->"
-/** A sidecar older than this is from an earlier run and is ignored (a run may leave another mode behind). */
-const FRESH_MS = 2 * 60 * 60 * 1000
+/** A sidecar belongs to the current run only if it is within this window of the newest one. */
+const RUN_WINDOW_MS = 10 * 60 * 1000
 
-/** Persist this worker's cells per project+mixing, then re-render the report from every fresh sidecar. */
+/** Persist this worker's cells per (mode, project, role), then re-render the report from this run's sidecars. */
 export function writeReport(cells: Cell[]): void {
   mkdirSync(dir, { recursive: true })
   const grouped = new Map<string, Cell[]>()
@@ -36,12 +36,18 @@ export function writeReport(cells: Cell[]): void {
   }
   for (const [key, value] of grouped) writeFileSync(join(dir, `.results-${key}.json`), JSON.stringify(value, null, 2))
 
+  // Exact `mode-project-role` names only: an older run's file (or the pre-role naming) must never leak in.
+  const files = readdirSync(dir).filter((name) =>
+    /^\.results-(mock|real)-(mock|real)-(desktop|mobile)-(public|owner|coordinator)\.json$/.test(name),
+  )
+  const newest = files.reduce((latest, name) => Math.max(latest, statSync(join(dir, name)).mtimeMs), 0)
   const fresh: Cell[] = []
-  const now = Date.now()
-  for (const file of readdirSync(dir).filter((name) => /^\.results-(mock|real)-.+\.json$/.test(name))) {
-    if (now - statSync(join(dir, file)).mtimeMs > FRESH_MS) continue
+  for (const file of files) {
+    const path = join(dir, file)
+    // Only this run's sidecars: a previous run's files (or the pre-role naming) must not leak into the matrix.
+    if (newest - statSync(path).mtimeMs > RUN_WINDOW_MS) continue
     try {
-      fresh.push(...(JSON.parse(readFileSync(join(dir, file), "utf8")) as Cell[]))
+      fresh.push(...(JSON.parse(readFileSync(path, "utf8")) as Cell[]))
     } catch {
       // A sidecar written by a worker that crashed mid-run is skipped; the next run rewrites it.
     }

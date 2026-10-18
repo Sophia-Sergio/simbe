@@ -77,6 +77,11 @@ async function auditScreen(page: Page, screen: Screen, project: string, role: Sc
       ...(await reducedMotion(page)),
     ]
     cells.push({ mode, project, role, screen: screen.id, width, issues })
+    // Task 3 parity artefacts: the two review widths, side by side with handoff/design/screenshots/*.
+    // Best-effort: a slow full-page capture must not turn a layout finding into a timeout.
+    if (width === 390 || width === 1280) {
+      await page.screenshot({ path: `e2e/screenshots/audit-${screen.id}-${width}.png`, fullPage: true, timeout: 15_000 }).catch(() => {})
+    }
     const label = `${project} · ${screen.id} @ ${width}px`
     // One concise soft assertion per cell: a large object diff for every failing cell drowns the run.
     expect.soft(issues.length === 0, `${label}\n${issues.map((issue) => `  - ${issue.rule}: ${issue.detail}`).join("\n")}`).toBe(true)
