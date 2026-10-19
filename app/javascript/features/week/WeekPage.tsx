@@ -187,6 +187,8 @@ export function WeekPage() {
           value={formatInt(kpis.leads.value)}
           delta={formatDelta(kpis.leads.delta)}
           note={RANGE_LABEL[range]}
+          subnote={kpis.unique_people < kpis.leads.value ? `${formatInt(kpis.unique_people)} people` : undefined}
+          subnoteTitle="A lead is one inquiry. The same person can inquire more than once."
           bar={{ kind: "fill", pct: pctOf(kpis.leads.value, Math.max(kpis.leads.value, leadsPrevious)) }}
         />
         <KpiCard

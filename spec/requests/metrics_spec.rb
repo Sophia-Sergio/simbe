@@ -36,6 +36,19 @@ RSpec.describe "Metrics API", type: :request do
       expect(body).to eq(expected)
     end
 
+    it "counts distinct people next to inquiries without changing the headline numbers" do
+      Current.agency = agency
+      Lead.find_by!(first_name: "L2").update_columns(person_id: Lead.find_by!(first_name: "L1").person_id)
+      Current.reset
+
+      get "/api/v1/metrics/summary", params: { range: "30d" }
+
+      kpis = response.parsed_body["kpis"]
+      expect(kpis["unique_people"]).to eq(9)
+      expect(kpis.dig("leads", "value")).to eq(10)
+      expect(kpis.dig("qualified", "value")).to eq(3)
+    end
+
     it "serves the funnel exactly like contracts/examples/metrics/funnel.json" do
       get "/api/v1/metrics/funnel", params: { range: "30d" }
       expect(response).to have_http_status(:ok)

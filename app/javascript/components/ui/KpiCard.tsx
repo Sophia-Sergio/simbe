@@ -15,6 +15,8 @@ export function KpiCard({
   value,
   delta,
   note,
+  subnote,
+  subnoteTitle,
   bar,
   size = "md",
 }: {
@@ -22,6 +24,9 @@ export function KpiCard({
   value: string
   delta?: KpiDelta
   note?: string
+  /** A second muted line, with a native tooltip, for a count that needs explaining. */
+  subnote?: string
+  subnoteTitle?: string
   bar: SegmentBarProps
   size?: "md" | "sm"
 }) {
@@ -46,6 +51,11 @@ export function KpiCard({
         <SegmentBar {...bar} />
       </div>
       {note ? <p className="mt-2 text-[12px] text-ink-muted">{note}</p> : null}
+      {subnote ? (
+        <p title={subnoteTitle} className="mt-0.5 text-[12px] text-ink-muted">
+          {subnote}
+        </p>
+      ) : null}
     </div>
   )
 }

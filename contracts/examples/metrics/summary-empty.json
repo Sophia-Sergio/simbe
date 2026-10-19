@@ -23,7 +23,8 @@
       "value_cents": null,
       "previous_cents": null,
       "delta_cents": null
-    }
+    },
+    "unique_people": 0
   },
   "biggest_leak": null,
   "cost_by_channel": []

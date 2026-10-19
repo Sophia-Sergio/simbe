@@ -6,7 +6,7 @@
 module Metrics
   module Summary
     TOTALS_SQL = <<~SQL.freeze
-      SELECT count(*) AS leads, count(f.%<qcol>s) AS qualified
+      SELECT count(*) AS leads, count(f.%<qcol>s) AS qualified, count(DISTINCT l.person_id) AS unique_people
       FROM leads l JOIN lead_facts f ON f.lead_id = l.id
       WHERE l.agency_id = :agency_id AND l.lead_created_at >= :from AND l.lead_created_at <= :to
     SQL
@@ -56,13 +56,13 @@ module Metrics
         range: base.range,
         spend_source: source,
         kpis: kpis(leads: leads, qualified: qualified, previous: previous,
-                   spend: spend, previous_spend: previous_spend),
+                   spend: spend, previous_spend: previous_spend, unique_people: current[:unique_people].to_i),
         biggest_leak: Metrics::Funnel.leak(Metrics::Funnel.call(agency: agency, range: base.range)[:stages]),
         cost_by_channel: cost_by_channel(agency, base.range)
       }
     end
 
-    def self.kpis(leads:, qualified:, previous:, spend:, previous_spend:)
+    def self.kpis(leads:, qualified:, previous:, spend:, previous_spend:, unique_people:)
       previous_leads = previous[:leads].to_i
       previous_qualified = previous[:qualified].to_i
       rate = Metrics::Base.rate(qualified, leads)
@@ -77,7 +77,9 @@ module Metrics
                           delta: previous_rate.nil? ? nil : (rate - previous_rate).round(1),
                           low_sample: leads < LOW_SAMPLE_LEADS },
         cost_per_qualified: { value_cents: cost, previous_cents: previous_cost,
-                              delta_cents: cost && previous_cost ? cost - previous_cost : nil }
+                              delta_cents: cost && previous_cost ? cost - previous_cost : nil },
+        # Distinct people behind the leads (a lead is one inquiry; the same person can inquire again).
+        unique_people: unique_people
       }
     end
 
@@ -130,7 +132,8 @@ module Metrics
           leads: { value: 0, previous: nil, delta: nil },
           qualified: { value: 0, previous: nil, delta: nil },
           qualified_rate: { value: 0.0, previous: nil, delta: nil, low_sample: true },
-          cost_per_qualified: { value_cents: nil, previous_cents: nil, delta_cents: nil }
+          cost_per_qualified: { value_cents: nil, previous_cents: nil, delta_cents: nil },
+          unique_people: 0
         },
         biggest_leak: nil,
         cost_by_channel: []

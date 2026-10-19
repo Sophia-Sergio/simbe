@@ -7,7 +7,8 @@ module Agent
         name: "get_funnel",
         description: "The agency's funnel for a time range: how many leads reached each stage " \
                      "(inquiry, application, consult booked, attended, records, accepted), where " \
-                     "applications are abandoned and the headline KPIs.",
+                     "applications are abandoned and the headline KPIs. kpis.leads counts inquiries; " \
+                     "kpis.unique_people counts distinct people (one person can inquire more than once).",
         input_schema: {
           type: "object",
           properties: {

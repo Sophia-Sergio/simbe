@@ -29,6 +29,7 @@ RSpec.describe Agent::Tools do
     r = described_class.call("get_funnel", { "range" => "30d" }, agency: agency, user: owner)
     expect(r[:stages].map { _1[:count] }).to eq([ 10, 5, 4, 3, 2, 1 ])
     expect(r[:kpis][:qualified][:value]).to eq(3)
+    expect(r[:kpis][:unique_people]).to eq(10)
   end
 
   it "get_channel_performance supports a channel filter" do

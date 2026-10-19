@@ -47,12 +47,13 @@ Summary:
     spend_source: { $ref: '#/SpendSource' }
     kpis:
       type: object
-      required: [leads, qualified, qualified_rate, cost_per_qualified]
+      required: [leads, qualified, qualified_rate, cost_per_qualified, unique_people]
       properties:
         leads: { $ref: '#/Kpi' }
         qualified: { $ref: '#/Kpi' }
         qualified_rate: { $ref: '#/RateKpi' }
         cost_per_qualified: { $ref: '#/CostKpi' }
+        unique_people: { type: integer, description: "Distinct people behind the cohort's leads (a lead is one inquiry; the same person can inquire again)." }
     biggest_leak: { oneOf: [{ $ref: '#/Leak' }, { type: 'null' }] }
     cost_by_channel: { type: array, items: { $ref: '#/CostByChannel' } }
 ExitReason:

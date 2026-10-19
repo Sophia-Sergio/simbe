@@ -850,6 +850,8 @@ export interface components {
                 qualified: components["schemas"]["Kpi"];
                 qualified_rate: components["schemas"]["RateKpi"];
                 cost_per_qualified: components["schemas"]["CostKpi"];
+                /** @description Distinct people behind the cohort's leads (a lead is one inquiry; the same person can inquire again). */
+                unique_people: number;
             };
             biggest_leak: components["schemas"]["Leak"] | null;
             cost_by_channel: components["schemas"]["CostByChannel"][];

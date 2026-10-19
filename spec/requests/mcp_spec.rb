@@ -36,6 +36,16 @@ RSpec.describe "MCP endpoint", type: :request do
     expect(names.size).to eq(5)
   end
 
+  it "tells a client what each count means and returns distinct people from get_funnel" do
+    rpc("tools/list")
+    funnel = response.parsed_body.dig("result", "tools").find { _1["name"] == "get_funnel" }
+    expect(funnel["description"]).to include("unique_people").and include("inquiries")
+
+    rpc("tools/call", { name: "get_funnel", arguments: { range: "30d" } })
+    data = JSON.parse(response.parsed_body.dig("result", "content", 0, "text"))
+    expect(data.dig("kpis", "unique_people")).to eq(10)
+  end
+
   it "calls a tool scoped to the key's agency" do
     rpc("tools/call", { name: "get_funnel", arguments: { range: "30d" } })
 
