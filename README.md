@@ -91,7 +91,7 @@ Clients that read a JSON config usually want this shape (the Connect Claude page
 }
 ```
 
-Test it from a terminal (should list five tools):
+Test it from a terminal (should list four tools):
 
 ```bash
 curl -s https://simbe.fly.dev/mcp/<your-agency-slug> \
@@ -111,6 +111,22 @@ claude mcp add --transport http simbe https://simbe.fly.dev/mcp/<your-agency-slu
 ```
 
 Add `--scope project` to share it through a `.mcp.json` in a repo (use an environment variable for the key there, never the key itself), or `--scope user` to have it in every project. Check it with `claude mcp list`, or `/mcp` inside a session.
+
+To keep the key out of `~/.claude.json`, store it in an environment variable and let Claude Code expand it (single quotes, so your shell does not expand it first):
+
+```bash
+# 1. In ~/.zshrc (or your shell's profile), then `source` it:
+export SIMBE_MCP_KEY=simbe_live_...
+
+# 2. Register the server once, for every project:
+claude mcp add --transport http --scope user simbe https://simbe.fly.dev/mcp/<your-agency-slug> \
+  --header 'Authorization: Bearer ${SIMBE_MCP_KEY}'
+
+# 3. Restart Claude Code and check it:
+claude mcp get simbe        # Status: Connected
+```
+
+`Invalid or revoked MCP key` (HTTP 401) in that output means `SIMBE_MCP_KEY` is not set in the shell that started Claude Code, or the key was replaced by a newer one.
 
 **Claude Desktop** takes local commands in `claude_desktop_config.json`, so bridge to the remote server with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (needs Node):
 
