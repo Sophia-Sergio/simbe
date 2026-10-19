@@ -35,7 +35,7 @@ test("owner asks a starter question, sees the chart answer and follows the actio
   }
 
   await panel.getByRole("button", { name: "Which channel turns the most leads into qualified ones?" }).click()
-  await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
+  await expect(panel.getByText(/Facebook converts best/)).toBeVisible()
   await expect(panel.getByRole("img", { name: /Qualified rate by channel/ })).toBeVisible()
   await page.screenshot({ path: shot("agent", testInfo.project.name) })
 
@@ -53,7 +53,7 @@ test("'Ask why' on This week opens the panel with the question already sent", as
 
   const panel = panelOf(page)
   await expect(panel.getByText("Why do leads stall before the application and what should we change?")).toBeVisible()
-  await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
+  await expect(panel.getByText(/Facebook converts best/)).toBeVisible()
 })
 
 test("the Ask tab opens the agent full screen on a phone and answers with a chart", async ({ page }, testInfo) => {
@@ -72,7 +72,7 @@ test("the Ask tab opens the agent full screen on a phone and answers with a char
   expect(box?.height).toBeGreaterThan(800)
 
   await panel.getByRole("button", { name: "Which channel turns the most leads into qualified ones?" }).click()
-  await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
+  await expect(panel.getByText(/Facebook converts best/)).toBeVisible()
   await expect(panel.getByRole("img", { name: /Qualified rate by channel/ })).toBeVisible()
   await page.screenshot({ path: shot("agent", testInfo.project.name) })
 
