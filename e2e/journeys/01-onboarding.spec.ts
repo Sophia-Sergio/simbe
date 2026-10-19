@@ -5,7 +5,7 @@ import { signIn } from "../support/auth"
 import { expectNoHorizontalScroll, shot, viewportName } from "../support/viewport"
 
 // Journey 1 — a new agency onboards from zero (handoff/design/prototype/Simbe Flows.dc.html, flow
-// "Sign up"): account → agency (Pacific, "Attended a consult") → ad accounts → upload the seven
+// "Sign up"): account → agency (Pacific, "Attended a consult") → upload the seven
 // Alpha CSVs (review `Leads 0 → 10 (+10)`) → load → invite Jess Kim → the dashboard shows 10 leads
 // and 3 qualified. Real stack only; the layout is compared against
 // handoff/design/screenshots/02-signup-agency.png and 03-signup-load-data.png.
@@ -20,7 +20,7 @@ const kpi = (page: Page, label: string) => page.getByText(label, { exact: true }
 test.describe("journey 1 — new agency onboarding", () => {
   test.skip(process.env.E2E_API !== "real", "journeys run against the real stack (E2E_API=real)")
 
-  test("signs up, connects Meta, loads the Alpha export and opens the dashboard", async ({ page, browser }, testInfo) => {
+  test("signs up, loads the Alpha export and opens the dashboard", async ({ page, browser }, testInfo) => {
     test.setTimeout(180_000)
     const viewport = viewportName(testInfo)
     // The agency name carries the viewport, so the two Playwright projects never reset each other's.
@@ -44,13 +44,7 @@ test.describe("journey 1 — new agency onboarding", () => {
     await page.screenshot({ path: shot("onboarding-01-agency", testInfo), fullPage: true })
     await page.getByRole("button", { name: "Continue" }).click()
 
-    // Step 3 — display-only preview of the ad-account connections.
-    await expect(page.getByRole("heading", { name: "Connect your ad accounts" })).toBeVisible()
-    await expect(page.getByText("Coming soon", { exact: true })).toHaveCount(2)
-    await page.screenshot({ path: shot("onboarding-02-meta", testInfo) })
-    await page.getByRole("button", { name: "Continue" }).click()
-
-    // Step 4 — upload the seven Alpha CSVs.
+    // Step 3 — upload the seven Alpha CSVs.
     await expect(page.getByRole("heading", { name: "Load your data" })).toBeVisible()
     await page.getByLabel("CSV files").setInputFiles(alphaFiles())
     await expect(page.getByText("Review changes")).toBeVisible({ timeout: 60_000 })
@@ -65,7 +59,7 @@ test.describe("journey 1 — new agency onboarding", () => {
     await page.screenshot({ path: shot("onboarding-04-loaded", testInfo) })
     await page.getByRole("button", { name: "Continue" }).click()
 
-    // Step 5 — invite a coordinator by a name that exists in the export.
+    // Step 4 — invite a coordinator by a name that exists in the export.
     await expect(page.getByRole("heading", { name: "Invite your team" })).toBeVisible()
     await page.getByLabel("Email").fill(`jess+${viewport}@example.test`)
     await page.getByLabel("Coordinator").selectOption("Jess Kim")

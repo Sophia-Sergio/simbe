@@ -185,7 +185,6 @@ The two halves of Wave 1 are independent: backend lanes start as soon as the bac
 | F-PIPELINE / F-COORDINATORS / F-NEXTACTIONS / F-SEARCH → F-LEADPANEL | `useLeadPanel()` (URL state) is built in W0-5 | Clicking a lead only sets `?lead=…`; the panel overlay appears when F-LEADPANEL merges |
 | F-SIGNUP / F-DATA → each other | The shared pieces (`Dropzone`, `ReviewReport`, `FileChecklist`, `UploadProgress`, …) are kit components from W0-4A/B | Nothing |
 | B-MCP → B-AGENT | B-MCP codes against the fixed tool-registry contract with a fake `Agent::Tools` | Its specs use the fake; rerun with `USE_REAL_TOOLS=1` after B-AGENT merges |
-| B-ACCOUNT → B-METRICS (sample spend on "connect") | Guarded by `defined?(Spend::SampleGenerator)` | Connecting an ad account doesn't create sample spend yet |
 
 ## Real dependencies that are easy to miss
 

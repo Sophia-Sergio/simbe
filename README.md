@@ -1,6 +1,6 @@
 # Simbe
 
-Analytics for surrogacy agencies. Simbe connects what an agency spends on ads (Meta, Google) to how its recruiting funnel performs (inquiry → application → consult → records → accepted), and answers one question: **which ads, process steps and people turn spend into qualified surrogates?**
+Analytics for surrogacy agencies. Simbe shows how an agency's recruiting funnel performs (inquiry → application → consult → records → accepted), and answers one question: **which channels, process steps and people turn leads into qualified surrogates?**
 
 - **Owners** get insights (This week, Funnel, Channels), a pipeline board, coordinator performance, data sources, settings and the Claude/MCP connection.
 - **Coordinators** get a daily list of next actions and their own leads, nothing else.
@@ -49,7 +49,7 @@ Just want to look at the UI, with no Docker and no Rails? `npm ci && npm run dev
 
 ## Connect Claude and other MCP clients
 
-Simbe runs an [MCP](https://modelcontextprotocol.io) server, so an owner can ask questions about the agency's funnel, channels, drop-offs, next actions and spend forecasts from Claude (or any MCP client), using the same read-only tools as Ask Simbe. The tools, their limits and the privacy rules are in [`docs/agent.md`](docs/agent.md); how it is implemented is in [`docs/agent-and-mcp-architecture.md`](docs/agent-and-mcp-architecture.md).
+Simbe runs an [MCP](https://modelcontextprotocol.io) server, so an owner can ask questions about the agency's funnel, channels, drop-offs, and next actions from Claude (or any MCP client), using the same read-only tools as Ask Simbe. The tools, their limits and the privacy rules are in [`docs/agent.md`](docs/agent.md); how it is implemented is in [`docs/agent-and-mcp-architecture.md`](docs/agent-and-mcp-architecture.md).
 
 ### 1. Get your server address and key
 

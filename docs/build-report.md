@@ -174,7 +174,7 @@ flowchart LR
 | B-METRICS | 1 | Metrics summary, funnel, channels, deterministic recommendations (SQL) | `deepseek-v4.1-flash` | [#42](https://github.com/Sophia-Sergio/simbe/pull/42) | 2026-10-17 18:53 |
 | B-LEADS | 1 | Lead queues, list, board and detail, with screener masking | `deepseek-v4.1-flash` | [#38](https://github.com/Sophia-Sergio/simbe/pull/38) | 2026-10-17 18:50 |
 | B-ACTIONS | 1 | Next actions, completions, coordinator stats | `deepseek-v4.1-flash` | [#39](https://github.com/Sophia-Sergio/simbe/pull/39) | 2026-10-17 18:51 |
-| B-ACCOUNT | 1 | Sign-up, agency settings, team, invitations, ad connections | `deepseek-v4.1-flash` | [#33](https://github.com/Sophia-Sergio/simbe/pull/33) | 2026-10-17 17:37 |
+| B-ACCOUNT | 1 | Sign-up, agency settings, team, invitations | `deepseek-v4.1-flash` | [#33](https://github.com/Sophia-Sergio/simbe/pull/33) | 2026-10-17 17:37 |
 | F-WEEK | 1 | This week dashboard | `not recorded` | [#27](https://github.com/Sophia-Sergio/simbe/pull/27) | 2026-10-17 14:11 |
 | F-FUNNEL | 1 | Funnel screen | `not recorded` | [#28](https://github.com/Sophia-Sergio/simbe/pull/28) | 2026-10-17 14:11 |
 | F-CHANNELS | 1 | Channels list and channel detail | `not recorded` | [#29](https://github.com/Sophia-Sergio/simbe/pull/29) | 2026-10-17 14:12 |
@@ -188,7 +188,7 @@ flowchart LR
 | F-SETTINGS | 1 | Settings and accept-invite | `deepseek-v4.1-flash` | [#46](https://github.com/Sophia-Sergio/simbe/pull/46) | 2026-10-17 22:38 |
 | F-AGENT | 1 | Ask Simbe panel | `deepseek-v4.1-flash` | [#37](https://github.com/Sophia-Sergio/simbe/pull/37) | 2026-10-17 19:12 |
 | F-CONNECT | 1 | Connect Claude (MCP) page | `not recorded` | [#34](https://github.com/Sophia-Sergio/simbe/pull/34) | 2026-10-17 17:37 |
-| B-AGENT | 2 | Anthropic client, five tools, turn loop, usage ledger | `deepseek-v4.1-flash` | [#47](https://github.com/Sophia-Sergio/simbe/pull/47) | 2026-10-17 22:37 |
+| B-AGENT | 2 | Anthropic client, tools, turn loop, usage ledger | `deepseek-v4.1-flash` | [#47](https://github.com/Sophia-Sergio/simbe/pull/47) | 2026-10-17 22:37 |
 | B-MCP | 2 | MCP server (JSON-RPC at `/mcp/:slug`) and key management | `deepseek-v4.1-flash` | [#50](https://github.com/Sophia-Sergio/simbe/pull/50) | 2026-10-17 23:21 |
 | W3-1 | 3 | Integration: real-API default, contract parity, role and tenancy matrix, knip guard | `deepseek-v4.1-flash` | [#51](https://github.com/Sophia-Sergio/simbe/pull/51) | 2026-10-18 01:29 |
 | W3-2 | 3 | Six end-to-end user journeys, desktop and mobile | `deepseek-v4.1-flash` | [#52](https://github.com/Sophia-Sergio/simbe/pull/52) | 2026-10-18 03:50 |
@@ -231,8 +231,6 @@ erDiagram
   agencies ||--o{ snapshot_uploads : receives
   agencies ||--o{ invitations : issues
   agencies ||--o{ mcp_keys : issues
-  agencies ||--o{ ad_connections : connects
-  agencies ||--o{ ad_spend_daily : records
   agencies ||--o{ agent_conversations : hosts
   agencies ||--o{ ai_usage_events : meters
   agencies ||--o{ action_completions : tracks
@@ -290,20 +288,6 @@ erDiagram
     string key_digest
     string prefix
     timestamptz revoked_at
-  }
-  ad_connections {
-    uuid id PK
-    uuid agency_id FK
-    string platform
-    string status
-  }
-  ad_spend_daily {
-    uuid id PK
-    uuid agency_id FK
-    date date
-    string channel
-    string campaign
-    bigint spend_cents
   }
   snapshot_uploads {
     uuid id PK
@@ -418,7 +402,7 @@ erDiagram
 
 ### 7.3 Data lifecycle
 
-1. An owner uploads the seven CSVs (sign-up wizard step 4, or Data sources later).
+1. An owner uploads the seven CSVs (sign-up wizard step 3, or Data sources later).
 2. `SnapshotUpload` is created (`validating`); a job validates the files and writes a report of errors and warnings; the owner reviews it.
 3. On commit, one job takes the agency's advisory lock, deletes the old rows and `COPY`s the new ones in one transaction, derives `lead_facts`, writes a `Snapshot` (`as_of`, row counts, warnings), runs `ANALYZE`, and marks the upload `committed`. Cancels and concurrent commits are compare-and-set on the upload status, so a cancel always wins.
 4. A golden-number oracle (`bin/golden-numbers`, `spec/real_data/golden.json`, computed straight from the CSVs, independent of the app) checks the app's numbers against the real exports.
@@ -430,14 +414,13 @@ erDiagram
 | Pack | Contents |
 |---|---|
 | `identity` | Agency, User, AuthSession, Invitation; sessions, sign-up, team, invitations |
-| `connection` | Ad connections |
 | `ingest` | Snapshot, SnapshotUpload; Reader, Validator, Importer (`COPY`), Progress, Storage, jobs |
 | `leads` | Lead and its child tables; queues, list, board, detail, masking, next actions, coordinator stats |
-| `metrics` | Ad spend; summary, funnel, channels, recommendations (SQL) |
+| `metrics` | Summary, funnel, channels, recommendations (SQL) |
 | `agent` | Conversations, messages, usage events; Anthropic client, tools, turn loop |
 | `mcp` | MCP keys; JSON-RPC server |
 
-- **API:** JSON under `/api/v1` with an error envelope; **39 operations** described in an OpenAPI contract (`contracts/`). Request specs validate responses against it (`openapi_first`), and a coverage task fails when an operation is not exercised. Contract changes need a Contract Change Request.
+- **API:** JSON under `/api/v1` with an error envelope; **36 operations** described in an OpenAPI contract (`contracts/`). Request specs validate responses against it (`openapi_first`), and a coverage task fails when an operation is not exercised. Contract changes need a Contract Change Request.
 - **Auth:** email and password (`has_secure_password`), server-side `auth_sessions`, an opaque `HttpOnly` cookie, 14-day expiry; non-GET requests must carry `X-Requested-With: simbe` (CSRF defence). Two roles; coordinators see only their own leads.
 - **Cross-pack discipline:** packs call each other only through public services; `rails boundaries:check` keeps a ratchet list of allowed cross-pack references (entries only ever come out) and also scans the JavaScript.
 - **Background work:** Solid Queue in Puma (`SOLID_QUEUE_IN_PUMA=true`), so the Fly machine must not scale to zero.
@@ -457,8 +440,8 @@ erDiagram
 
 ## 10. The AI agent and the MCP server
 
-- **Ask Simbe** answers owner and coordinator questions with five read-only tools (`get_funnel`, `get_channel_performance`, `get_dropoff_reasons`, `get_next_actions`, `forecast_spend`) scoped to the signed-in agency and role. Screener answers are never sent to the provider verbatim. Usage (model, tokens, cost) is recorded in `ai_usage_events`. In development an `E2E_STUB_ANTHROPIC` switch replays a canned answer for tests; it is restricted to the development environment.
-- **MCP server** (`POST /mcp/:slug`, JSON-RPC): exposes the same five tools to Claude clients. Keys are `simbe_live_` plus random characters, stored as SHA-256 digests with a visible prefix, shown once, revoked on rotation (atomically, under an agency lock), bound to one agency and acting as the owner who created them. Requests are limited by size, content type, a per-key limit and a per-IP backstop; tool errors are results flagged `isError`, never protocol errors.
+- **Ask Simbe** answers owner and coordinator questions with four read-only tools (`get_funnel`, `get_channel_performance`, `get_dropoff_reasons`, `get_next_actions`) scoped to the signed-in agency and role. Screener answers are never sent to the provider verbatim. Usage (model, tokens, cost) is recorded in `ai_usage_events`. In development an `E2E_STUB_ANTHROPIC` switch replays a canned answer for tests; it is restricted to the development environment.
+- **MCP server** (`POST /mcp/:slug`, JSON-RPC): exposes the same four tools to Claude clients. Keys are `simbe_live_` plus random characters, stored as SHA-256 digests with a visible prefix, shown once, revoked on rotation (atomically, under an agency lock), bound to one agency and acting as the owner who created them. Requests are limited by size, content type, a per-key limit and a per-IP backstop; tool errors are results flagged `isError`, never protocol errors.
 
 ## 11. Quality gates, CI and deployment
 

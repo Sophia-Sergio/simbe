@@ -20,25 +20,23 @@ Every tool is read-only and works on the signed-in agency's data only. None of t
 | Tool | Ask things like | Inputs |
 |---|---|---|
 | `get_funnel` | "How many leads reached each stage this quarter?" "How many different people inquired?" | `range`: `30d` (default), `90d`, `12m` |
-| `get_channel_performance` | "Which channel is cheapest per qualified surrogate?" "How is Facebook doing, by campaign?" | `range`; optional `channel` for its campaign breakdown |
+| `get_channel_performance` | "Which channel turns the most leads into qualified surrogates?" "How is Facebook doing, by campaign?" | `range`; optional `channel` for its campaign breakdown |
 | `get_dropoff_reasons` | "Where do applicants stop in the form?" "Why do people leave after the consult?" | `range` |
 | `get_next_actions` | "Who is waiting longest for a reply?" "How many consults need rebooking?" | optional `coordinator` (owner only) |
-| `forecast_spend` | "If I spend $5,000 a month, how many qualified leads should I expect?" | `monthly_budget_cents` (required), optional `channel`, `months` (1-12, default 3) |
 
 Notes on the answers:
 
 - **A lead is one inquiry, and the same person can inquire more than once.** `get_funnel`'s `kpis.leads` counts inquiries and `kpis.unique_people` counts distinct people (people are identified by email within the agency). Ask Simbe and MCP clients are told to use `unique_people` when asked about people and to say "inquiries" for lead counts. No tool returns a person's email or id.
 - **"Qualified" follows the agency's own definition** (Settings), so every number matches the app.
 - **Ranges** are measured back from the latest data in the agency's snapshot, not from today.
-- **Spend is sample data in this version** (see [`about.md`](./about.md#how-data-gets-in)). The agent is told to say so, and to flag small samples (`low_sample`) instead of over-claiming.
-- **`forecast_spend` is an estimate**: expected qualified leads = budget divided by the trailing 90-day cost per qualified lead. It refuses, with an explanation, when there is no spend or no qualified lead to base it on, and always labels the result an estimate.
+- **There is no ad spend data.** The exports carry none, so the agent is told to say it has no cost, budget or ROI data if asked, and to flag small samples (`low_sample`) instead of over-claiming.
 - **`get_next_actions`** returns the four queue counts and the five oldest items per queue, with **first names only**.
 
 ## What each role gets
 
 | Role | Ask Simbe | MCP |
 |---|---|---|
-| **Owner** | All five tools | All five tools |
+| **Owner** | All four tools | All four tools |
 | **Coordinator** | Only `get_next_actions`, scoped to their own leads; links only to `/`, `/next-actions` and `/pipeline` | Not available: MCP keys are created by, and act as, an owner |
 
 An MCP key acts as the owner who created it, and only while that person is still an owner of the agency. Removing or demoting them disables the key.

@@ -92,7 +92,7 @@ RSpec.describe "boundaries:check" do
 
   it "ships the identity edges every pack needs (Agency and User live in identity)" do
     edges = Boundaries.allowed_edges(Rails.root.to_s)
-    %w[leads ingest connection metrics agent mcp].each { |pack| expect(edges).to include("#{pack}->identity") }
+    %w[leads ingest metrics agent mcp].each { |pack| expect(edges).to include("#{pack}->identity") }
   end
 
   it "ignores references inside comments and a pack's own models" do

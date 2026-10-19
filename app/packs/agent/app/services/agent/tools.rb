@@ -14,9 +14,9 @@ module Agent
   module Tools
     Error = Class.new(StandardError)
 
-    NAMES = %w[get_funnel get_channel_performance get_dropoff_reasons get_next_actions forecast_spend].freeze
+    NAMES = %w[get_funnel get_channel_performance get_dropoff_reasons get_next_actions].freeze
 
-    # owner -> all five; coordinator -> only their own next actions (spec decision 1).
+    # owner -> all four; coordinator -> only their own next actions (spec decision 1).
     ROLES = {
       "owner" => NAMES,
       "coordinator" => %w[get_next_actions]
@@ -26,8 +26,7 @@ module Agent
       "get_funnel" => GetFunnel,
       "get_channel_performance" => GetChannelPerformance,
       "get_dropoff_reasons" => GetDropoffReasons,
-      "get_next_actions" => GetNextActions,
-      "forecast_spend" => ForecastSpend
+      "get_next_actions" => GetNextActions
     }.freeze
 
     # -> Array of Anthropic tool hashes { name:, description:, input_schema: }, only the
@@ -37,7 +36,7 @@ module Agent
       NAMES.select { |name| allowed.include?(name) }.map { |name| REGISTRY.fetch(name)::DEFINITION }
     end
 
-    # -> the same five in MCP shape { name:, description:, inputSchema: }.
+    # -> the same four in MCP shape { name:, description:, inputSchema: }.
     def self.mcp_definitions
       NAMES.map do |name|
         definition = REGISTRY.fetch(name)::DEFINITION

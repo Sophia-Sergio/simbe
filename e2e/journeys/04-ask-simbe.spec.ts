@@ -14,9 +14,9 @@ import { shot } from "../support/viewport"
 // Done-when note).
 
 const OWNER_CHIPS = [
-  "Which channel costs the most per qualified lead?",
+  "Which channel turns the most leads into qualified ones?",
   "Where do most applicants drop off?",
-  "How should I split next month's budget?",
+  "Which channel should I look at first?",
   "Who needs support on my team?",
 ]
 
@@ -41,8 +41,8 @@ test.describe("journey 4 — Ask Simbe", () => {
 
     // The stubbed answer: text, an inline chart and the navigation action.
     await panel.getByRole("button", { name: OWNER_CHIPS[0] }).click()
-    await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
-    await expect(panel.getByRole("img", { name: /Cost per qualified lead/ })).toBeVisible()
+    await expect(panel.getByText(/Facebook converts best/)).toBeVisible()
+    await expect(panel.getByRole("img", { name: /Qualified rate by channel/ })).toBeVisible()
     await expect(panel.getByRole("button", { name: /Open channels/ })).toBeVisible()
     await page.screenshot({ path: shot("agent-02-answer", testInfo) })
 

@@ -206,7 +206,7 @@ it("detail shows KPIs and opens a lead panel from the needs-action list", async 
 it("redirects coordinators to /next-actions", async () => { /* role coordinator → location /next-actions */ });
 it("formats first reply minutes as '23m' / '2h 10m'", () => { /* formatDuration */ });
 ```
-- [ ] **Step 2:** FAIL; **Step 3:** implement per handoff §8: header (title, "Owner only" brand pill, "Sample figures" note only when spend is sample — omit here; the footnote text is mandatory), auto-fill grid `minmax(260px, 1fr)`, card: avatar (initials, `rounded-full`), name, `N leads · X% of leads`, status pill, 3 stats (First reply, Qualified %, Overdue). Detail: back link, avatar + name, 4 KPIs, "Leads needing action" list (rows open the lead panel).
+- [ ] **Step 2:** FAIL; **Step 3:** implement per handoff §8: header (title, "Owner only" brand pill, "Sample figures" note omitted; the footnote text is mandatory), auto-fill grid `minmax(260px, 1fr)`, card: avatar (initials, `rounded-full`), name, `N leads · X% of leads`, status pill, 3 stats (First reply, Qualified %, Overdue). Detail: back link, avatar + name, 4 KPIs, "Leads needing action" list (rows open the lead panel).
 - [ ] **Step 4:** pass. Visual check vs `11-coordinators.png`. Commit.
 
 ---

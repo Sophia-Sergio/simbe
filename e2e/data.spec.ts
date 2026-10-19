@@ -31,14 +31,11 @@ async function signIn(page: Page, email: string) {
   await expect(page.locator("[data-shell]")).toBeVisible({ timeout: 15_000 })
 }
 
-test("owner: connector cards and the seven CRM rows", async ({ page }) => {
+test("owner: the seven CRM rows", async ({ page }) => {
   await signIn(page, OWNER)
   await page.goto("/data")
 
   await expect(page.getByRole("main").getByRole("heading", { name: "Data sources" })).toBeVisible()
-  await expect(page.getByText("Meta Ads")).toBeVisible()
-  await expect(page.getByText("Google Ads")).toBeVisible()
-  await expect(page.getByRole("button", { name: "Connect", exact: true })).toHaveCount(2)
 
   for (const name of FILES) await expect(page.getByText(name, { exact: true })).toBeVisible()
   await expect(page.getByText("3,530 rows")).toBeVisible()
@@ -48,20 +45,6 @@ test("owner: connector cards and the seven CRM rows", async ({ page }) => {
   // Mobile acceptance: no horizontal scroll.
   expect(await noHorizontalScroll(page)).toBe(true)
   await page.screenshot({ path: shot(page, "data-sources") })
-})
-
-test("owner: connecting Meta Ads flips the card and disconnects inline", async ({ page }) => {
-  await signIn(page, OWNER)
-  await page.goto("/data")
-
-  await page.getByRole("button", { name: "Connect", exact: true }).first().click()
-  await expect(page.getByRole("button", { name: /Connected/ })).toBeVisible()
-
-  await page.getByRole("button", { name: /Connected/ }).click()
-  const confirm = page.getByRole("group").filter({ hasText: "Disconnect Meta Ads?" })
-  await expect(confirm).toBeVisible()
-  await confirm.getByRole("button", { name: "Disconnect" }).click()
-  await expect(page.getByRole("button", { name: "Connect", exact: true })).toHaveCount(2)
 })
 
 test("owner: upload seven files, review the changes and replace the snapshot", async ({ page }) => {

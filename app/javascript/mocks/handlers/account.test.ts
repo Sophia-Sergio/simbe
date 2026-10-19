@@ -52,19 +52,6 @@ it("DELETE /invitations/:id requires the CSRF header", async () => {
   expect((await fetch("/api/v1/invitations/44444444-4444-4444-8444-444444444444", { method: "DELETE" })).status).toBe(403)
 })
 
-it("DELETE /ad_connections/:platform requires the CSRF header", async () => {
-  expect((await fetch("/api/v1/ad_connections/meta", { method: "DELETE" })).status).toBe(403)
-})
-
 it("the expired invitation token preview is 410", async () => {
   expect((await fetch("/api/v1/invitations/expired/preview")).status).toBe(410)
-})
-
-it("connecting an ad platform is idempotent and listed", async () => {
-  const first = await json("/api/v1/ad_connections", "POST", { platform: "meta" })
-  expect(first.status).toBe(201)
-  const again = await json("/api/v1/ad_connections", "POST", { platform: "meta" })
-  expect(again.status).toBe(200)
-  const list = await (await fetch("/api/v1/ad_connections")).json()
-  expect(list.connections).toHaveLength(1)
 })

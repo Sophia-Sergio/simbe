@@ -67,8 +67,7 @@ RSpec.describe "Role and tenancy matrix", type: :request do
   CROSS_TENANT_EXCLUSIONS = {
     "getMetricsChannel" => "the parameter is a channel name, not a row; A only ever sees A's channels",
     "getInvitation" => "public: the token names its own agency by design (no signed-in tenant to cross)",
-    "acceptInvitation" => "public: the token names its own agency by design (no signed-in tenant to cross)",
-    "disconnectAdPlatform" => "the parameter is a platform name, not a row: 204 + B's row intact, checked separately"
+    "acceptInvitation" => "public: the token names its own agency by design (no signed-in tenant to cross)"
   }.freeze
 
   let(:agency) { create(:agency, slug: "harbor", name: "Harbor Surrogacy") }
@@ -96,20 +95,14 @@ RSpec.describe "Role and tenancy matrix", type: :request do
                                  coordinator_name: "Beta Only").first
     end
   end
-  # Agency B's own upload and ad connection, so every cross-tenant 404 has a real row to miss.
+  # Agency B's own upload, so every cross-tenant 404 has a real row to miss.
   let!(:beta_upload) do
     Current.set(agency: beta) { SnapshotUpload.create!(agency: beta, user: beta_owner, status: "validated", progress: nil) }
-  end
-  let!(:beta_connection) do
-    Current.set(agency: beta) do
-      AdConnection.create!(agency: beta, platform: "meta", status: "connected", connected_at: Time.current)
-    end
   end
 
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     @owner_conversation = AgentConversation.create!(agency: agency, user: owner, title: "mine")
     @dana_conversation = AgentConversation.create!(agency: agency, user: dana, title: "hers")
     # Two non-in-flight uploads so show/commit/cancel each answer their documented success.
@@ -126,9 +119,8 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     @accept_token = Signup::Invitations.issue!(agency: agency, invited_by: owner, email: "accept@harbor.test",
                                                coordinator_name: "Dana Ortiz").last
     Current.reset
-    allow(Spend::SampleGenerator).to receive(:call).and_return(true)
     stub_anthropic(anthropic_message(
-      content: [ tool_use("respond", { "text" => "Facebook is cheapest." }, id: "t") ], stop_reason: "tool_use"
+      content: [ tool_use("respond", { "text" => "Facebook converts best." }, id: "t") ], stop_reason: "tool_use"
     ))
   end
 
@@ -169,13 +161,6 @@ RSpec.describe "Role and tenancy matrix", type: :request do
   end
 
   DRIVERS = {
-    "listAdConnections" => ->(_p) { get "/api/v1/ad_connections", headers: probe; response.status },
-    "connectAdPlatform" => ->(_p) { post "/api/v1/ad_connections", params: { platform: "meta" }, headers: probe, as: :json; response.status },
-    "disconnectAdPlatform" => ->(_p) {
-      post "/api/v1/ad_connections", params: { platform: "meta" }, headers: probe, as: :json
-      delete "/api/v1/ad_connections/meta", headers: probe
-      response.status
-    },
     "getAgency" => ->(_p) { get "/api/v1/agency", headers: probe; response.status },
     "updateAgency" => ->(_p) { patch "/api/v1/agency", params: { timezone: "America/Chicago" }, headers: probe, as: :json; response.status },
     "getAgentConversation" => ->(p) {
@@ -244,8 +229,6 @@ RSpec.describe "Role and tenancy matrix", type: :request do
   # contract as the lowest documented 2xx; the overrides are the operations whose driver legitimately
   # exercises a different documented success (so a 409/422 error path can never count as "exercised").
   SUCCESS_OVERRIDES = {
-    # A first connect answers 201 (/a repeat connect answers 200 - both documented).
-    "connectAdPlatform" => 201,
     # A validated upload with an ok report is claimed and queued: 202 committing. 409/422 are the
     # already-in-progress / not-validated error paths the driver must not hit.
     "commitSnapshotUpload" => 202
@@ -265,7 +248,7 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     missing = OPERATIONS.map { |operation| operation[:id] } - DRIVERS.keys
     expect(missing).to be_empty, "no matrix driver for: #{missing.join(', ')}"
     expect(DRIVERS.keys - OPERATIONS.map { |operation| operation[:id] }).to be_empty
-    expect(OPERATIONS.size).to eq(39)
+    expect(OPERATIONS.size).to eq(36)
   end
 
   # A CONTRACT_GAPS entry records "the app is owner-only but the contract omits the 403". Once the
@@ -284,16 +267,6 @@ RSpec.describe "Role and tenancy matrix", type: :request do
     expect(ID_OPERATIONS).to include("getSnapshotUpload", "cancelSnapshotUpload", "commitSnapshotUpload",
                                      "getLead", "completeNextAction", "undoNextAction", "getAgentConversation",
                                      "deleteInvitation")
-  end
-
-  # disconnectAdPlatform's parameter is a platform name, not another tenant's row: A deleting a
-  # platform must answer its documented 204 and must never touch B's connection (never 200/403).
-  it "does not let A disconnect B's ad platform (204, B's row intact)" do
-    sign_in_as(:owner)
-    delete "/api/v1/ad_connections/meta", headers: probe
-    expect(response).to have_http_status(:no_content)
-    expect(AdConnection.unscoped.where(agency_id: beta.id).pluck(:platform)).to eq([ "meta" ])
-    expect(AdConnection.unscoped.where(agency_id: agency.id).count).to eq(0)
   end
 
   %i[signed_out owner coordinator foreign].each do |principal|

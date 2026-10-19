@@ -15,7 +15,6 @@ test("owner sees this week's numbers, switches range and opens the funnel", asyn
   await expect(page.getByRole("heading", { level: 1, name: /Good (morning|afternoon|evening), Erin/ })).toBeVisible()
   await expect(page.getByText("10", { exact: true }).first()).toBeVisible()
   await expect(page.getByText("30.0%")).toBeVisible()
-  await expect(page.getByText("$283")).toBeVisible()
   await expect(page.getByRole("img", { name: /50% stall/ })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
   await page.screenshot({ path: `e2e/screenshots/week-${testInfo.project.name.replace("mock-", "")}.png`, fullPage: true })

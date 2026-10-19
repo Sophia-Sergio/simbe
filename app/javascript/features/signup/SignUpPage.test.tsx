@@ -39,7 +39,7 @@ it("disables Continue until the account step is valid", async () => {
   expect(next).toBeEnabled()
 })
 
-it("submits account and agency at the end of step 2, then lands on Ad accounts", async () => {
+it("submits account and agency at the end of step 2, then lands on Load your data", async () => {
   const bodies: unknown[] = []
   mockApi({
     "POST /api/v1/signup": async (request: Request) => {
@@ -56,7 +56,7 @@ it("submits account and agency at the end of step 2, then lands on Ad accounts",
   await userEvent.click(screen.getByRole("radio", { name: /reached medical records/i }))
   await userEvent.click(screen.getByRole("button", { name: "Continue" }))
 
-  expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "Load your data" })).toBeInTheDocument()
   expect(bodies).toEqual([
     {
       user: { name: "Erin Walsh", email: "erin@new.test", password: "long-enough-pass" },
@@ -82,15 +82,14 @@ it("never offers steps 1–2 once the account exists, so signup can never be sub
 
   await userEvent.type(screen.getByLabelText("Agency name"), "New Agency")
   await userEvent.click(screen.getByRole("button", { name: "Continue" }))
-  await screen.findByRole("heading", { name: "Connect your ad accounts" })
+  await screen.findByRole("heading", { name: "Load your data" })
 
   for (const [heading, back, button] of [
-    ["Connect your ad accounts", false, "Continue"],
-    ["Load your data", true, "Continue"],
+    ["Load your data", false, "Continue"],
     ["Invite your team", true, null],
   ] as const) {
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument()
-    // Back walks among steps 3–5 only; step 3 has nothing before it to go back to.
+    // Back walks among steps 3–4 only; step 3 has nothing before it to go back to.
     expect(screen.queryByRole("button", { name: "Back" }) !== null).toBe(back)
     // The stepper never makes steps 1–2 clickable.
     expect(screen.queryByRole("button", { name: /^Account:/ })).not.toBeInTheDocument()
@@ -121,8 +120,8 @@ it("resumes an unfinished onboarding at step 3 for a signed-in owner", async () 
   mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
   renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
 
-  expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
-  expect(screen.getByText("Ad accounts: current")).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "Load your data" })).toBeInTheDocument()
+  expect(screen.getByText("Load data: current")).toBeInTheDocument()
   expect(screen.queryByLabelText("Your name")).not.toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Back" })).not.toBeInTheDocument()
 })
@@ -236,7 +235,7 @@ it("posts signup once when Continue is double-clicked on step 2", async () => {
   fireEvent.click(next)
 
   await waitFor(() => expect(posts).toBe(1))
-  expect(await screen.findByRole("heading", { name: "Connect your ad accounts" })).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "Load your data" })).toBeInTheDocument()
 })
 
 /** Submit step 2 with the server rejecting the agency with `message`. */
@@ -286,30 +285,26 @@ it("keeps any other agency problem under the agency name", async () => {
 })
 
 
-it("moves among steps 3–5 with Back and the stepper, keeping the Load data step alive", async () => {
+it("moves among steps 3–4 with Back and the stepper, keeping the Load data step alive", async () => {
   mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
   renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
-  await screen.findByRole("heading", { name: "Connect your ad accounts" })
+  await screen.findByRole("heading", { name: "Load your data" })
 
-  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
-  expect(screen.getByRole("heading", { name: "Load your data" })).toHaveFocus()
   await userEvent.click(screen.getByRole("button", { name: "Continue" }))
   expect(screen.getByRole("heading", { name: "Invite your team" })).toHaveFocus()
 
-  // Step 4 stays mounted (hidden) so an upload in progress is not cancelled by leaving it.
+  // Step 3 stays mounted (hidden) so an upload in progress is not cancelled by leaving it.
   expect(document.querySelector('[hidden] input[aria-label="CSV files"]')).not.toBeNull()
 
   await userEvent.click(screen.getByRole("button", { name: "Back" }))
   expect(screen.getByRole("heading", { name: "Load your data" })).toHaveFocus()
   expect(screen.getByLabelText("CSV files")).toBeInTheDocument()
 
-  await userEvent.click(screen.getByRole("button", { name: "Ad accounts: done" }))
-  expect(screen.getByRole("heading", { name: "Connect your ad accounts" })).toHaveFocus()
   await userEvent.click(screen.getByRole("button", { name: "Team: upcoming" }))
   expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
 })
 
-/** A signed-in owner at step 4 who has uploaded the seven files and is looking at the review. */
+/** A signed-in owner at step 3 who has uploaded the seven files and is looking at the review. */
 async function reachUploadReview() {
   mockApi({ "GET /api/v1/snapshots/current": { snapshot: null, pending: null, files: [] } })
   server.use(
@@ -339,14 +334,13 @@ async function reachUploadReview() {
     http.delete("/api/v1/snapshot_uploads/:id", () => new HttpResponse(null, { status: 204 })),
   )
   renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
-  await screen.findByRole("heading", { name: "Connect your ad accounts" })
-  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  await screen.findByRole("heading", { name: "Load your data" })
   const files = EXPORT_FILES.map((name) => new File(["a,b\n1,2\n"], name, { type: "text/csv" }))
   await userEvent.upload(screen.getByLabelText(/csv files/i), files)
   await screen.findByText("Review changes")
 }
 
-it("warns before leaving step 4 with files uploaded but not loaded", async () => {
+it("warns before leaving step 3 with files uploaded but not loaded", async () => {
   await reachUploadReview()
 
   await userEvent.click(screen.getByRole("button", { name: "Continue" }))
@@ -389,9 +383,7 @@ it("stays in the wizard when the data finishes loading, instead of jumping to th
       HttpResponse.json(loaded ? snapshotCurrent : { snapshot: null, pending: null, files: [] }),
   })
   const { queryClient, location } = renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
-  await screen.findByRole("heading", { name: "Connect your ad accounts" })
-  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
-  expect(screen.getByRole("heading", { name: "Load your data" })).toBeInTheDocument()
+  await screen.findByRole("heading", { name: "Load your data" })
 
   // The load commits: /snapshots/current now has a snapshot.
   loaded = true

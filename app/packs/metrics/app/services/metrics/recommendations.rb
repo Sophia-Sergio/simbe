@@ -79,10 +79,10 @@ module Metrics
       {
         id: "best_vs_worst_channel", area: "ads",
         impact: "#{worst[:leads]} leads on #{worst[:channel]}",
-        title: "#{worst[:channel]} is your costliest channel",
-        why: "#{best[:channel]} gets leads for less than #{worst[:channel]}; shift budget until they even out.",
+        title: "#{worst[:channel]} has your lowest qualified rate",
+        why: "#{best[:channel]} turns more of its leads into qualified ones than #{worst[:channel]} does.",
         cta: CHANNELS_CTA,
-        ask: { question: "Should we move budget from #{worst[:channel]} to #{best[:channel]}?" },
+        ask: { question: "Why does #{worst[:channel]} convert worse than #{best[:channel]}?" },
         score: worst[:leads].to_i
       }
     end
@@ -94,7 +94,7 @@ module Metrics
         id: "unattributed", area: "ads",
         impact: "#{insight[:count]} leads with no source",
         title: "#{percent(insight[:pct])}% of leads have no channel",
-        why: "#{insight[:count]} leads arrived without a channel tag, so their cost cannot be measured.",
+        why: "#{insight[:count]} leads arrived without a channel tag, so their results cannot be compared by channel.",
         cta: CHANNELS_CTA,
         ask: { question: "What can we do about leads with no channel tag?" },
         score: insight[:count].to_i

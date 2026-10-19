@@ -5,17 +5,17 @@ it("renders one horizontal row per datum, each bar scaled to the largest value",
   const { container } = render(
     <AnswerChart
       chart={{
-        title: "Cost per qualified lead",
+        title: "Qualified rate by channel",
         bars: [
-          { label: "Facebook", value: 150, display: "$150" },
-          { label: "Google", value: 75, display: "$75" },
-          { label: "TikTok", value: 30, display: "$30" },
+          { label: "Facebook", value: 15, display: "15%" },
+          { label: "Google", value: 7.5, display: "7.5%" },
+          { label: "TikTok", value: 3, display: "3%" },
         ],
       }}
     />,
   )
-  expect(screen.getByText("Cost per qualified lead")).toBeInTheDocument()
-  expect(screen.getByText("$150")).toBeInTheDocument()
+  expect(screen.getByText("Qualified rate by channel")).toBeInTheDocument()
+  expect(screen.getByText("15%")).toBeInTheDocument()
 
   const fills = Array.from(container.querySelectorAll<HTMLElement>('[data-tone="brand"]'))
   expect(fills).toHaveLength(3)

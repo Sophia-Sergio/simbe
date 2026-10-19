@@ -69,11 +69,6 @@ async function toStep3(page: Page, id: string) {
 
 async function toStep4(page: Page, id: string) {
   await toStep3(page, id)
-  await page.getByRole("button", { name: "Continue" }).click()
-}
-
-async function toStep5(page: Page, id: string) {
-  await toStep4(page, id)
   await page.getByLabel("CSV files").setInputFiles(EXPORT_FILES.map(csv))
   await page.getByText("Review changes").waitFor({ timeout: 30_000 })
   await page.getByRole("button", { name: "Load data" }).click()
@@ -112,9 +107,8 @@ export const screens: Screen[] = [
   { id: "signin", path: "/signin", role: "public", ready: "text=Welcome back" },
   { id: "signup-account", path: "/signup?mock=new", realPath: "/signup", role: "public", ready: "text=Create your account", notes: "wizard step 1" },
   { id: "signup-agency", path: "/signup?mock=new", role: "public", ready: "text=Set up your agency", mockOnly: true, drive: fillAccount, notes: "wizard step 2" },
-  { id: "signup-connect", path: "/signup?mock=new", role: "public", ready: "text=Connect your ad accounts", mockOnly: true, drive: toStep3, notes: "wizard step 3" },
-  { id: "signup-load-data", path: "/signup?mock=new", role: "public", ready: "text=Load your data", mockOnly: true, drive: toStep4, notes: "wizard step 4" },
-  { id: "signup-invite", path: "/signup?mock=new", role: "public", ready: "text=Invite your team", mockOnly: true, drive: toStep5, notes: "wizard step 5" },
+  { id: "signup-load-data", path: "/signup?mock=new", role: "public", ready: "text=Load your data", mockOnly: true, drive: toStep3, notes: "wizard step 3" },
+  { id: "signup-invite", path: "/signup?mock=new", role: "public", ready: "text=Invite your team", mockOnly: true, drive: toStep4, notes: "wizard step 4" },
   { id: "invite", path: "/invite/mock-token", role: "public", ready: "text=Your name", mockOnly: true, notes: "accept invitation" },
   { id: "invite-expired", path: "/invite/expired", role: "public", ready: "text=This invitation has expired" },
   { id: "kit", path: "/__kit", role: "public", ready: "h1:has-text('Kit')", mockOnly: true, notes: "dev/e2e gallery only (absent from a production build)" },
@@ -135,7 +129,7 @@ export const screens: Screen[] = [
   { id: "pipeline-empty", path: "/pipeline?mock=empty", role: "owner", ready: "text=Load your data", mockOnly: true },
   { id: "coordinators", path: "/coordinators", role: "owner", ready: "text=Dana Ortiz" },
   { id: "coordinator-dana", path: "/coordinators/Dana%20Ortiz", role: "owner", ready: "main h1" },
-  { id: "data", path: "/data", role: "owner", ready: "text=Meta Ads" },
+  { id: "data", path: "/data", role: "owner", ready: "text=Loaded" },
   { id: "data-upload", path: "/data", role: "owner", ready: '[role="dialog"]', drive: openUpload, notes: "upload modal open" },
   { id: "data-upload-review", path: "/data", role: "owner", ready: "text=Review changes", mockOnly: true, drive: uploadAndReview, driveOnce: true, notes: "upload modal, review state" },
   { id: "connect", path: "/connect", role: "owner", ready: "text=Server URL" },

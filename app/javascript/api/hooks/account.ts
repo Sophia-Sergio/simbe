@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { API, jsonRequest } from "../client"
 import type { components } from "../generated/schema"
-import type { AdConnection, AdPlatform, Agency, Invitation, Me, Team } from "../types"
+import type { Agency, Invitation, Me, Team } from "../types"
 
 type InvitationPreview = components["schemas"]["InvitationPreview"]
 type CoordinatorNames = components["schemas"]["CoordinatorNames"]
-type AdConnections = components["schemas"]["AdConnections"]
 
 /** Optimistically updates the agency (and the copy nested in ["me"]); rolls back on failure. */
 export function useUpdateAgency() {
@@ -80,24 +79,4 @@ export function useAcceptInvitation(token: string) {
 
 export function useCoordinatorNames() {
   return useQuery({ queryKey: ["coordinators", "names"], queryFn: ({ signal }) => jsonRequest<CoordinatorNames>("GET", `${API}/coordinator_names`, undefined, signal) })
-}
-
-export function useAdConnections() {
-  return useQuery({ queryKey: ["adConnections"], queryFn: ({ signal }) => jsonRequest<AdConnections>("GET", `${API}/ad_connections`, undefined, signal) })
-}
-
-export function useConnectPlatform() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (platform: AdPlatform) => jsonRequest<AdConnection>("POST", `${API}/ad_connections`, { platform }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adConnections"] }),
-  })
-}
-
-export function useDisconnectPlatform() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (platform: AdPlatform) => jsonRequest<void>("DELETE", `${API}/ad_connections/${platform}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["adConnections"] }),
-  })
 }

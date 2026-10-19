@@ -11,10 +11,9 @@ import { useAsyncAction } from "@/hooks/useAsyncAction"
 
 const TOOLS: { name: string; description: string }[] = [
   { name: "get_funnel", description: "Funnel stages, drop-offs and the qualified rate for a date range." },
-  { name: "get_channel_performance", description: "Leads, qualified leads and cost per qualified by channel and campaign." },
+  { name: "get_channel_performance", description: "Leads, qualified leads and qualified rate by channel and campaign." },
   { name: "get_dropoff_reasons", description: "Why leads leave: exit reasons and where applicants stop in the form." },
   { name: "get_next_actions", description: "The coordinators' open follow-ups, by queue." },
-  { name: "forecast_spend", description: "What a different ad budget is likely to produce." },
 ]
 
 function configJson(url: string, key: string): string {

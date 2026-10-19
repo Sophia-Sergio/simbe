@@ -7,12 +7,12 @@ import { ConnectPage } from "./ConnectPage"
 
 const KEY = /simbe_live_[A-Za-z0-9]{24}/
 
-it("shows the server URL, a masked key and the five tools", async () => {
+it("shows the server URL, a masked key and the four tools", async () => {
   renderWithProviders(<ConnectPage />)
   expect(await screen.findByDisplayValue("https://mcp.simbe.app/harbor")).toBeInTheDocument()
   const key = screen.getByLabelText("API key") as HTMLInputElement
   expect(key.value).toMatch(/^simbe_live_ab12•+/)
-  ;["get_funnel", "get_channel_performance", "get_dropoff_reasons", "get_next_actions", "forecast_spend"].forEach((tool) =>
+  ;["get_funnel", "get_channel_performance", "get_dropoff_reasons", "get_next_actions"].forEach((tool) =>
     expect(screen.getByText(tool)).toBeInTheDocument(),
   )
 })

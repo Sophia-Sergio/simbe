@@ -16,16 +16,9 @@ module Metrics
                count(DISTINCT c.ad) AS ads
         FROM cohort c JOIN lead_facts f ON f.lead_id = c.lead_id
         GROUP BY c.campaign
-      ),
-      spend AS (
-        SELECT coalesce(nullif(s.campaign, ''), :untagged) AS campaign, sum(s.spend_cents) AS cents
-        FROM ad_spend_daily s
-        WHERE s.agency_id = :agency_id AND s.date >= :from_date AND s.date <= :to_date AND s.channel = :channel
-          AND #{Metrics::Base::PREFER_REAL_SPEND}
-        GROUP BY 1
       )
-      SELECT p.campaign, p.ads, p.leads, p.qualified, s.cents AS spend_cents
-      FROM per_campaign p LEFT JOIN spend s ON s.campaign = p.campaign
+      SELECT p.campaign, p.ads, p.leads, p.qualified
+      FROM per_campaign p
       ORDER BY p.leads DESC, p.campaign ASC
     SQL
 
@@ -40,9 +33,7 @@ module Metrics
         kpis: {
           leads: row[:leads],
           qualified: row[:qualified],
-          rate: row[:rate],
-          spend_cents: row[:spend_cents],
-          cost_per_qualified_cents: row[:cost_per_qualified_cents]
+          rate: row[:rate]
         },
         campaigns: campaigns(base, channel)
       }
@@ -51,16 +42,13 @@ module Metrics
     def self.campaigns(base, channel)
       sql = format(CAMPAIGNS_SQL, qcol: base.qualified_column)
       base.rows(sql, channel: channel, untagged: Metrics::Base::UNTAGGED).map do |row|
-        spend = row[:spend_cents]&.to_i
         qualified = row[:qualified].to_i
         {
           campaign: row[:campaign],
           ads: row[:ads].to_i,
           leads: row[:leads].to_i,
           qualified: qualified,
-          rate: Metrics::Base.rate(qualified, row[:leads].to_i),
-          spend_cents: spend,
-          cost_per_qualified_cents: Metrics::Channels.cost_per_qualified(spend, qualified)
+          rate: Metrics::Base.rate(qualified, row[:leads].to_i)
         }
       end
     end

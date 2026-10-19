@@ -5,7 +5,7 @@ type AgentChart = NonNullable<AgentTurn["body"]["chart"]>
 
 /**
  * The agent's inline chart in the app's usual style (the kit's `BarRow`, as on This week's
- * "Cost per qualified"): one horizontal row per datum — label left, a thin bar scaled to the
+ * "Qualified rate by channel"): one horizontal row per datum — label left, a thin bar scaled to the
  * largest value, the value right. A single datum is one proportional row, never a column that
  * fills the panel; long labels truncate (`min-w-0`) instead of overflowing at 390px.
  */

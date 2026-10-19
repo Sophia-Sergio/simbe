@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe "packs" do
-  PACKS = %w[identity connection ingest leads metrics agent mcp].freeze
+  PACKS = %w[identity ingest leads metrics agent mcp].freeze
 
   it "autoloads and eager-loads every pack's app dirs" do
     dirs = Rails.autoloaders.main.dirs

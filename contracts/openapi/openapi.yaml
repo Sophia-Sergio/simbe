@@ -35,8 +35,6 @@ paths:
   /invitations/{token}/preview: { $ref: './paths/account.yaml#/invitation_preview' }
   /invitations/{token}/accept: { $ref: './paths/account.yaml#/invitation_accept' }
   /coordinator_names: { $ref: './paths/account.yaml#/coordinator_names' }
-  /ad_connections: { $ref: './paths/account.yaml#/ad_connections' }
-  /ad_connections/{platform}: { $ref: './paths/account.yaml#/ad_connection_by_platform' }
   /snapshot_uploads: { $ref: './paths/snapshots.yaml#/snapshot_uploads' }
   /snapshot_uploads/{id}: { $ref: './paths/snapshots.yaml#/snapshot_upload_by_id' }
   /snapshot_uploads/{id}/commit: { $ref: './paths/snapshots.yaml#/snapshot_upload_commit' }

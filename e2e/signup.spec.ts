@@ -34,13 +34,6 @@ async function fillAccount(page: Page, email = "erin@new.test") {
   await expect(page.getByRole("heading", { name: "Set up your agency" })).toBeVisible()
 }
 
-/** Step 3 is a display-only preview: Meta and Google are "Coming soon"; just continue. */
-async function previewAdAccountsAndContinue(page: Page) {
-  await expect(page.getByRole("heading", { name: "Connect your ad accounts" })).toBeVisible()
-  await expect(page.getByText("Coming soon", { exact: true })).toHaveCount(2)
-  await page.getByRole("button", { name: "Continue" }).click()
-}
-
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const exportsDir = process.env.SIMBE_EXPORTS_DIR ?? join(repo, "handoff/takehome/exports")
 const harborDir = join(exportsDir, "harbor")
@@ -60,7 +53,6 @@ test("signs up, loads the seven exports and invites a coordinator", async ({ pag
   await page.screenshot({ path: screenshot("signup-agency", testInfo), fullPage: true })
   await page.getByRole("button", { name: "Continue" }).click()
 
-  await previewAdAccountsAndContinue(page)
 
   await expect(page.getByRole("heading", { name: "Load your data" })).toBeVisible()
   await expect(page.getByText("Screener answers are encrypted")).toBeVisible()
@@ -118,9 +110,7 @@ test.describe("real exports", () => {
       await page.getByText(definition, { exact: false }).first().click()
       await page.getByRole("button", { name: "Continue" }).click()
 
-      await expect(page.getByRole("heading", { name: "Connect your ad accounts" })).toBeVisible()
-      await page.getByRole("button", { name: "Continue" }).click()
-
+      await expect(page.getByRole("heading", { name: "Load your data" })).toBeVisible()
       await page.getByLabel("CSV files").setInputFiles(harborFiles())
       await expect(page.getByText("Review changes")).toBeVisible({ timeout: 120_000 })
       await expect(page.getByText(`Files matched to ${agency} 7 of 7`)).toBeVisible()

@@ -21,7 +21,6 @@
 
 ## Review Focus
 - `snapshot: null` → empty state linking to Data sources, no crash on `undefined` KPIs.
-- `cost_per_qualified` null (no spend / no qualified) shows `—`, not `$0` or `NaN`.
 - Delta `null` shows nothing (not `+0%`).
 - Channel names with spaces or odd characters in the URL (`/channels/Facebook` encoded).
 - Switching range while a request is in flight shows the new range's data only.
@@ -152,10 +151,9 @@ it("shows the empty state without a snapshot", async () => {
 });
 it("switching range refetches", async () => { /* click 90 days; expect fetch called with range=90d */ });
 it("CTA navigates with the range preserved", async () => { /* click Open funnel → location /funnel?range=30d */ });
-it("shows 'sample' next to cost when spend is sample", async () => { /* spend_source 'sample' */ });
 ```
-- [ ] **Step 2:** FAIL; **Step 3:** implement. KPI bar rules: leads `fill` = `value / max(value, previous || value) * 100`; qualified `fill` = `qualified/leads*100`; rate `fill` = rate; cost `thirds` active = 0 if cost ≤ best channel cost × 1.15, 2 if ≥ worst × 0.85, else 1 (all-green when only one channel). Notes: Leads `<range label>`, Qualified `<definition label>` ("Attended a consult" etc. from `agency.qualified_milestone`), Rate "Recent leads still maturing", Cost "Paid spend $X" (+ muted `sample`). Grid: `grid-cols-2 md:grid-cols-4 gap-3`; body `md:grid-cols-[1.6fr_1fr]`. Right-column cost bars use `BarRow` tones (best success, worst danger, others muted).
-- [ ] **Step 4:** `make web-test ARGS=app/javascript/features/insights/pages/WeekPage` → pass. **Step 5 (visual):** `make up`, load Harbor (`snapshot:load` + `spend:sample`), open `/`, compare against `handoff/design/screenshots/04-owner-this-week.png` at 1280px and 390px. Commit.
+- [ ] **Step 2:** FAIL; **Step 3:** implement. KPI bar rules: leads `fill` = `value / max(value, previous || value) * 100`; qualified `fill` = `qualified/leads*100`; rate `fill` = rate. Notes: Leads `<range label>`, Qualified `<definition label>` ("Attended a consult" etc. from `agency.qualified_milestone`), Rate "Recent leads still maturing". Grid: `grid-cols-2 md:grid-cols-3 gap-3`; body `md:grid-cols-[1.6fr_1fr]`. Right-column qualified-rate-by-channel bars use `BarRow` tones (best success, worst danger, others muted).
+- [ ] **Step 4:** `make web-test ARGS=app/javascript/features/insights/pages/WeekPage` → pass. **Step 5 (visual):** `make up`, load Harbor (`snapshot:load`), open `/`, compare against `handoff/design/screenshots/04-owner-this-week.png` at 1280px and 390px. Commit.
 
 ---
 
@@ -200,7 +198,6 @@ it("lists channels with flags and navigates to detail", async () => {
   await userEvent.click(row);
   expect(window.location.pathname).toBe("/channels/Facebook");
 });
-it("shows the ranked-by-rate note when basis is rate", async () => { /* basis: "rate" */ });
 it("renders the two insight cards", async () => { /* '10% of leads have no source', '… outside your main states' */ });
 it("channel detail shows KPIs, campaigns and the Ask Simbe button", async () => {
   mockApi({ "/api/v1/metrics/channels/Facebook?range=30d": detailFixture });
@@ -218,7 +215,7 @@ it("renders a not-found state for an unknown channel", async () => { /* 404 → 
 
 ## Task 6: E2E, screenshots, polish
 
-**Files:** Create `e2e/insights.spec.ts`; Modify seed script for e2e (`lib/tasks/e2e.rake`: `rake e2e:seed` loads Alpha from `spec/support` into a `harbor` agency + `AlphaSpend`).
+**Files:** Create `e2e/insights.spec.ts`; Modify seed script for e2e (`lib/tasks/e2e.rake`: `rake e2e:seed` loads Alpha from `spec/support` into a `harbor` agency).
 
 - [ ] **Step 1:** Playwright test signs in as `erin@harbor.test`, visits `/`, `/funnel`, `/channels`, `/channels/Facebook` at 1280×800 and 390×844, asserts key text (`Good`, `10 leads`, `Facebook`, `Campaigns`) and writes `e2e/screenshots/{week,funnel,channels,channel}-{desktop,mobile}.png`.
 - [ ] **Step 2:** `docker compose exec web bundle exec rails e2e:seed && make e2e ARGS=insights` → pass.

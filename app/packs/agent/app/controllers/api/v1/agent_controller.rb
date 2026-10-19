@@ -11,9 +11,9 @@ module Api
       InProgress = Class.new(StandardError)
 
       OWNER_SUGGESTIONS = [
-        "Which channel costs the most per qualified lead?",
+        "Which channel turns the most leads into qualified ones?",
         "Where do most applicants drop off?",
-        "How should I split next month's budget?",
+        "Which channel should I look at first?",
         "Who needs support on my team?"
       ].freeze
 

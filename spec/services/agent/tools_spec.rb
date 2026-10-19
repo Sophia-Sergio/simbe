@@ -1,8 +1,8 @@
 require "rails_helper"
 
-# Owner spec for the tool registry (docs/conventions/testing.md): role filtering, the five
-# schemas, each tool's Alpha numbers, the forecast's divide-by-zero guard and the input
-# validator. Data comes from AlphaScenario + AlphaSpend (lane override 4), never the importer.
+# Owner spec for the tool registry (docs/conventions/testing.md): role filtering, the four
+# schemas, each tool's Alpha numbers, the input
+# validator. Data comes from AlphaScenario (lane override 4), never the importer.
 RSpec.describe Agent::Tools do
   let(:agency) { create(:agency, slug: "alpha", name: "Alpha", qualified_milestone: "consult_attended") }
   let!(:owner) { create(:user, agency: agency, role: "owner") }
@@ -11,7 +11,6 @@ RSpec.describe Agent::Tools do
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.agency = agency
   end
 
@@ -34,7 +33,7 @@ RSpec.describe Agent::Tools do
 
   it "get_channel_performance supports a channel filter" do
     r = described_class.call("get_channel_performance", { "channel" => "Facebook" }, agency: agency, user: owner)
-    expect(r[:kpis][:cost_per_qualified_cents]).to eq(15_000)
+    expect(r[:kpis]).to eq(leads: 3, qualified: 2, rate: 66.7)
   end
 
   it "get_channel_performance lists every channel without a filter" do
@@ -49,25 +48,10 @@ RSpec.describe Agent::Tools do
     expect(r.to_json).not_to include("Alpha")
   end
 
-  it "forecasts spend from the trailing window" do
-    r = described_class.call("forecast_spend", { "monthly_budget_cents" => 150_000, "channel" => "Facebook", "months" => 3 }, agency: agency, user: owner)
-    expect(r).to include(cost_per_qualified_cents: 15_000, expected_qualified_per_month: 10.0, expected_qualified_total: 30.0)
-    expect(r[:caveats].first).to match(/estimate/i)
-  end
-
-  it "explains instead of dividing by zero" do
-    r = described_class.call("forecast_spend", { "monthly_budget_cents" => 1000, "channel" => "Google" }, agency: agency, user: owner)
-    expect(r).to include(error: "no_qualified_leads")
-  end
-
   it "rejects unknown tools, bad input and tools a coordinator may not call" do
     expect { described_class.call("drop_tables", {}, agency: agency, user: owner) }.to raise_error(Agent::Tools::Error, /unknown_tool/)
     expect { described_class.call("get_funnel", { "range" => "7d" }, agency: agency, user: owner) }.to raise_error(Agent::Tools::Error, /bad_input/)
     expect { described_class.call("get_funnel", {}, agency: agency, user: dana) }.to raise_error(Agent::Tools::Error, /tool_not_allowed/)
-  end
-
-  it "requires forecast_spend's budget" do
-    expect { described_class.call("forecast_spend", {}, agency: agency, user: owner) }.to raise_error(Agent::Tools::Error, /bad_input/)
   end
 
   it "scopes a coordinator's next actions to themselves even if asked otherwise" do
@@ -76,8 +60,8 @@ RSpec.describe Agent::Tools do
   end
 
   it "rejects every owner-only tool for a coordinator" do
-    %w[get_funnel get_channel_performance get_dropoff_reasons forecast_spend].each do |name|
-      expect { described_class.call(name, { "monthly_budget_cents" => 1000 }, agency: agency, user: dana) }
+    %w[get_funnel get_channel_performance get_dropoff_reasons].each do |name|
+      expect { described_class.call(name, {}, agency: agency, user: dana) }
         .to raise_error(Agent::Tools::Error, /tool_not_allowed/)
     end
   end

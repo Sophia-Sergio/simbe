@@ -12,7 +12,6 @@ RSpec.describe "Metrics API", type: :request do
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.reset
   end
 
@@ -132,7 +131,7 @@ RSpec.describe "Metrics API", type: :request do
 
     it "keeps recommendations to agency A" do
       get "/api/v1/recommendations", params: { range: "30d" }
-      expect(response.parsed_body.map { _1["id"] }).to eq(%w[funnel_leak no_shows])
+      expect(response.parsed_body.map { _1["id"] }).to eq(%w[funnel_leak best_vs_worst_channel no_shows])
       expect(response.parsed_body.first["impact"]).to eq("5 leads stalled")
     end
   end

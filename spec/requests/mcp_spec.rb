@@ -2,7 +2,7 @@ require "rails_helper"
 
 # The MCP JSON-RPC endpoint (spec 2013, decision 7). It lives outside /api/v1, so there is no
 # OpenAPI conformance here: the JSON-RPC envelopes are asserted by hand (lane B-MCP override 4).
-# Data is Alpha + AlphaSpend, loaded with AlphaScenario.load!.
+# Data is Alpha, loaded with AlphaScenario.load!.
 RSpec.describe "MCP endpoint", type: :request do
   let(:agency) { create(:agency, slug: "alpha", name: "Alpha", qualified_milestone: "consult_attended") }
   let!(:owner) { create(:user, agency: agency, role: "owner") }
@@ -11,7 +11,6 @@ RSpec.describe "MCP endpoint", type: :request do
     Current.agency = agency
     @key = Mcp::Keys.rotate!(agency: agency, user: owner)
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.reset
   end
 
@@ -23,7 +22,7 @@ RSpec.describe "MCP endpoint", type: :request do
          headers: { "Authorization" => "Bearer #{token}", "Content-Type" => "application/json" }
   end
 
-  it "initializes with the Simbe server info and lists exactly the five tools" do
+  it "initializes with the Simbe server info and lists exactly the four tools" do
     rpc("initialize")
     expect(response).to have_http_status(:ok)
     expect(response.parsed_body["jsonrpc"]).to eq("2.0")
@@ -33,7 +32,7 @@ RSpec.describe "MCP endpoint", type: :request do
     rpc("tools/list")
     names = response.parsed_body.dig("result", "tools").map { _1["name"] }
     expect(names).to eq(Agent::Tools::NAMES)
-    expect(names.size).to eq(5)
+    expect(names.size).to eq(4)
   end
 
   it "tells a client what each count means and returns distinct people from get_funnel" do

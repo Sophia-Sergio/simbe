@@ -13,7 +13,7 @@ The Harbor export has 79 leads that share an email with another lead, and the im
 3. the numbers can say how many *distinct people* inquired, next to the number of inquiries;
 4. the interface says plainly that a lead is one inquiry and belongs to a person.
 
-Nothing is merged, deleted or rewritten. Every existing number (leads, qualified, rates, cost, golden numbers) stays exactly as it is.
+Nothing is merged, deleted or rewritten. Every existing number (leads, qualified, rates, golden numbers) stays exactly as it is.
 
 ## Findings
 
@@ -48,8 +48,8 @@ Calls marked **(my call)** are mine, for you to confirm or change.
 5. **Lead detail gets `open_overlap`**, a boolean: true when the lead is in an overlapping pair with another inquiry of the same person. For two inquiries ordered by `(created_at, external_id)`, the earlier one is **closed** when its outcome is `not_eligible`, `withdrew`, `unresponsive` or `accepted` and its `outcome_updated_at` is strictly earlier than the later inquiry's `created_at`; otherwise the pair overlaps. Computed over all of the person's leads, but exposed only as the boolean so a coordinator learns nothing else. **(my call)**
 6. **The lead panel shows the links.** On the Summary tab, a "This person's other inquiries" card lists `other_inquiries` (date, outcome or stage, channel, coordinator) and each row opens that lead in the panel. When `open_overlap` is true, a one-line notice says another inquiry from this person was still open. The card is absent when there is nothing to show. It follows the brand tokens and works at desktop (1280px) and mobile (390px). The pipeline cards are not changed in this work.
 7. **The import review changes its wording, not its count.** The warning code `duplicate_email` and its count (extra rows) stay, so the contract and golden numbers do not move; the message becomes "N extra leads share an email with another lead; they are linked as one person and kept as separate inquiries". A new warning `open_duplicate_inquiry` counts the overlapping pairs from decision 5, with a message such as "N pairs of inquiries from the same person were open at the same time". It is a warning, never an error. **(my call)** on the wording.
-8. **(amended) Distinct people are counted next to inquiries.** The metrics summary adds `kpis.unique_people`: the number of distinct `person_id` values among the cohort's leads. The headline numbers (`leads`, `qualified`, `qualified_rate`, `cost_per_qualified`) are unchanged, and so is every golden number. The Leads tile on This week shows a small secondary line "N people" only when N is lower than the lead count. `get_funnel` returns it to Ask Simbe and MCP clients with no further change. **(my call)** that the headline stays on inquiries; switching it to people is a separate decision.
-9. **Attribution does not change.** A qualified lead is already credited to the channel and campaign of the inquiry that reached the milestone, which is the behavior wanted here. No per-person cost per qualified in this work.
+8. **(amended) Distinct people are counted next to inquiries.** The metrics summary adds `kpis.unique_people`: the number of distinct `person_id` values among the cohort's leads. The headline numbers (`leads`, `qualified`, `qualified_rate`) are unchanged, and so is every golden number. The Leads tile on This week shows a small secondary line "N people" only when N is lower than the lead count. `get_funnel` returns it to Ask Simbe and MCP clients with no further change. **(my call)** that the headline stays on inquiries; switching it to people is a separate decision.
+9. **Attribution does not change.** A qualified lead is already credited to the channel and campaign of the inquiry that reached the milestone, which is the behavior wanted here. No per-person metrics beyond `unique_people` in this work.
 10. **Contracts and mocks move with the code.** `contracts/openapi` gains the new fields and warning code with examples; generated API types are regenerated; the MSW mocks and the Alpha-derived examples return them, with a repeat-inquiry case.
 11. **(amended) Naming and interface: a lead is an inquiry, and it belongs to a person.** The word "Leads" stays in navigation and on the KPI tile (the design handoff is final and renaming it everywhere would touch every screen), but the interface now says what it means:
     - the lead panel header shows, under the name, "Inquiry from <date>" and, when `other_inquiries` is not empty, "N other inquiries from this person" (the count the viewer is allowed to see);
@@ -65,7 +65,7 @@ Calls marked **(my call)** are mine, for you to confirm or change.
 - Matching on phone, name or fuzzy email; manual link and unlink by the owner.
 - Linking across agencies; storing per-person attributes (name, notes) on `people`.
 - A repeat-inquiry badge on pipeline cards, board columns or Next actions; renaming "Leads" in navigation.
-- Cost per qualified or qualified rate per person; changing the four headline KPIs.
+- Qualified rate per person; changing the headline KPIs.
 - Combining or comparing screener answers across inquiries.
 - Collapsing repeat inquiries in Next actions or in `get_next_actions` (the 6 overlapping Harbor pairs can show up twice, and the import warning is how they are surfaced); a person tool for the agent.
 - Auto-closing or reassigning the overlapping duplicates.

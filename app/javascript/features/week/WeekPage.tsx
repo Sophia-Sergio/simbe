@@ -2,12 +2,9 @@ import { useEffect, useRef } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { useCurrentSnapshot } from "@/api/hooks/snapshots"
 import { useRecommendations, useSummary } from "@/api/hooks/metrics"
-import type { Summary } from "@/api/types"
 import { useAgent } from "@/app/agent"
 import { useAuth } from "@/app/auth/useAuth"
 import { Donut } from "@/components/ui/Donut"
-import { BarRow } from "@/components/ui/BarRow"
-import type { BarTone } from "@/components/ui/BarRow"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { KpiCard } from "@/components/ui/KpiCard"
@@ -16,7 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton"
 import { LoadingYourData } from "@/components/shared/LoadingYourData"
 import { definitionLabel } from "@/components/shared/options"
 import { useRange } from "@/hooks/useRange"
-import { formatDate, formatDelta, formatInt, formatMoney, formatPct } from "@/lib/format"
+import { formatDate, formatDelta, formatInt, formatPct } from "@/lib/format"
 import type { Range } from "@/lib/format"
 import { RecommendationCard } from "./RecommendationCard"
 
@@ -53,32 +50,6 @@ const withUnit = <T extends { text: string }>(delta: T, unit: string): T => ({ .
 
 const capitalize = (value: string) => value.charAt(0).toUpperCase() + value.slice(1)
 const pctOf = (part: number, whole: number) => (whole > 0 ? Math.max(0, Math.min(100, (part / whole) * 100)) : 0)
-
-function costBars(rows: Summary["cost_by_channel"]) {
-  const max = Math.max(1, ...rows.map((row) => row.cost_per_qualified_cents ?? 0))
-  return rows.map((row) => {
-    const tone: BarTone = row.flag === "best" ? "success" : row.flag === "worst" ? "danger" : "muted"
-    return { key: row.channel, label: row.channel, value: formatMoney(row.cost_per_qualified_cents), pct: pctOf(row.cost_per_qualified_cents ?? 0, max), tone }
-  })
-}
-
-/** Money delta ("+$50"), coloured in reverse: a rising cost per qualified lead is bad news. */
-export function costDelta(deltaCents: number | null) {
-  if (deltaCents === null || Math.round(deltaCents) === 0) return { text: deltaCents === null ? "" : "$0", tone: "none" as const }
-  const sign = deltaCents > 0 ? "+" : "−"
-  return { text: `${sign}${formatMoney(Math.abs(deltaCents))}`, tone: deltaCents > 0 ? ("down" as const) : ("up" as const) }
-}
-
-/** 0 = green, 1 = amber, 2 = red, from where this cost sits between the best and worst channel. */
-function costActive(cents: number | null, rows: Summary["cost_by_channel"]): 0 | 1 | 2 {
-  const costs = rows.map((row) => row.cost_per_qualified_cents).filter((value): value is number => value !== null)
-  if (cents === null || costs.length < 2) return 0
-  const best = Math.min(...costs)
-  const worst = Math.max(...costs)
-  if (cents <= best * 1.15) return 0
-  if (cents >= worst * 0.85) return 2
-  return 1
-}
 
 export function WeekPage() {
   const { user, agency, role } = useAuth()
@@ -127,7 +98,7 @@ export function WeekPage() {
     return (
       <div className="flex flex-col gap-5">
         {header}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {[0, 1, 2, 3].map((index) => (
             <Skeleton key={index} className="h-[120px]" />
           ))}
@@ -175,13 +146,11 @@ export function WeekPage() {
 
   const { kpis, biggest_leak: leak } = data
   const leadsPrevious = kpis.leads.previous ?? kpis.leads.value
-  const sample = data.spend_source === "sample"
-  const bars = costBars(data.cost_by_channel)
 
   return (
     <div className="flex flex-col gap-5">
       {header}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <KpiCard
           label="Leads"
           value={formatInt(kpis.leads.value)}
@@ -204,13 +173,6 @@ export function WeekPage() {
           delta={withUnit(formatDelta(kpis.qualified_rate.delta, "pp"), " pp")}
           note="Recent leads still maturing"
           bar={{ kind: "fill", pct: kpis.qualified_rate.value }}
-        />
-        <KpiCard
-          label="Cost per qualified"
-          value={formatMoney(kpis.cost_per_qualified.value_cents)}
-          delta={costDelta(kpis.cost_per_qualified.delta_cents)}
-          note={data.spend_source === "none" ? "No spend loaded" : sample ? "Sample spend" : "Paid spend"}
-          bar={{ kind: "thirds", active: costActive(kpis.cost_per_qualified.value_cents, data.cost_by_channel) }}
         />
       </div>
 
@@ -254,17 +216,6 @@ export function WeekPage() {
                   </p>
                 </div>
               </div>
-            </section>
-          )}
-          {bars.length > 0 && (
-            <section className="rounded-card border border-line bg-surface p-4">
-              <h2 className="mb-3 font-display text-[16px] font-semibold text-ink">Cost per qualified</h2>
-              <div className="flex flex-col gap-3">
-                {bars.map((bar) => (
-                  <BarRow key={bar.key} label={bar.label} value={bar.value} pct={bar.pct} tone={bar.tone} />
-                ))}
-              </div>
-              {sample && <p className="mt-3 text-[12px] text-ink-muted">sample</p>}
             </section>
           )}
         </div>

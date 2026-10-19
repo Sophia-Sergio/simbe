@@ -2,15 +2,22 @@ require "rails_helper"
 
 RSpec.describe Metrics::Recommendations do
   let(:agency) { create(:agency, slug: "alpha", qualified_milestone: "consult_attended") }
-  before { Current.agency = agency; AlphaScenario.load!(agency); AlphaSpend.load!(agency) }
+  before { Current.agency = agency; AlphaScenario.load!(agency) }
 
   subject(:cards) { described_class.call(agency: agency, range: "30d") }
 
   it "returns deterministic cards ranked by leads affected" do
-    expect(cards.map { _1[:id] }).to eq(%w[funnel_leak no_shows])
+    expect(cards.map { _1[:id] }).to eq(%w[funnel_leak best_vs_worst_channel no_shows])
     expect(cards.first).to include(area: "process", cta: { label: "Open funnel", route: "/funnel" })
     expect(cards.first[:impact]).to eq("5 leads stalled")
     expect(cards.last[:ask][:question]).to match(/no-show/i)
+  end
+
+  it "compares channels on qualified rate, not cost" do
+    card = cards.find { _1[:id] == "best_vs_worst_channel" }
+    expect(card[:title]).to eq("Google has your lowest qualified rate")
+    expect(card[:why]).to match(/qualified/)
+    expect(card[:ask][:question]).not_to match(/budget|cost/i)
   end
 
   it "adds the unattributed card at 15% or more" do

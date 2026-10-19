@@ -101,25 +101,6 @@ RSpec.describe Metrics::Base do
       expect(calls).to eq(2)
     end
 
-    it "invalidates when the agency's spend changes" do
-      calls = 0
-      base.cached("k") { calls += 1 }
-      AdSpendDay.create!(agency: agency, date: "2026-09-25", platform: "meta", channel: "Facebook",
-                         campaign: "c-a", spend_cents: 100, source: "import")
-      fresh_base.cached("k") { calls += 1 }
-      expect(calls).to eq(2)
-    end
-
-    it "invalidates when spend is replaced but has the same row count" do
-      AdSpendDay.create!(agency: agency, date: "2026-09-25", platform: "meta", channel: "Facebook",
-                         campaign: "c-a", spend_cents: 100, source: "import")
-      calls = 0
-      base.cached("k") { calls += 1 }
-      AdSpendDay.find_by!(campaign: "c-a").update!(spend_cents: 500)
-      fresh_base.cached("k") { calls += 1 }
-      expect(calls).to eq(2)
-    end
-
     it "never serves one agency's cached value to another" do
       expect(base.cached("k") { "alpha" }).to eq("alpha")
       other = described_class.new(agency: create(:agency), range: "30d")

@@ -13,29 +13,14 @@ RateKpi:
     previous: { type: [number, 'null'] }
     delta: { type: [number, 'null'], description: percentage points }
     low_sample: { type: boolean, description: "true when fewer than 30 leads" }
-CostKpi:
-  type: object
-  required: [value_cents, previous_cents, delta_cents]
-  properties:
-    value_cents: { type: [integer, 'null'], description: "null when no spend or zero qualified" }
-    previous_cents: { type: [integer, 'null'] }
-    delta_cents: { type: [integer, 'null'] }
 Leak:
   type: object
   required: [from_stage, to_stage, lost, pct_lost]
   properties: { from_stage: { type: string }, to_stage: { type: string }, lost: { type: integer }, pct_lost: { type: number } }
-SpendSource: { type: string, enum: [sample, import, connected, none] }
-CostFlag: { type: [string, 'null'], enum: [best, worst, null] }
-CostByChannel:
-  type: object
-  required: [channel, cost_per_qualified_cents, flag]
-  properties:
-    channel: { type: string }
-    cost_per_qualified_cents: { type: integer }
-    flag: { $ref: '#/CostFlag' }
+ChannelFlag: { type: [string, 'null'], enum: [best, worst, null], description: "best/worst qualified rate among channels with enough leads" }
 Summary:
   type: object
-  required: [snapshot, range, spend_source, kpis, biggest_leak, cost_by_channel]
+  required: [snapshot, range, kpis, biggest_leak]
   properties:
     snapshot:
       oneOf:
@@ -44,18 +29,15 @@ Summary:
           properties: { id: { type: string, format: uuid }, as_of: { $ref: './common.yaml#/Timestamp' } }
         - type: 'null'
     range: { $ref: './common.yaml#/Range' }
-    spend_source: { $ref: '#/SpendSource' }
     kpis:
       type: object
-      required: [leads, qualified, qualified_rate, cost_per_qualified, unique_people]
+      required: [leads, qualified, qualified_rate, unique_people]
       properties:
         leads: { $ref: '#/Kpi' }
         qualified: { $ref: '#/Kpi' }
         qualified_rate: { $ref: '#/RateKpi' }
-        cost_per_qualified: { $ref: '#/CostKpi' }
         unique_people: { type: integer, description: "Distinct people behind the cohort's leads (a lead is one inquiry; the same person can inquire again)." }
     biggest_leak: { oneOf: [{ $ref: '#/Leak' }, { type: 'null' }] }
-    cost_by_channel: { type: array, items: { $ref: '#/CostByChannel' } }
 ExitReason:
   type: object
   required: [reason, count]
@@ -84,22 +66,19 @@ Funnel:
     form_dropoff: { type: array, items: { $ref: '#/FormDropoff' } }
 ChannelRow:
   type: object
-  required: [channel, leads, qualified, rate, spend_cents, cost_per_qualified_cents, flag, low_sample]
+  required: [channel, leads, qualified, rate, flag, low_sample]
   properties:
     channel: { type: string }
     leads: { type: integer }
     qualified: { type: integer }
     rate: { type: number }
-    spend_cents: { type: [integer, 'null'] }
-    cost_per_qualified_cents: { type: [integer, 'null'] }
-    flag: { $ref: '#/CostFlag' }
+    flag: { $ref: '#/ChannelFlag' }
     low_sample: { type: boolean }
 Channels:
   type: object
-  required: [rows, basis, insights]
+  required: [rows, insights]
   properties:
     rows: { type: array, items: { $ref: '#/ChannelRow' } }
-    basis: { type: string, enum: [cost, rate], description: "rate when no channel has spend" }
     insights:
       type: object
       required: [unattributed, out_of_area]
@@ -114,15 +93,13 @@ Channels:
           properties: { count: { type: integer }, pct: { type: number }, main_states: { type: array, items: { type: string } } }
 Campaign:
   type: object
-  required: [campaign, ads, leads, qualified, rate, spend_cents, cost_per_qualified_cents]
+  required: [campaign, ads, leads, qualified, rate]
   properties:
     campaign: { type: string, description: '"(untagged)" when blank' }
     ads: { type: integer }
     leads: { type: integer }
     qualified: { type: integer }
     rate: { type: number }
-    spend_cents: { type: [integer, 'null'] }
-    cost_per_qualified_cents: { type: [integer, 'null'] }
 ChannelDetail:
   type: object
   required: [channel, kpis, campaigns]
@@ -130,13 +107,11 @@ ChannelDetail:
     channel: { type: string }
     kpis:
       type: object
-      required: [leads, qualified, rate, spend_cents, cost_per_qualified_cents]
+      required: [leads, qualified, rate]
       properties:
         leads: { type: integer }
         qualified: { type: integer }
         rate: { type: number }
-        spend_cents: { type: [integer, 'null'] }
-        cost_per_qualified_cents: { type: [integer, 'null'] }
     campaigns: { type: array, items: { $ref: '#/Campaign' } }
 Recommendation:
   type: object

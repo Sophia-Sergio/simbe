@@ -10,7 +10,7 @@ it("useAgentSuggestions returns four chips for the owner", async () => {
 it("useSendAgentMessage posts the question and returns the assistant message", async () => {
   const { result } = renderHookWithQuery(() => useSendAgentMessage())
   await act(async () => {
-    await result.current.mutateAsync({ text: "Which channel costs the most?" })
+    await result.current.mutateAsync({ text: "Which channel qualifies the most?" })
   })
   await waitFor(() => expect(result.current.data?.message.role).toBe("assistant"))
 })

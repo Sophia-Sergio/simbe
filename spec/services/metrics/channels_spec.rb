@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe Metrics::Channels do
   let(:agency) { create(:agency, slug: "alpha", qualified_milestone: "consult_attended") }
-  before { Current.agency = agency; AlphaScenario.load!(agency); AlphaSpend.load!(agency) }
+  before { Current.agency = agency; AlphaScenario.load!(agency) }
 
   subject(:result) { described_class.call(agency: agency, range: "30d") }
 
@@ -11,11 +11,8 @@ RSpec.describe Metrics::Channels do
     expect(rows.transform_values { [ _1[:leads], _1[:qualified] ] }).to eq(
       "Facebook" => [ 3, 2 ], "Google" => [ 3, 0 ], "Instagram" => [ 1, 0 ],
       "Referral" => [ 1, 1 ], "TikTok" => [ 1, 0 ], "Unknown" => [ 1, 0 ])
-    expect(rows["Facebook"][:cost_per_qualified_cents]).to eq(15_000)
-    expect(rows["Facebook"][:flag]).to eq("best")
-    expect(rows["Google"][:cost_per_qualified_cents]).to be_nil
-    expect(rows["Referral"][:spend_cents]).to be_nil
-    expect(result[:basis]).to eq("cost")
+    expect(rows["Facebook"].keys).to contain_exactly(:channel, :leads, :qualified, :rate, :flag, :low_sample)
+    expect(result.keys).to contain_exactly(:rows, :insights)
   end
 
   it "reports unattributed and out-of-area shares" do
@@ -24,11 +21,10 @@ RSpec.describe Metrics::Channels do
     expect(ins[:out_of_area]).to eq(count: 0, pct: 0.0, main_states: %w[CA ID])
   end
 
-  it "falls back to rate basis when no channel has spend" do
-    AdSpendDay.where(agency_id: agency.id).delete_all
-    r = described_class.call(agency: agency, range: "30d")
-    expect(r[:basis]).to eq("rate")
-    expect(r[:rows].find { _1[:flag] == "best" }[:channel]).to eq("Referral")
+  it "flags the best and worst channel by qualified rate" do
+    flags = result[:rows].to_h { [ _1[:channel], _1[:flag] ] }
+    expect(flags.values.compact.sort).to eq(%w[best worst])
+    expect(flags["Referral"]).to eq("best")
   end
 
   it "orders rows by leads desc then channel asc and flags small samples" do
@@ -36,26 +32,16 @@ RSpec.describe Metrics::Channels do
     expect(result[:rows]).to all(include(low_sample: true))
   end
 
-  it "prefers real spend over a sample row for the same channel and day" do
-    AdSpendDay.create!(agency: agency, date: "2026-09-23", platform: "meta", channel: "Instagram",
-                       campaign: "c-b", spend_cents: 20_000, source: "import")
-    AdSpendDay.create!(agency: agency, date: "2026-09-23", platform: "meta", channel: "Instagram",
-                       campaign: "c-z", spend_cents: 5_000, source: "sample")
-    rows = described_class.call(agency: agency, range: "30d")[:rows].index_by { _1[:channel] }
-    expect(rows["Instagram"][:spend_cents]).to eq(30_000) # 10_000 AlphaSpend + 20_000 real, not + 5_000 sample
-  end
-
   it "returns an empty table and zero insights without a snapshot" do
     r = described_class.call(agency: create(:agency), range: "30d")
     expect(r[:rows]).to eq([])
-    expect(r[:basis]).to eq("rate")
     expect(r[:insights][:unattributed]).to eq(count: 0, pct: 0.0)
     expect(r[:insights][:out_of_area]).to eq(count: 0, pct: 0.0, main_states: [])
   end
 
   it "does not carry a campaign placeholder it never uses" do
     # The channel table aggregates by channel; the blank-campaign label lives where campaigns
-    # are actually shown (Metrics::Base::UNTAGGED, used by ChannelDetail and sample spend).
+    # are actually shown (Metrics::Base::UNTAGGED, used by ChannelDetail).
     expect(described_class.const_defined?(:UNTAGGED)).to be(false)
   end
 end

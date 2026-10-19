@@ -98,32 +98,3 @@ coordinator_names:
     responses:
       '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/CoordinatorNames' }, example: { names: [Dana Ortiz, Jess Kim, Priya Shah] } } } }
       '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
-ad_connections:
-  get:
-    operationId: listAdConnections
-    tags: [account]
-    summary: Connected ad platforms (owner). Stub - no OAuth; connecting generates sample spend.
-    responses:
-      '200': { description: OK, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AdConnections' }, example: { connections: [{ platform: meta, status: connected, connected_at: '2026-10-01T12:00:00.000Z' }] } } } }
-      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
-  post:
-    operationId: connectAdPlatform
-    tags: [account]
-    summary: Connect a platform (idempotent)
-    requestBody:
-      required: true
-      content: { application/json: { schema: { type: object, required: [platform], properties: { platform: { $ref: '../schemas/account.yaml#/AdPlatform' } } } } }
-    responses:
-      '200': { description: Already connected, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AdConnection' } } } }
-      '201': { description: Connected, content: { application/json: { schema: { $ref: '../schemas/account.yaml#/AdConnection' } } } }
-      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }
-      '422': { $ref: '../openapi.yaml#/components/responses/Invalid' }
-ad_connection_by_platform:
-  delete:
-    operationId: disconnectAdPlatform
-    tags: [account]
-    summary: Disconnect a platform
-    parameters: [{ name: platform, in: path, required: true, schema: { $ref: '../schemas/account.yaml#/AdPlatform' } }]
-    responses:
-      '204': { description: Disconnected }
-      '403': { $ref: '../openapi.yaml#/components/responses/Forbidden' }

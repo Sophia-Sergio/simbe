@@ -58,15 +58,3 @@ UnknownCoordinatorError:
     - $ref: './common.yaml#/Error'
     - type: object
       properties: { valid_names: { type: array, items: { type: string } } }
-AdPlatform: { type: string, enum: [meta, google] }
-AdConnection:
-  type: object
-  required: [platform, status, connected_at]
-  properties:
-    platform: { $ref: '#/AdPlatform' }
-    status: { type: string, enum: [connected] }
-    connected_at: { $ref: './common.yaml#/Timestamp' }
-AdConnections:
-  type: object
-  required: [connections]
-  properties: { connections: { type: array, items: { $ref: '#/AdConnection' } } }

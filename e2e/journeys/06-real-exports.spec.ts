@@ -74,9 +74,6 @@ async function signUpAndLoad(
   await page.getByText(options.definition, { exact: false }).first().click()
   await page.getByRole("button", { name: "Continue" }).click()
 
-  await expect(page.getByRole("heading", { name: "Connect your ad accounts" })).toBeVisible()
-  await page.getByRole("button", { name: "Continue" }).click()
-
   await expect(page.getByRole("heading", { name: "Load your data" })).toBeVisible()
   await page.getByLabel("CSV files").setInputFiles(options.files)
   await expect(page.getByText("Review changes")).toBeVisible({ timeout: 120_000 })

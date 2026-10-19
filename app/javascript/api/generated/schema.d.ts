@@ -176,41 +176,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ad_connections": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Connected ad platforms (owner). Stub - no OAuth; connecting generates sample spend. */
-        get: operations["listAdConnections"];
-        put?: never;
-        /** Connect a platform (idempotent) */
-        post: operations["connectAdPlatform"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/ad_connections/{platform}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Disconnect a platform */
-        delete: operations["disconnectAdPlatform"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/snapshot_uploads": {
         parameters: {
             query?: never;
@@ -287,7 +252,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** KPIs, biggest leak and cost by channel (owner) */
+        /** KPIs and biggest leak (owner) */
         get: operations["getMetricsSummary"];
         put?: never;
         post?: never;
@@ -696,17 +661,6 @@ export interface components {
         CoordinatorNames: {
             names: string[];
         };
-        /** @enum {string} */
-        AdPlatform: "meta" | "google";
-        AdConnection: {
-            platform: components["schemas"]["AdPlatform"];
-            /** @enum {string} */
-            status: "connected";
-            connected_at: components["schemas"]["Timestamp"];
-        };
-        AdConnections: {
-            connections: components["schemas"]["AdConnection"][];
-        };
         /**
          * @description validated = validation finished (report.ok may still be false); failed = unexpected job error (see error)
          * @enum {string}
@@ -801,8 +755,6 @@ export interface components {
          * @enum {string}
          */
         Range: "30d" | "90d" | "12m";
-        /** @enum {string} */
-        SpendSource: "sample" | "import" | "connected" | "none";
         Kpi: {
             value: number;
             previous: number | null;
@@ -818,24 +770,11 @@ export interface components {
             /** @description true when fewer than 30 leads */
             low_sample: boolean;
         };
-        CostKpi: {
-            /** @description null when no spend or zero qualified */
-            value_cents: number | null;
-            previous_cents: number | null;
-            delta_cents: number | null;
-        };
         Leak: {
             from_stage: string;
             to_stage: string;
             lost: number;
             pct_lost: number;
-        };
-        /** @enum {string|null} */
-        CostFlag: "best" | "worst" | null;
-        CostByChannel: {
-            channel: string;
-            cost_per_qualified_cents: number;
-            flag: components["schemas"]["CostFlag"];
         };
         Summary: {
             snapshot: {
@@ -844,17 +783,14 @@ export interface components {
                 as_of: components["schemas"]["Timestamp"];
             } | null;
             range: components["schemas"]["Range"];
-            spend_source: components["schemas"]["SpendSource"];
             kpis: {
                 leads: components["schemas"]["Kpi"];
                 qualified: components["schemas"]["Kpi"];
                 qualified_rate: components["schemas"]["RateKpi"];
-                cost_per_qualified: components["schemas"]["CostKpi"];
                 /** @description Distinct people behind the cohort's leads (a lead is one inquiry; the same person can inquire again). */
                 unique_people: number;
             };
             biggest_leak: components["schemas"]["Leak"] | null;
-            cost_by_channel: components["schemas"]["CostByChannel"][];
         };
         ExitReason: {
             reason: string;
@@ -882,23 +818,21 @@ export interface components {
             stages: components["schemas"]["FunnelStage"][];
             form_dropoff: components["schemas"]["FormDropoff"][];
         };
+        /**
+         * @description best/worst qualified rate among channels with enough leads
+         * @enum {string|null}
+         */
+        ChannelFlag: "best" | "worst" | null;
         ChannelRow: {
             channel: string;
             leads: number;
             qualified: number;
             rate: number;
-            spend_cents: number | null;
-            cost_per_qualified_cents: number | null;
-            flag: components["schemas"]["CostFlag"];
+            flag: components["schemas"]["ChannelFlag"];
             low_sample: boolean;
         };
         Channels: {
             rows: components["schemas"]["ChannelRow"][];
-            /**
-             * @description rate when no channel has spend
-             * @enum {string}
-             */
-            basis: "cost" | "rate";
             insights: {
                 unattributed: {
                     count: number;
@@ -918,8 +852,6 @@ export interface components {
             leads: number;
             qualified: number;
             rate: number;
-            spend_cents: number | null;
-            cost_per_qualified_cents: number | null;
         };
         ChannelDetail: {
             channel: string;
@@ -927,8 +859,6 @@ export interface components {
                 leads: number;
                 qualified: number;
                 rate: number;
-                spend_cents: number | null;
-                cost_per_qualified_cents: number | null;
             };
             campaigns: components["schemas"]["Campaign"][];
         };
@@ -1813,96 +1743,6 @@ export interface operations {
             403: components["responses"]["Forbidden"];
         };
     };
-    listAdConnections: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "connections": [
-                     *         {
-                     *           "platform": "meta",
-                     *           "status": "connected",
-                     *           "connected_at": "2026-10-01T12:00:00.000Z"
-                     *         }
-                     *       ]
-                     *     }
-                     */
-                    "application/json": components["schemas"]["AdConnections"];
-                };
-            };
-            403: components["responses"]["Forbidden"];
-        };
-    };
-    connectAdPlatform: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    platform: components["schemas"]["AdPlatform"];
-                };
-            };
-        };
-        responses: {
-            /** @description Already connected */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdConnection"];
-                };
-            };
-            /** @description Connected */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdConnection"];
-                };
-            };
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["Invalid"];
-        };
-    };
-    disconnectAdPlatform: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["schemas"]["AdPlatform"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Disconnected */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            403: components["responses"]["Forbidden"];
-        };
-    };
     createSnapshotUpload: {
         parameters: {
             query?: never;
@@ -2293,9 +2133,7 @@ export interface operations {
                      *           "leads": 3,
                      *           "qualified": 2,
                      *           "rate": 66.7,
-                     *           "spend_cents": 30000,
-                     *           "cost_per_qualified_cents": 15000,
-                     *           "flag": "best",
+                     *           "flag": null,
                      *           "low_sample": true
                      *         },
                      *         {
@@ -2303,9 +2141,7 @@ export interface operations {
                      *           "leads": 3,
                      *           "qualified": 0,
                      *           "rate": 0,
-                     *           "spend_cents": 45000,
-                     *           "cost_per_qualified_cents": null,
-                     *           "flag": null,
+                     *           "flag": "worst",
                      *           "low_sample": true
                      *         },
                      *         {
@@ -2313,8 +2149,6 @@ export interface operations {
                      *           "leads": 1,
                      *           "qualified": 0,
                      *           "rate": 0,
-                     *           "spend_cents": 10000,
-                     *           "cost_per_qualified_cents": null,
                      *           "flag": null,
                      *           "low_sample": true
                      *         },
@@ -2323,9 +2157,7 @@ export interface operations {
                      *           "leads": 1,
                      *           "qualified": 1,
                      *           "rate": 100,
-                     *           "spend_cents": null,
-                     *           "cost_per_qualified_cents": null,
-                     *           "flag": null,
+                     *           "flag": "best",
                      *           "low_sample": true
                      *         },
                      *         {
@@ -2333,8 +2165,6 @@ export interface operations {
                      *           "leads": 1,
                      *           "qualified": 0,
                      *           "rate": 0,
-                     *           "spend_cents": null,
-                     *           "cost_per_qualified_cents": null,
                      *           "flag": null,
                      *           "low_sample": true
                      *         },
@@ -2343,13 +2173,10 @@ export interface operations {
                      *           "leads": 1,
                      *           "qualified": 0,
                      *           "rate": 0,
-                     *           "spend_cents": null,
-                     *           "cost_per_qualified_cents": null,
                      *           "flag": null,
                      *           "low_sample": true
                      *         }
                      *       ],
-                     *       "basis": "cost",
                      *       "insights": {
                      *         "unattributed": {
                      *           "count": 1,
@@ -2398,9 +2225,7 @@ export interface operations {
                      *       "kpis": {
                      *         "leads": 3,
                      *         "qualified": 2,
-                     *         "rate": 66.7,
-                     *         "spend_cents": 30000,
-                     *         "cost_per_qualified_cents": 15000
+                     *         "rate": 66.7
                      *       },
                      *       "campaigns": [
                      *         {
@@ -2408,9 +2233,7 @@ export interface operations {
                      *           "ads": 0,
                      *           "leads": 3,
                      *           "qualified": 2,
-                     *           "rate": 66.7,
-                     *           "spend_cents": 30000,
-                     *           "cost_per_qualified_cents": 15000
+                     *           "rate": 66.7
                      *         }
                      *       ]
                      *     }
@@ -2455,6 +2278,21 @@ export interface operations {
                      *           "question": "Why do leads stall before the application and what should we change?"
                      *         },
                      *         "score": 5
+                     *       },
+                     *       {
+                     *         "id": "best_vs_worst_channel",
+                     *         "area": "ads",
+                     *         "impact": "3 leads on Google",
+                     *         "title": "Google has your lowest qualified rate",
+                     *         "why": "Referral turns more of its leads into qualified ones than Google does.",
+                     *         "cta": {
+                     *           "label": "Open channels",
+                     *           "route": "/channels"
+                     *         },
+                     *         "ask": {
+                     *           "question": "Why does Google convert worse than Referral?"
+                     *         },
+                     *         "score": 3
                      *       },
                      *       {
                      *         "id": "no_shows",
@@ -3164,7 +3002,7 @@ export interface operations {
             content: {
                 /**
                  * @example {
-                 *       "text": "Which channel costs the most per qualified lead?"
+                 *       "text": "Which channel turns the most leads into qualified ones?"
                  *     }
                  */
                 "application/json": components["schemas"]["SendMessageRequest"];
@@ -3185,14 +3023,14 @@ export interface operations {
                      *         "role": "assistant",
                      *         "created_at": "2026-10-01T12:00:00.000Z",
                      *         "body": {
-                     *           "text": "Facebook is your cheapest channel at about $150 per qualified surrogate. Google has spent $450 with no qualified leads yet - but the sample is small (3 leads), so treat this as a first signal.",
+                     *           "text": "Facebook converts best: 66.7% of its leads became qualified. Google has no qualified leads yet - but the sample is small (3 leads), so treat this as a first signal.",
                      *           "chart": {
-                     *             "title": "Cost per qualified lead",
+                     *             "title": "Qualified rate by channel",
                      *             "bars": [
                      *               {
                      *                 "label": "Facebook",
-                     *                 "value": 150,
-                     *                 "display": "$150"
+                     *                 "value": 66.7,
+                     *                 "display": "66.7%"
                      *               }
                      *             ]
                      *           },
@@ -3287,9 +3125,9 @@ export interface operations {
                     /**
                      * @example {
                      *       "suggestions": [
-                     *         "Which channel costs the most per qualified lead?",
+                     *         "Which channel turns the most leads into qualified ones?",
                      *         "Where do most applicants drop off?",
-                     *         "How should I split next month's budget?",
+                     *         "Which channel should I look at first?",
                      *         "Who needs support on my team?"
                      *       ]
                      *     }

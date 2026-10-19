@@ -58,7 +58,7 @@ export const metricsHandlers = [
     if (KNOWN_CHANNELS.includes(channel)) {
       return HttpResponse.json({
         channel,
-        kpis: { leads: 0, qualified: 0, rate: 0, spend_cents: null, cost_per_qualified_cents: null },
+        kpis: { leads: 0, qualified: 0, rate: 0 },
         campaigns: [],
       })
     }

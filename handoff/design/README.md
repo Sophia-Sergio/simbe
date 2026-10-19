@@ -1,11 +1,11 @@
 # Handoff: Simbe, an analytics app for surrogacy agencies
 
 ## Overview
-Simbe connects an agency's ad spend (Meta, Google) to its recruiting funnel (screener → application → consult → records → accepted). It answers one question: which ads, process steps and people turn spend into qualified surrogates.
+Simbe shows how an agency's recruiting funnel performs (screener → application → consult → records → accepted). It answers one question: which channels, process steps and people turn leads into qualified surrogates. The exports carry no ad spend, so Simbe shows no spend, cost per lead or ROI.
 
 There are two roles:
-- **Owner** (agency owner, e.g. Erin at Harbor Surrogacy). Signs up, creates the agency, loads data, connects ad accounts, and sees everything: insights, pipeline, coordinator performance, data, Claude/MCP and settings.
-- **Coordinator** (e.g. Maya). Sees only their own leads and a daily list of next actions. No spend, settings or other coordinators' numbers.
+- **Owner** (agency owner, e.g. Erin at Harbor Surrogacy). Signs up, creates the agency, loads data, and sees everything: insights, pipeline, coordinator performance, data, Claude/MCP and settings.
+- **Coordinator** (e.g. Maya). Sees only their own leads and a daily list of next actions. No settings or other coordinators' numbers.
 
 An AI agent ("Ask Simbe") is available from every screen. It answers questions in plain language, using only the signed-in agency's data.
 
@@ -19,7 +19,7 @@ The files in `prototype/` are **design references built in HTML**: working proto
 - `Simbe Flows.dc.html` maps the six user flows. It loads a stylesheet from the original project, so styling may be missing when it is opened from this folder.
 - `screenshots/` holds desktop captures of each screen. For mobile, open the Screens board, or open the prototype in a window under 860px wide.
 
-All numbers in the prototype are fictional or sample data taken from the Harbor export analysis. Spend and coordinator figures are placeholders until the real data is wired in.
+All numbers in the prototype are fictional or sample data taken from the Harbor export analysis. Coordinator figures are placeholders until the real data is wired in. (The prototype's spend and cost-per-qualified figures were dropped from the build: the exports carry no spend.)
 
 ## Fidelity
 **High fidelity.** Colors, type, spacing, radii and interactions are final. Recreate them pixel-close.
@@ -50,7 +50,7 @@ All numbers in the prototype are fictional or sample data taken from the Harbor 
 | `warning` | `#f59e0b` | Review / in-progress segments |
 | `warning.text` / `.bg` / `.border` | `#b45309` / `#fffbeb` / `#fde68a` | "Review", "Process", "Needs support" pills |
 | `danger` | `#e5484d` | Red flags, worst channel, "Text back now" dot |
-| `danger.text` / `.bg` / `.border` | `#b91c1c` / `#fef2f2` / `#fecaca` | "Not met" pill, worst cost |
+| `danger.text` / `.bg` / `.border` | `#b91c1c` / `#fef2f2` / `#fecaca` | "Not met" pill, lowest rate |
 | `violet.text` / `.bg` / `.border` | `#6d28d9` / `#f5f3ff` / `#ddd6fe` | "People" area pill |
 | `violet` | `#8b5cf6` | "Rebook consults" dot |
 | Channel marks | FB `#1877f2`, IG `#d62976`, Google `#ea4335`, TikTok `#111111`, Referral `#22a559`, Unknown `#a8a29e`, Meta `#0866ff` | Square logo tiles (replace with real brand logos) |
@@ -128,30 +128,29 @@ Lucide-style line icons at 1.8 stroke, round caps and joins, 18px in nav, 22px i
 
 ### 2. Sign-up wizard (`02`, `03`)
 Adding the agency and loading its data are part of sign-up. The wizard card is max 600px wide.
-- **Header strip**: a `bg.app` strip with five steps, each a 22px numbered dot plus a label.
+- **Header strip**: a `bg.app` strip with four steps, each a 22px numbered dot plus a label.
   - Current step: `brand` fill.
   - Completed step: `success` fill with ✓.
   - Upcoming step: white with a border.
 - **Body**: 28px 24px padding, title (21/650) plus subtitle.
 - **Footer bar**: Back (secondary) and Continue (primary).
 
-The five steps:
+The four steps:
 1. **Account.** Name, work email, password.
 2. **Agency.** Agency name, time-zone chips (Pacific, Mountain, Central, Eastern), and the qualified definition as radio cards: *Submitted an application · Attended a consult (recommended) · Reached medical records · Been accepted*. Selected card: `brand.tint` bg and `brand.border`, with a 5px brand ring on the radio.
-3. **Ad accounts.** Meta Ads and Google Ads rows, each with a 38px logo tile, name, note and a Connect button (primary). Once connected, the button becomes a green "Connected" pill-button. This step is optional.
-4. **Load data.** A dashed dropzone ("Drop your 7 CSV exports") above a list of the seven files, each with a status dot and a Loaded/Waiting pill: leads, stage_history, contact_log, screener_answers (health data, encrypted), web_sessions, appointments, applications. A shield note below says screener answers are encrypted.
-5. **Team.** Email input plus an Invite button, and a team list with avatars and role pills (Owner in brand, Invited in amber). The final CTA is "Open my dashboard".
+3. **Load data.** A dashed dropzone ("Drop your 7 CSV exports") above a list of the seven files, each with a status dot and a Loaded/Waiting pill: leads, stage_history, contact_log, screener_answers (health data, encrypted), web_sessions, appointments, applications. A shield note below says screener answers are encrypted.
+4. **Team.** Email input plus an Invite button, and a team list with avatars and role pills (Owner in brand, Invited in amber). The final CTA is "Open my dashboard".
 
 ### 3. This week, the owner's home (`04`)
 - **Greeting**: "Good morning, Erin" with the subtitle "Week of Oct 12 · 4 things worth your time". A range segmented control (30 days / 90 days / 12 months) sits on the right.
-- **KPI row**: 4 equal cards (Leads, Qualified, Qualified rate, Cost per qualified). Each card has a label, a value with a delta (green when positive, amber when negative, muted for "sample"), a 6px segmented bar, and a note.
+- **KPI row**: 3 equal cards (Leads, Qualified, Qualified rate). Each card has a label, a value with a delta (green when positive, amber when negative, muted for "sample"), a 6px segmented bar, and a note.
 - **Two columns** (1.6fr / 1fr; stacked on mobile):
   - **Left: "Recommended actions" well.** A `bg.subtle` well with 14px radius and a count pill, holding 4 action cards. Each card has:
     - an area pill (Process amber, Ads brand, People violet) and an impact line;
     - a title (15/600) and a why line (13, secondary);
     - an outline-brand CTA ("Open funnel", "Open channels", "Open pipeline") and an "Ask why" button with a sparkle icon that opens the agent with a preset question.
   - **Right, top: "Biggest leak" card.** A 92px donut ring reading "27% stall", with a title and one line of copy.
-  - **Right, bottom: "Cost per qualified" card.** A "sample spend" pill, then horizontal bars with an 8px track (best green, worst red, the rest grey), and a "View all channels →" link.
+  - **Right, bottom: "Qualified rate by channel" card.** Horizontal bars with an 8px track (best green, worst red, the rest grey), and a "View all channels →" link.
 
 ### 4. Funnel (`05`)
 - **Header**: title, a "3,530 leads" count pill, and a subtitle explaining the qualified definition.
@@ -161,12 +160,12 @@ The five steps:
 ### 5. Channels (`06`) and channel detail (`07`)
 - **Channels table** inside a card:
   - The header row uses `bg.app`, 12px muted text and 10px 16px padding.
-  - Columns: Channel (logo tile + name), Leads, Qualified, Rate (inline mini bar + %), Spend, Per qualified. Cheapest cost gets a green pill, most expensive a red pill.
+  - Columns: Channel (logo tile + name), Leads, Qualified, Rate (inline mini bar + %). The highest rate gets a green pill, the lowest a red pill.
   - Rows are clickable and hover to `bg.app`.
 - **Insight cards** below the table: "30% of leads have no source" and "14.9% are out of area".
 - **Channel detail**:
   - A "‹ Channels" back link, then a 36px logo with the channel name.
-  - A 4-KPI grid, then a Campaigns table.
+  - A 3-KPI grid (Leads, Qualified, Rate), then a Campaigns table.
   - A brand-tinted note card with an "Ask Simbe" button.
 
 ### 6. Pipeline board (`08`) and list view
@@ -228,7 +227,6 @@ The five steps:
   - `get_channel_performance`
   - `get_dropoff_reasons`
   - `get_next_actions`
-  - `forecast_spend`
 
 ### 12. Settings (`15`)
 Max 720px, three cards:
@@ -262,7 +260,7 @@ Max 720px, three cards:
 - **Done toggles** on next actions update the open count in the header and nav, plus the progress bar.
 - **Changing the qualified definition** recomputes every metric with no reload.
 - **Upload validation** must check that all seven files are present, the columns match, there are no duplicate natural keys, and the folder matches the agency. A snapshot replaces the agency's data in one transaction.
-- **Role gating**: coordinators never see Coordinators, Channels/spend, Data sources, Connect or Settings, and their lead list is filtered to their own leads. Raw screener health answers show only to the assigned coordinator. Owners see verdicts.
+- **Role gating**: coordinators never see Coordinators, Channels, Data sources, Connect or Settings, and their lead list is filtered to their own leads. Raw screener health answers show only to the assigned coordinator. Owners see verdicts.
 - **Breakpoint**: 860px. Below it, use the mobile shell, two-column KPIs, single-column boards with column chips, a full-screen panel and agent, and a bottom-sheet modal.
 - **Hover**: cards move to `border.strong` and the hover shadow. Rows and ghost buttons move to `bg.app` or `bg.subtle`. Primary buttons move to `brand.hover`.
 - **Focus**: `outline: 2px solid #e6a3b6; outline-offset: 2px`.
@@ -274,12 +272,12 @@ Max 720px, three cards:
 - `agent { open, messages[], suggestions[], pending }`, where each message can carry `{ text, chart?, action?, sources?[] }`
 - `upload { step: 0..3, files[], validation }`
 - `toast`
-- Server data per agency: KPIs, funnel stages and exit reasons, channels and campaigns (with spend), leads (pipeline column, status, stage index), the lead detail (contact, screener verdicts, events, attribution, AI summary), the next-actions queue for a coordinator, coordinator stats, data-source status, team, settings and the MCP key.
+- Server data per agency: KPIs, funnel stages and exit reasons, channels and campaigns, leads (pipeline column, status, stage index), the lead detail (contact, screener verdicts, events, attribution, AI summary), the next-actions queue for a coordinator, coordinator stats, data-source status, team, settings and the MCP key.
 
 ## Prototype deep links
 Open `prototype/Simbe App v2.dc.html` with these URL parameters:
 - `?view=login`
-- `?view=signup&step=0..4`
+- `?view=signup&step=0..3`
 - `?screen=week | funnel | channels | channel&channel=Facebook | leads | coords | coord&coord=Tomas | data | connect | settings`
 - `?screen=leads&lead=L-4821&tab=summary | screener | activity | source`
 - `?screen=data&upload=1..3`

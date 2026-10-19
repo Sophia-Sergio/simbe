@@ -41,18 +41,16 @@ type ChannelRow = {
   leads: number
   qualified: number
   rate: string
-  spend: string
-  perQualified: string
   flag?: "best" | "worst"
 }
 
 const CHANNELS: ChannelRow[] = [
-  { id: "fb", channel: "Facebook", leads: 1650, qualified: 120, rate: "7.3%", spend: "$18,000", perQualified: "$150", flag: "best" },
-  { id: "ig", channel: "Instagram", leads: 920, qualified: 61, rate: "6.6%", spend: "$12,400", perQualified: "$203" },
-  { id: "go", channel: "Google", leads: 540, qualified: 22, rate: "4.1%", spend: "$9,900", perQualified: "$450" },
-  { id: "tt", channel: "TikTok", leads: 260, qualified: 9, rate: "3.5%", spend: "$4,200", perQualified: "$467", flag: "worst" },
-  { id: "ref", channel: "Referral", leads: 120, qualified: 40, rate: "33.3%", spend: "—", perQualified: "—" },
-  { id: "unk", channel: "Unknown", leads: 40, qualified: 4, rate: "10.0%", spend: "—", perQualified: "—" },
+  { id: "fb", channel: "Facebook", leads: 1650, qualified: 120, rate: "7.3%", flag: "best" },
+  { id: "ig", channel: "Instagram", leads: 920, qualified: 61, rate: "6.6%" },
+  { id: "go", channel: "Google", leads: 540, qualified: 22, rate: "4.1%" },
+  { id: "tt", channel: "TikTok", leads: 260, qualified: 9, rate: "3.5%", flag: "worst" },
+  { id: "ref", channel: "Referral", leads: 120, qualified: 40, rate: "33.3%" },
+  { id: "unk", channel: "Unknown", leads: 40, qualified: 4, rate: "10.0%" },
 ]
 
 const LONG_CHANNEL = "A very long channel name that keeps going without a break"
@@ -76,7 +74,7 @@ export default function DataViz() {
           <KpiCard label="Leads" value="3,530" delta={{ text: "+6%", tone: "up" }} note="12 months" bar={{ kind: "fill", pct: 60 }} />
           <KpiCard label="Qualified" value="496" delta={{ text: "+4%", tone: "up" }} note="Attended a consult" bar={{ kind: "fill", pct: 30 }} />
           <KpiCard label="Qualified rate" value="14.1%" delta={{ text: "−0.3", tone: "down" }} note="Recent leads still maturing" bar={{ kind: "fill", pct: 14 }} />
-          <KpiCard label="Cost per qualified" value="$145" delta={{ text: "", tone: "none" }} note="Paid spend $41,500" bar={{ kind: "thirds", active: 0 }} size="sm" />
+          <KpiCard label="Unique people" value="3,410" delta={{ text: "", tone: "none" }} note="Distinct people" bar={{ kind: "thirds", active: 0 }} size="sm" />
         </div>
       </Card>
 
@@ -102,12 +100,12 @@ export default function DataViz() {
             <BarRow
               key={row.id}
               label={row.channel}
-              value={row.perQualified}
+              value={row.rate}
               pct={row.id === "fb" ? 100 : row.id === "ig" ? 74 : row.id === "go" ? 33 : 18}
               tone={row.flag === "best" ? "success" : row.flag === "worst" ? "danger" : "muted"}
             />
           ))}
-          <BarRow label={LONG_CHANNEL} value="$450" pct={33} />
+          <BarRow label={LONG_CHANNEL} value="4.1%" pct={33} />
           <ProgressBar segments={["done", "done", "current", "action", "todo", "todo"]} />
           <ProgressBar segments={["done", "done", "done", "done", "done", "current"]} />
           <ProgressBar segments={["done", "done", "closed", "todo", "todo", "todo"]} />
@@ -160,8 +158,6 @@ export default function DataViz() {
             { key: "leads", header: "Leads", align: "right", render: (row) => row.leads.toLocaleString("en-US") },
             { key: "qualified", header: "Qualified", align: "right" },
             { key: "rate", header: "Rate", align: "right" },
-            { key: "spend", header: "Spend", align: "right" },
-            { key: "perQualified", header: "Per qualified", align: "right" },
           ]}
           rows={CHANNELS}
           rowKey={(row) => row.id}
@@ -173,7 +169,7 @@ export default function DataViz() {
                 <span className="text-[13px] font-medium text-ink">{row.channel}</span>
               </span>
               <span className="text-right text-[12px] text-ink-muted">
-                {row.rate} · {row.perQualified}
+                {row.rate}
               </span>
             </div>
           )}
@@ -212,13 +208,13 @@ export default function DataViz() {
       <Card heading="Long labels">
         <div className="grid grid-cols-2 gap-3">
           <KpiCard
-            label="Cost per qualified with a very long label that should not break the card"
-            value="$145"
+            label="Qualified rate with a very long label that should not break the card"
+            value="14.1%"
             delta={{ text: "+12%", tone: "up" }}
-            note="Long note: spend is sample data until ad accounts are connected"
+            note="Long note: recent leads are still maturing and the rate will keep moving until they settle"
             bar={{ kind: "fill", pct: 55 }}
           />
-          <BarRow label={LONG_CHANNEL} value="$1,234.56" pct={88} tone="brand" />
+          <BarRow label={LONG_CHANNEL} value="1,234 leads" pct={88} tone="brand" />
         </div>
       </Card>
     </div>

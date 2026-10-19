@@ -2,7 +2,7 @@ require "rails_helper"
 
 # Owner spec for the turn loop (docs/conventions/testing.md): tool dispatch, the sanitizer,
 # the round cap, provider failures freeing the lock, the system prompt and the coordinator's
-# single tool. Anthropic is stubbed; data is Alpha + AlphaSpend.
+# single tool. Anthropic is stubbed; data is Alpha.
 RSpec.describe Agent::TurnRunner do
   let(:agency) { create(:agency, slug: "alpha", name: "Alpha", qualified_milestone: "consult_attended") }
   let!(:owner) { create(:user, agency: agency, role: "owner") }
@@ -13,7 +13,6 @@ RSpec.describe Agent::TurnRunner do
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.agency = agency
   end
 
@@ -21,13 +20,13 @@ RSpec.describe Agent::TurnRunner do
     stub_anthropic(
       anthropic_message(content: [ tool_use("get_channel_performance", { "range" => "30d" }, id: "t1") ], stop_reason: "tool_use"),
       anthropic_message(content: [ tool_use("respond", {
-        "text" => "Facebook is cheapest at $150 per qualified lead.",
-        "chart" => { "title" => "Cost per qualified", "bars" => [ { "label" => "Facebook", "value" => 150, "display" => "$150" } ] },
+        "text" => "Facebook converts best at 66.7%.",
+        "chart" => { "title" => "Qualified rate", "bars" => [ { "label" => "Facebook", "value" => 66.7, "display" => "66.7%" } ] },
         "action" => { "label" => "Open channels", "route" => "/channels" },
         "sources" => [ { "label" => "Channels", "route" => "/channels" } ],
         "suggestions" => [ "What about Google?" ] }, id: "t2") ], stop_reason: "tool_use")
     )
-    msg = described_class.call(conversation: convo, text: "Which channel costs the most per qualified lead?")
+    msg = described_class.call(conversation: convo, text: "Which channel turns the most leads into qualified ones?")
     expect(msg.body["text"]).to match(/Facebook/)
     expect(msg.body["action"]).to eq("label" => "Open channels", "route" => "/channels")
     expect(AiUsageEvent.where(task: "agent").count).to eq(2)

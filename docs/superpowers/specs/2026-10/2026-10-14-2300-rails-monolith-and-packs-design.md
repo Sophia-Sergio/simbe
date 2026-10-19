@@ -18,10 +18,9 @@ One Rails application at the repository root that serves the React UI itself (no
 | Pack | Contains | Lane(s) |
 |---|---|---|
 | `identity` | `Agency`, `User`, `AuthSession`, `Invitation`; sessions, me, signup, agency, team, invitations, coordinator-names endpoints; `Signup::*`; `InvitationMailer` | W0-3 (models, auth), B-ACCOUNT |
-| `connection` | `AdConnection`, ad-connections endpoints | B-ACCOUNT |
 | `ingest` | `Snapshot`, `SnapshotUpload`; `Snapshot::{Constants,Reader,AsOf,Facts}` (W0-3), `Validator`, `Importer`, `Progress`, `Storage`, jobs, upload/snapshot endpoints | W0-3 (shared pieces), B-INGEST |
 | `leads` | `Lead`, `StageEvent`, `Contact`, `ScreenerAnswer`, `WebSession`, `Appointment`, `Application`, `LeadFact`, `ActionCompletion`; `Leads::{Access,Queues}` (W0-3), `Status/Board/List/Detail/Masking/Summarizer` (B-LEADS), `NextActions/CoordinatorStats` + completions/coordinators endpoints (B-ACTIONS) | W0-3, B-LEADS, B-ACTIONS |
-| `metrics` | `AdSpendDay`; `Metrics::*`, `Spend::*`; metrics and recommendations endpoints | W0-3 (model), B-METRICS |
+| `metrics` | `Metrics::*`; metrics and recommendations endpoints | B-METRICS |
 | `agent` | `AgentConversation`, `AgentMessage`, `AiUsageEvent`; `Ai::*`, `Agent::*`; agent endpoints | W0-3 (models), B-AGENT |
 | `mcp` | `McpKey`; `Mcp::*`; `/mcp/:slug` and settings endpoints | W0-3 (model), B-MCP |
 
@@ -39,7 +38,7 @@ Inertia, server-side rendering, micro-frontends, Devise (our own session auth st
 ## Acceptance criteria
 1. `bin/rails runner 'puts Rails.autoloaders.main.dirs.grep(%r{app/packs}).size'` prints ≥ 7 (every pack's `app/models` etc. autoloaded) and `bin/rails boundaries:check` exits 0.
 2. `curl -s localhost:3000/ | grep -c 'vite'` ≥ 1 and `curl -s localhost:3000/pipeline | grep -q '<div id="root">'` (shell served for client routes); `curl -s -o /dev/null -w '%{http_code}' localhost:3000/api/v1/me` → `401`.
-3. `ls app/packs` lists `agent connection identity ingest leads mcp metrics`; `ls handoff` lists `design takehome`; `test -f spec/real_data/golden.json && bin/golden-numbers --check` succeed; `git ls-files | grep -E '^(backend|frontend)/' | wc -l` prints `0`.
+3. `ls app/packs` lists `agent identity ingest leads mcp metrics`; `ls handoff` lists `design takehome`; `test -f spec/real_data/golden.json && bin/golden-numbers --check` succeed; `git ls-files | grep -E '^(backend|frontend)/' | wc -l` prints `0`.
 4. `npm run dev:mock` (no Docker) serves the app at `localhost:5173` and `curl -s localhost:5173 | grep -c 'id="root"'` ≥ 1; `npx vitest run` passes from the repo root.
 5. `bash docs/superpowers/parallel/check-ownership.sh` reports 0 conflicts across all lanes with the new ownership lines, and `bin/lane check --lane F-WEEK --base HEAD` passes on an untouched tree.
 6. `docker build -t simbe:test .` succeeds and the container serves `/up`, the SPA shell at `/` and `401` at `/api/v1/me` (production image criteria from spec `2200`, updated).

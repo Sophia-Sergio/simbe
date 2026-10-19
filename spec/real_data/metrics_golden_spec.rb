@@ -30,7 +30,7 @@ RSpec.describe "real exports: metrics vs golden.json", :real_data, type: :reques
         response.parsed_body
       end
 
-      it "matches the summary, funnel, channel, insight, milestone and spend oracle" do
+      it "matches the summary, funnel, channel, insight and milestone oracle" do
         # KPIs per range (golden summary.<range>).
         %w[30d 90d 12m].each do |range|
           expected = golden["summary"][range]
@@ -77,13 +77,6 @@ RSpec.describe "real exports: metrics vs golden.json", :real_data, type: :reques
           expect(summary("12m").dig("kpis", "qualified", "value")).to eq(count), milestone
         end
         agency.update!(qualified_milestone: config[:qualified_milestone])
-
-        # Spend is not in the oracle: no cost before sample spend, a finite one after.
-        expect(summary("12m").dig("kpis", "cost_per_qualified", "value_cents")).to be_nil
-        Current.agency = agency
-        Spend::SampleGenerator.call(agency: agency)
-        Current.reset
-        expect(summary("12m").dig("kpis", "cost_per_qualified", "value_cents")).to be_a(Integer)
       end
     end
   end
