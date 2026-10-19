@@ -1,0 +1,176 @@
+{
+  "id": "aaaaaaaa-0000-4000-8000-000000000002",
+  "name": "L2 Alpha",
+  "coordinator": "Jess Kim",
+  "stage": "application",
+  "status": {
+    "key": "nudge",
+    "label": "Nudge",
+    "tone": "warning"
+  },
+  "contact": {
+    "state": "ID",
+    "email": "l4.alpha@example.com",
+    "phone": "•••-••••-0004",
+    "age": 28,
+    "channel": "Instagram",
+    "campaign": "c-b",
+    "can_contact": false
+  },
+  "consult": {
+    "status": null,
+    "scheduled_for": null
+  },
+  "screener": {
+    "counts": {
+      "met": 10,
+      "review": 0,
+      "not_met": 0,
+      "unanswered": 0,
+      "total": 10
+    },
+    "items": [
+      {
+        "question": "How old are you?",
+        "verdict": "met"
+      },
+      {
+        "question": "Are you a U.S. citizen or permanent resident?",
+        "verdict": "met"
+      },
+      {
+        "question": "Have you given birth to at least one child?",
+        "verdict": "met"
+      },
+      {
+        "question": "Is your BMI between 19 and 32?",
+        "verdict": "met"
+      },
+      {
+        "question": "Do you smoke or use nicotine?",
+        "verdict": "met"
+      },
+      {
+        "question": "Do you live in a state where we work?",
+        "verdict": "met"
+      },
+      {
+        "question": "Do you have a support partner?",
+        "verdict": "met"
+      },
+      {
+        "question": "Is your household income above the minimum?",
+        "verdict": "met"
+      },
+      {
+        "question": "Do you have a criminal record?",
+        "verdict": "met"
+      },
+      {
+        "question": "Have you been a surrogate before?",
+        "verdict": "met"
+      }
+    ]
+  },
+  "process": [
+    {
+      "key": "screener",
+      "label": "Screener",
+      "state": "complete",
+      "detail": "10 of 10 answered"
+    },
+    {
+      "key": "application",
+      "label": "Application",
+      "state": "ongoing",
+      "detail": "40% - stopped at pregnancy history"
+    },
+    {
+      "key": "consult",
+      "label": "Consult",
+      "state": "upcoming",
+      "detail": null
+    },
+    {
+      "key": "records",
+      "label": "Medical records",
+      "state": "upcoming",
+      "detail": null
+    },
+    {
+      "key": "accepted",
+      "label": "Accepted",
+      "state": "upcoming",
+      "detail": null
+    }
+  ],
+  "activity": [
+    {
+      "at": "2026-09-24T10:00:00.000Z",
+      "kind": "application",
+      "title": "Application started",
+      "detail": "40% complete"
+    },
+    {
+      "at": "2026-09-24T10:00:00.000Z",
+      "kind": "stage",
+      "title": "Entered application",
+      "detail": null
+    },
+    {
+      "at": "2026-09-23T10:10:00.000Z",
+      "kind": "contact",
+      "title": "Text sent",
+      "detail": "by Dana Ortiz"
+    },
+    {
+      "at": "2026-09-23T10:10:00.000Z",
+      "kind": "stage",
+      "title": "Entered pre_screen",
+      "detail": null
+    },
+    {
+      "at": "2026-09-23T10:00:00.000Z",
+      "kind": "stage",
+      "title": "Entered inquiry",
+      "detail": null
+    },
+    {
+      "at": "2026-09-22T15:30:00.000Z",
+      "kind": "visit",
+      "title": "Visited the site",
+      "detail": "/how-it-works - mobile"
+    }
+  ],
+  "source": {
+    "channel": "Instagram",
+    "campaign": "c-b",
+    "ad": null,
+    "first_visit": "2026-09-22T15:30:00.000Z",
+    "pages_viewed": 3,
+    "self_reported": null
+  },
+  "summary": {
+    "text": "L4 reached the application on Sep 24 and has not finished it.",
+    "next_step": "Nudge her to finish the application (40% complete)."
+  },
+  "queue": "nudge_applications",
+  "done": false,
+  "other_inquiries": [
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "created_at": "2026-09-20T10:00:00.000Z",
+      "stage": "accepted",
+      "status": {
+        "key": "accepted",
+        "label": "Accepted",
+        "tone": "success"
+      },
+      "outcome_reason": null,
+      "channel": "Facebook",
+      "campaign": "c-a",
+      "coordinator": "Jess Kim"
+    }
+  ],
+  "open_overlap": true
+}

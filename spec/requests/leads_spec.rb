@@ -150,6 +150,59 @@ RSpec.describe "Leads API", type: :request do
     expect(response.parsed_body.dig("summary", "next_step")).to eq("Nudge them to finish the application (40% complete).")
   end
 
+  describe "linked inquiries (other_inquiries, open_overlap)" do
+    def link(name, to) = lead(name).update_columns(person_id: lead(to).person_id)
+
+    def detail_of(name)
+      get "/api/v1/leads/#{lead(name).external_id}", headers: headers
+      expect(response).to have_http_status(:ok)
+      response.parsed_body
+    end
+
+    it "lists the person's other inquiries for an owner, with only the allowed fields" do
+      link("L2", "L1")
+      sign_in(owner)
+
+      body = detail_of("L1")
+
+      expect(body["other_inquiries"].map { _1["id"] }).to eq([ lead("L2").external_id ])
+      expect(body["other_inquiries"].first.keys)
+        .to match_array(%w[id created_at stage status outcome_reason channel campaign coordinator])
+      expect(body["open_overlap"]).to be(true)
+    end
+
+    it "reports no overlap once the earlier inquiry had closed" do
+      link("L2", "L1")
+      lead("L1").update_columns(outcome_updated_at: Time.utc(2026, 9, 20, 12))
+      sign_in(owner)
+
+      expect(detail_of("L2")).to include("open_overlap" => false)
+    end
+
+    it "returns nothing for a lead that is alone on its person" do
+      sign_in(owner)
+
+      expect(detail_of("L5")).to include("other_inquiries" => [], "open_overlap" => false)
+    end
+
+    it "never links leads across agencies, even for identical emails" do
+      other = create(:agency, slug: "beta")
+      Current.agency = other
+      AlphaScenario.load!(other)
+      Current.agency = agency
+      sign_in(owner)
+
+      expect(detail_of("L1")).to include("other_inquiries" => [])
+    end
+
+    it "shows a coordinator only their own related leads, yet still reports the overlap" do
+      link("L3", "L1")
+      sign_in(dana)
+
+      expect(detail_of("L3")).to include("other_inquiries" => [], "open_overlap" => true)
+    end
+  end
+
   def canonical_board(body)
     body["columns"].transform_values { |column| column.merge("leads" => column["leads"].sort_by { |card| card["id"] }) }
   end

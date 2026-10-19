@@ -16,7 +16,7 @@ class LeadDetailSerializer
             [ "records", "Medical records" ], [ "accepted", "Accepted" ] ].freeze
 
   # -> Hash. `queue` is the lead's next-action queue, `done` its Done-toggle state.
-  def self.call(user:, lead:, queue: nil, done: false)
+  def self.call(user:, lead:, queue: nil, done: false, inquiries: Leads::Inquiries::EMPTY)
     assigned = assigned?(user, lead)
     screener = screener(lead, assigned)
     application = latest_application(lead)
@@ -35,7 +35,9 @@ class LeadDetailSerializer
       source: source(lead),
       summary: Leads::Summarizer.call(lead: lead, queue: queue, application: application),
       queue: queue,
-      done: done
+      done: done,
+      other_inquiries: inquiries[:other_inquiries],
+      open_overlap: inquiries[:open_overlap]
     }
   end
 

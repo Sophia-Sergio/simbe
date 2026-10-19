@@ -1025,6 +1025,18 @@ export interface components {
             title: string;
             detail: string | null;
         };
+        /** @description One other inquiry of the same person. Never carries contact details or screener data. */
+        Inquiry: {
+            /** Format: uuid */
+            id: string;
+            created_at: components["schemas"]["Timestamp"];
+            stage: components["schemas"]["Stage"];
+            status: components["schemas"]["Status"];
+            outcome_reason: string | null;
+            channel: string;
+            campaign: string | null;
+            coordinator: string | null;
+        };
         LeadDetail: {
             /** Format: uuid */
             id: string;
@@ -1069,6 +1081,10 @@ export interface components {
             /** @enum {string|null} */
             queue: "text_back_now" | "nudge_applications" | "rebook_consults" | "paused_due_back" | null;
             done: boolean;
+            /** @description The person's other inquiries (leads with the same email in the agency), oldest first, only those the viewer may see: an owner all of them, a coordinator only their own. */
+            other_inquiries: components["schemas"]["Inquiry"][];
+            /** @description True when another inquiry of this person was open at the same time (looked at across all of the person's inquiries, whoever may see them). */
+            open_overlap: boolean;
         };
         /** @enum {string} */
         QueueKey: "text_back_now" | "nudge_applications" | "rebook_consults" | "paused_due_back";

@@ -155,5 +155,7 @@
     "next_step": "Nudge her to finish the application (40% complete)."
   },
   "queue": "nudge_applications",
-  "done": false
+  "done": false,
+  "other_inquiries": [],
+  "open_overlap": false
 }

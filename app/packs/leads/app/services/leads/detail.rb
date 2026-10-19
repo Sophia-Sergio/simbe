@@ -13,7 +13,8 @@ module Leads
     def self.call(user:, id:)
       lead = Leads::Access.relation(user).includes(*ASSOCIATIONS).find_by!(external_id: id)
       queue = queue_for(lead)
-      LeadDetailSerializer.call(user: user, lead: lead, queue: queue, done: done?(user, lead, queue))
+      LeadDetailSerializer.call(user: user, lead: lead, queue: queue, done: done?(user, lead, queue),
+                                inquiries: Leads::Inquiries.call(user: user, lead: lead))
     end
 
     # The lead's queue, decided by the shared CTE (one row, not the whole agency).
