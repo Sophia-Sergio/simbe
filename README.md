@@ -49,7 +49,7 @@ Just want to look at the UI, with no Docker and no Rails? `npm ci && npm run dev
 
 ## Connect Claude and other MCP clients
 
-Simbe runs an [MCP](https://modelcontextprotocol.io) server, so an owner can ask questions about the agency's funnel, channels, drop-offs, next actions and spend forecasts from Claude (or any MCP client), using the same read-only tools as Ask Simbe. The tools, their limits and the privacy rules are in [`docs/agent.md`](docs/agent.md).
+Simbe runs an [MCP](https://modelcontextprotocol.io) server, so an owner can ask questions about the agency's funnel, channels, drop-offs, next actions and spend forecasts from Claude (or any MCP client), using the same read-only tools as Ask Simbe. The tools, their limits and the privacy rules are in [`docs/agent.md`](docs/agent.md); how it is implemented is in [`docs/agent-and-mcp-architecture.md`](docs/agent-and-mcp-architecture.md).
 
 ### 1. Get your server address and key
 
@@ -173,6 +173,7 @@ Everything under `docs/`, in the order you are likely to need it:
 |---|---|
 | [`docs/about.md`](docs/about.md) | You want the product in plain language: who uses it, the funnel, how data gets in, privacy. |
 | [`docs/agent.md`](docs/agent.md) | You want to know what Ask Simbe and the MCP server can and cannot do, their tools and limits. |
+| [`docs/agent-and-mcp-architecture.md`](docs/agent-and-mcp-architecture.md) | You want to know how the agent and MCP server are built: registry, turn loop, keys, ledger, throttles, tests. |
 | [`docs/build-report.md`](docs/build-report.md) | You want to know how it was built, and why Postgres and a Rails monolith. |
 | [`docs/conventions/`](docs/conventions/README.md) | You are about to write code. Binding rules: development, testing, database, multi-tenancy, sensitive data, controllers, frontend, AI agent, security, CI. |
 | [`docs/design/brand.md`](docs/design/brand.md) | You are touching the UI: colors, type, shapes, logo (overrides the handoff). |

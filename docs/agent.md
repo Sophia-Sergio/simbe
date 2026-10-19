@@ -1,6 +1,6 @@
 # The Simbe agent
 
-What "Ask Simbe" and the MCP server can do, what they cannot, and the limits they run under. Plain-language product context is in [`about.md`](./about.md); the rules the code follows are in [`conventions/ai-agent.md`](./conventions/ai-agent.md) and [`conventions/sensitive-data.md`](./conventions/sensitive-data.md); how to connect Claude is in the root [`README.md`](../README.md#connect-claude-and-other-mcp-clients).
+What "Ask Simbe" and the MCP server can do, what they cannot, and the limits they run under. Plain-language product context is in [`about.md`](./about.md); the rules the code follows are in [`conventions/ai-agent.md`](./conventions/ai-agent.md) and [`conventions/sensitive-data.md`](./conventions/sensitive-data.md); how it is implemented is in [`agent-and-mcp-architecture.md`](./agent-and-mcp-architecture.md); how to connect Claude is in the root [`README.md`](../README.md#connect-claude-and-other-mcp-clients).
 
 ## Two doors, one set of tools
 
