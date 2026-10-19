@@ -38,6 +38,7 @@ RSpec.describe "real exports: metrics vs golden.json", :real_data, type: :reques
           expect(body.dig("kpis", "leads", "value")).to eq(expected["leads"]), "#{range} leads"
           expect(body.dig("kpis", "qualified", "value")).to eq(expected["qualified"]), "#{range} qualified"
           expect(body.dig("kpis", "qualified_rate", "value")).to eq(expected["qualified_rate"]), "#{range} rate"
+          expect(body.dig("kpis", "unique_people")).to eq(expected["unique_people"]), "#{range} unique people"
           previous = expected["previous_leads"].zero? ? nil : expected["previous_leads"]
           expect(body.dig("kpis", "leads", "previous")).to eq(previous), "#{range} previous"
         end
