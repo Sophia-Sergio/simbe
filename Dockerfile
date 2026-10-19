@@ -31,6 +31,9 @@ RUN SECRET_KEY_BASE_DUMMY=1 DATABASE_URL=postgres://build:build@127.0.0.1/build 
 
 FROM base
 RUN groupadd --system --gid 1000 rails && useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
+# /rails is root-owned (WORKDIR) and `storage` is in .dockerignore, so the app user could not create the
+# directory snapshot uploads are written to (Errno::EACCES -> "The upload could not be stored").
+RUN mkdir -p /rails/storage && chown rails:rails /rails/storage
 USER 1000:1000
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails

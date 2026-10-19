@@ -294,6 +294,9 @@ jobs:
       - name: No source maps ship in the image
         run: |
           docker run --rm --entrypoint sh simbe:ci -c 'if find /rails/public -name "*.map" | grep -q .; then echo "source maps found in /rails/public"; exit 1; fi'   # ci-only
+      - name: The app user can write where uploads are stored   # ci-only
+        run: |
+          docker run --rm --entrypoint sh simbe:ci -c 'mkdir -p storage/snapshot_uploads/probe && touch storage/snapshot_uploads/probe/x'   # ci-only
 
   deploy:
     name: Deploy to Fly.io
