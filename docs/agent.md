@@ -19,7 +19,7 @@ Every tool is read-only and works on the signed-in agency's data only. None of t
 
 | Tool | Ask things like | Inputs |
 |---|---|---|
-| `get_funnel` | "How many leads reached each stage this quarter?" "What is our qualified rate?" | `range`: `30d` (default), `90d`, `12m` |
+| `get_funnel` | "How many leads reached each stage this quarter?" "How many different people inquired?" | `range`: `30d` (default), `90d`, `12m` |
 | `get_channel_performance` | "Which channel is cheapest per qualified surrogate?" "How is Facebook doing, by campaign?" | `range`; optional `channel` for its campaign breakdown |
 | `get_dropoff_reasons` | "Where do applicants stop in the form?" "Why do people leave after the consult?" | `range` |
 | `get_next_actions` | "Who is waiting longest for a reply?" "How many consults need rebooking?" | optional `coordinator` (owner only) |
@@ -27,6 +27,7 @@ Every tool is read-only and works on the signed-in agency's data only. None of t
 
 Notes on the answers:
 
+- **A lead is one inquiry, and the same person can inquire more than once.** `get_funnel`'s `kpis.leads` counts inquiries and `kpis.unique_people` counts distinct people (people are identified by email within the agency). Ask Simbe and MCP clients are told to use `unique_people` when asked about people and to say "inquiries" for lead counts. No tool returns a person's email or id.
 - **"Qualified" follows the agency's own definition** (Settings), so every number matches the app.
 - **Ranges** are measured back from the latest data in the agency's snapshot, not from today.
 - **Spend is sample data in this version** (see [`about.md`](./about.md#how-data-gets-in)). The agent is told to say so, and to flag small samples (`low_sample`) instead of over-claiming.

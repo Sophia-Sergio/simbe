@@ -35,7 +35,7 @@ Leads can also be closed (not eligible, withdrew, unresponsive) or paused with a
 - **Funnel:** stage by stage, with the exit reasons, and where applicants stop inside the application form.
 - **Channels:** leads, qualified, rate, spend and cost per qualified for Facebook, Instagram, Google, referrals and more; click through for the campaigns inside a channel. It also flags data quality, for example the share of leads with no source, or outside the states the agency works in.
 - **Pipeline:** a board (Action needed, In application, Consult, Qualified) or a list, filterable by coordinator. Click any lead to open the **lead panel**.
-- **Lead panel:** contact details, a screener progress ring, consult status, and tabs for the process summary (with a short AI-written summary and a suggested next step), the screener answers, the activity timeline and the lead's source.
+- **Lead panel:** contact details, a screener progress ring, consult status, and tabs for the process summary (with a short AI-written summary and a suggested next step), the screener answers, the activity timeline and the lead's source. A card lists **this person's other inquiries** (open one with a click), and a header line says how many there are.
 - **Coordinators:** one card per person with first-reply time, qualified count and overdue items, flagged "needs support" when many are overdue. Differences can come from lead mix as well as effort, and the screen says so.
 - **Data sources:** connect Meta and Google, see which seven CRM export files are loaded and when, and **upload a new snapshot**.
 - **Connect Claude:** the agency's MCP address, an API key and the tools Claude can use (see below).
@@ -97,7 +97,8 @@ What the agent can and cannot do, with its tools and limits: [`agent.md`](./agen
 
 | Term | Meaning |
 |---|---|
-| **Lead** | A candidate who inquired. Imported leads keep the export's `lead_id`. |
+| **Lead** | One inquiry. The same person who inquires again is a new lead, linked to her earlier ones by email. Imported leads keep the export's `lead_id`. |
+| **Person** | One individual, identified by her email within an agency. A person can have several leads; Simbe links them but never merges them, because each inquiry has its own ad, coordinator, stages and outcome. |
 | **Snapshot** | One full load of an agency's seven CSV exports, with an "as of" time. |
 | **Qualified** | The milestone the agency chose in Settings. Not a column on the lead. |
 | **Channel** | A normalised source (messy spellings like fb, Facebook and facebook become one). |
