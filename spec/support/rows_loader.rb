@@ -61,16 +61,13 @@ module RowsLoader
 
   # One person per normalised email, one per blank-email lead -> { external_id => person_id }.
   def self.insert_people(agency, rows)
-    by_key = {}
-    people = []
-    rows.to_h do |row|
-      key = Snapshot::People.key_for(row[:email])
-      id = (key && by_key[key]) || SecureRandom.uuid.tap do |new_id|
-        by_key[key] = new_id if key
-        people << { id: new_id, agency_id: agency.id, email_key: key, created_at: Time.current, updated_at: Time.current }
-      end
-      [ row[:external_id], id ]
-    end.tap { each_batch(people) { |batch| Person.unscoped.insert_all!(batch) } }
+    registry = Snapshot::People::Registry.new
+    ids = rows.to_h { |row| [ row[:external_id], registry.register(row[:external_id], row[:email]) ] }
+    now = Time.current
+    each_batch(registry.rows) do |batch|
+      Person.unscoped.insert_all!(batch.map { |id, key| { id: id, agency_id: agency.id, email_key: key, created_at: now, updated_at: now } })
+    end
+    ids
   end
 
   def self.lead_attributes(agency, row)

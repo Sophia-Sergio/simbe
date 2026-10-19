@@ -530,7 +530,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
   add_foreign_key "lead_facts", "agencies", on_delete: :cascade
   add_foreign_key "lead_facts", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
   add_foreign_key "leads", "agencies", on_delete: :cascade
-  add_foreign_key "leads", "people", column: ["agency_id", "person_id"], primary_key: ["agency_id", "id"], deferrable: :deferred
+  add_foreign_key "leads", "people", column: ["agency_id", "person_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "mcp_keys", "agencies", on_delete: :cascade
   add_foreign_key "mcp_keys", "users", column: ["agency_id", "created_by"], primary_key: ["agency_id", "id"], name: "fk_mcp_keys_created_by_tenant"
   add_foreign_key "people", "agencies", on_delete: :cascade

@@ -46,14 +46,14 @@ class Snapshot
     # the NEXT replace's cascaded FK triggers use the child indexes instead of seq-scanning a
     # bulk-loaded table whose stats still say 0 rows (autovacuum may not have run yet).
     ANALYZE_TABLES = %w[
-      leads stage_events contacts screener_answers web_sessions appointments applications lead_facts
+      leads people stage_events contacts screener_answers web_sessions appointments applications lead_facts
     ].freeze
 
     # COPY column order per table (ids use the DB default). created_at/updated_at are NOT NULL
     # with no DB default, so they are written explicitly.
     COPY_COLUMNS = {
       leads: %w[
-        agency_id external_id lead_created_at first_name last_name email phone state source_raw
+        agency_id person_id external_id lead_created_at first_name last_name email phone state source_raw
         channel campaign ad coordinator_name current_stage outcome outcome_reason
         outcome_updated_at paused_until created_at updated_at
       ],
@@ -86,6 +86,7 @@ class Snapshot
         analyze_unanalyzed_tables
         # Replacing a snapshot: the previous leads (children cascade) go first.
         Lead.unscoped.where(agency_id: agency.id).delete_all
+        Person.unscoped.where(agency_id: agency.id).delete_all
         stream!(agency, dir, report, progress, cancel)
         progress&.update(phase: "computing", pct: 95)
         # Facts.call and the ANALYZE below can run without a progress write; keep the heartbeat
@@ -168,16 +169,31 @@ class Snapshot
       step = tracker(progress, total_rows(report))
       now = Time.current
       lead_ids = {}
+      people = People::Registry.new
+      register_people(dir, people)
       Reader::SPEC.each do |file, spec|
         raise Cancelled if cancel&.call
 
         table = spec[:table]
-        copy_file(table, File.join(dir.to_s, file), spec, agency, lead_ids, now, step, cancel)
+        People.copy!(connection.raw_connection, agency.id, people, stamp(now)) if table == :leads
+        copy_file(table, File.join(dir.to_s, file), spec, agency, lead_ids, people, now, step, cancel)
         lead_ids = Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h if table == :leads
       end
     end
 
-    def self.copy_file(table, path, spec, agency, lead_ids, now, step, cancel)
+    # First pass over leads.csv: every lead's person is known before any lead is written, so the people
+    # can be COPYed first and the leads' foreign key can stay immediate (a deferred one queued one check
+    # per lead until commit). Skips the same duplicate rows the leads COPY skips.
+    def self.register_people(dir, people)
+      spec = Reader::SPEC.fetch("leads.csv")
+      dedupe = Dedupe::Filter.new(:leads)
+      CSV.foreach(File.join(dir.to_s, "leads.csv"), headers: true, encoding: "bom|utf-8") do |csv_row|
+        row = typed_row(spec, csv_row)
+        people.register(row[:external_id], row[:email]) if dedupe.keep?(row)
+      end
+    end
+
+    def self.copy_file(table, path, spec, agency, lead_ids, people, now, step, cancel)
       raw = connection.raw_connection
       sql = "COPY #{table} (#{COPY_COLUMNS.fetch(table).join(', ')}) FROM STDIN WITH (FORMAT csv)"
       batch = []
@@ -188,21 +204,21 @@ class Snapshot
         batch << row if dedupe.keep?(row)
         next if batch.size < BATCH
 
-        write_batch(raw, sql, table, batch, agency, lead_ids, now)
+        write_batch(raw, sql, table, batch, agency, lead_ids, people, now)
         step.call(batch.size)
         batch.clear
         raise Cancelled if cancel&.call
       end
-      write_batch(raw, sql, table, batch, agency, lead_ids, now) unless batch.empty?
+      write_batch(raw, sql, table, batch, agency, lead_ids, people, now) unless batch.empty?
     end
 
     # One COPY per batch, flushed in bounded chunks. An exception aborts the stream cleanly so the
     # surrounding transaction can roll back.
-    def self.write_batch(raw, sql, table, batch, agency, lead_ids, now)
+    def self.write_batch(raw, sql, table, batch, agency, lead_ids, people, now)
       raw.copy_data(sql) do
         buffer = +""
         batch.each do |row|
-          buffer << CSV.generate_line(row_values(table, row, agency, lead_ids, now))
+          buffer << CSV.generate_line(row_values(table, row, agency, lead_ids, people, now))
           next if buffer.bytesize < FLUSH_BYTES
 
           raw.put_copy_data(buffer)
@@ -234,10 +250,10 @@ class Snapshot
 
     # Values aligned with COPY_COLUMNS. nil is written as an empty field → NULL; Time/Date are
     # ISO-8601 so Postgres parses them without a cast.
-    def self.row_values(table, row, agency, lead_ids, now)
+    def self.row_values(table, row, agency, lead_ids, people, now)
       case table
       when :leads
-        [ agency.id, row[:external_id], stamp(row[:created_at]), row[:first_name], row[:last_name],
+        [ agency.id, people.person_id(row[:external_id]), row[:external_id], stamp(row[:created_at]), row[:first_name], row[:last_name],
           row[:email], row[:phone], row[:state], row[:source],
           Channels::Normalizer.call(row[:source]).first,
           row[:campaign], row[:ad], row[:coordinator], row[:current_stage], row[:outcome],

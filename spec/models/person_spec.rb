@@ -43,19 +43,18 @@ RSpec.describe Person do
   it "refuses a lead that points at another agency's person" do
     mine = lead!(email: "mine@example.com")
     foreign = lead!(email: "theirs@example.com", in_agency: other)
-    mine.update_columns(person_id: foreign.person_id)
 
-    expect { Lead.connection.execute("SET CONSTRAINTS ALL IMMEDIATE") }.to raise_error(ActiveRecord::InvalidForeignKey)
+    expect { mine.update_columns(person_id: foreign.person_id) }.to raise_error(ActiveRecord::InvalidForeignKey)
   end
 
   it "backfills people for leads that have none, once" do
     shared_a = lead!(email: "Shared@Example.com")
     shared_b = lead!(email: "shared@example.com")
     blank = lead!(email: nil)
-    # Settle the deferred foreign keys first: Postgres refuses to ALTER a table with pending trigger events.
-    Lead.connection.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    # The backfill runs before the foreign key exists in a real database: put the table back in that state.
+    fk = Lead.connection.foreign_keys("leads").find { |key| key.to_table == "people" }
+    Lead.connection.execute("ALTER TABLE leads DROP CONSTRAINT #{fk.name}")
     Lead.connection.execute("ALTER TABLE leads ALTER COLUMN person_id DROP NOT NULL")
-    Lead.connection.execute("SET CONSTRAINTS ALL DEFERRED")
     Lead.unscoped.where(agency_id: agency.id).update_all(person_id: nil)
     Person.unscoped.where(agency_id: agency.id).delete_all
 
