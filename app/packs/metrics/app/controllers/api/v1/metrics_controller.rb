@@ -1,6 +1,6 @@
 module Api
   module V1
-    # Owner-only (docs/conventions: metrics expose spend). Each action calls one Metrics
+    # Owner-only (docs/conventions: metrics expose channel performance). Each action calls one Metrics
     # service with the signed-in agency; the payload is already the contract shape.
     class MetricsController < Api::BaseController
       before_action :require_owner!

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_19_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -28,33 +28,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id"], name: "index_action_completions_on_agency_id"
   end
 
-  create_table "ad_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "agency_id", null: false
-    t.string "platform", null: false
-    t.string "status"
-    t.timestamptz "connected_at"
-    t.timestamptz "created_at", null: false
-    t.timestamptz "updated_at", null: false
-    t.index ["agency_id", "platform"], name: "index_ad_connections_on_agency_id_and_platform", unique: true
-    t.index ["agency_id"], name: "index_ad_connections_on_agency_id"
-  end
-
-  create_table "ad_spend_daily", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "agency_id", null: false
-    t.date "date", null: false
-    t.string "platform", null: false
-    t.string "channel"
-    t.string "campaign"
-    t.bigint "spend_cents", default: 0, null: false
-    t.string "source", default: "sample", null: false
-    t.timestamptz "created_at", null: false
-    t.timestamptz "updated_at", null: false
-    t.index ["agency_id", "date", "platform", "channel", "campaign"], name: "index_ad_spend_daily_unique", unique: true
-    t.index ["agency_id"], name: "index_ad_spend_daily_on_agency_id"
-    t.check_constraint "platform::text = ANY (ARRAY['meta'::character varying, 'google'::character varying]::text[])", name: "ad_spend_daily_platform_check"
-    t.check_constraint "source::text = ANY (ARRAY['sample'::character varying, 'import'::character varying, 'connected'::character varying]::text[])", name: "ad_spend_daily_source_check"
-  end
-
   create_table "agencies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "name", null: false
     t.string "slug", null: false
@@ -63,7 +36,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
     t.index ["slug"], name: "index_agencies_on_slug", unique: true
-    t.check_constraint "qualified_milestone::text = ANY (ARRAY['application_submitted'::character varying, 'consult_attended'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "agencies_milestone_check"
+    t.check_constraint "qualified_milestone::text = ANY (ARRAY['application_submitted'::character varying::text, 'consult_attended'::character varying::text, 'records'::character varying::text, 'accepted'::character varying::text])", name: "agencies_milestone_check"
   end
 
   create_table "agent_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -86,7 +59,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
     t.index ["conversation_id"], name: "index_agent_messages_on_conversation_id"
-    t.check_constraint "role::text = ANY (ARRAY['user'::character varying, 'assistant'::character varying]::text[])", name: "agent_messages_role_check"
+    t.check_constraint "role::text = ANY (ARRAY['user'::character varying::text, 'assistant'::character varying::text])", name: "agent_messages_role_check"
   end
 
   create_table "ai_usage_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -133,7 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id"], name: "index_appointments_on_agency_id"
     t.index ["lead_id", "booked_at"], name: "index_appointments_on_lead_id_and_booked_at", unique: true
     t.index ["lead_id"], name: "index_appointments_on_lead_id"
-    t.check_constraint "status::text = ANY (ARRAY['scheduled'::character varying, 'attended'::character varying, 'no_show'::character varying, 'cancelled'::character varying]::text[])", name: "appointments_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['scheduled'::character varying::text, 'attended'::character varying::text, 'no_show'::character varying::text, 'cancelled'::character varying::text])", name: "appointments_status_check"
   end
 
   create_table "auth_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -159,7 +132,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id"], name: "index_contacts_on_agency_id"
     t.index ["lead_id", "contacted_at", "direction", "channel"], name: "idx_on_lead_id_contacted_at_direction_channel_c0bf45a1c8", unique: true
     t.index ["lead_id"], name: "index_contacts_on_lead_id"
-    t.check_constraint "direction::text = ANY (ARRAY['inbound'::character varying, 'outbound'::character varying]::text[])", name: "contacts_direction_check"
+    t.check_constraint "direction::text = ANY (ARRAY['inbound'::character varying::text, 'outbound'::character varying::text])", name: "contacts_direction_check"
   end
 
   create_table "invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -221,9 +194,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.string "outcome_reason"
     t.timestamptz "outcome_updated_at"
     t.date "paused_until"
-    t.uuid "person_id", null: false
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
+    t.uuid "person_id", null: false
     t.index ["agency_id", "channel"], name: "index_leads_on_agency_id_and_channel"
     t.index ["agency_id", "coordinator_name"], name: "index_leads_on_agency_id_and_coordinator_name"
     t.index ["agency_id", "external_id"], name: "index_leads_on_agency_id_and_external_id", unique: true
@@ -231,8 +204,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id", "outcome"], name: "index_leads_on_agency_id_and_outcome"
     t.index ["agency_id", "person_id"], name: "index_leads_on_agency_id_and_person_id"
     t.index ["agency_id"], name: "index_leads_on_agency_id"
-    t.check_constraint "current_stage::text = ANY (ARRAY['inquiry'::character varying, 'pre_screen'::character varying, 'application'::character varying, 'consult'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "leads_current_stage_check"
-    t.check_constraint "outcome::text = ANY (ARRAY['open'::character varying, 'not_eligible'::character varying, 'withdrew'::character varying, 'unresponsive'::character varying, 'paused'::character varying, 'accepted'::character varying]::text[])", name: "leads_outcome_check"
+    t.check_constraint "current_stage::text = ANY (ARRAY['inquiry'::character varying::text, 'pre_screen'::character varying::text, 'application'::character varying::text, 'consult'::character varying::text, 'records'::character varying::text, 'accepted'::character varying::text])", name: "leads_current_stage_check"
+    t.check_constraint "outcome::text = ANY (ARRAY['open'::character varying::text, 'not_eligible'::character varying::text, 'withdrew'::character varying::text, 'unresponsive'::character varying::text, 'paused'::character varying::text, 'accepted'::character varying::text])", name: "leads_outcome_check"
   end
 
   create_table "mcp_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -270,7 +243,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id"], name: "index_screener_answers_on_agency_id"
     t.index ["lead_id", "question"], name: "index_screener_answers_on_lead_id_and_question", unique: true
     t.index ["lead_id"], name: "index_screener_answers_on_lead_id"
-    t.check_constraint "meets_requirement::text = ANY (ARRAY['yes'::character varying, 'review'::character varying, 'no'::character varying]::text[])", name: "screener_answers_meets_requirement_check"
+    t.check_constraint "meets_requirement::text = ANY (ARRAY['yes'::character varying::text, 'review'::character varying::text, 'no'::character varying::text])", name: "screener_answers_meets_requirement_check"
   end
 
   create_table "snapshot_uploads", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -290,10 +263,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id", "snapshot_id"], name: "idx_snapshot_uploads_agency_id_snapshot_id"
     t.index ["agency_id", "status"], name: "index_snapshot_uploads_on_agency_id_and_status"
     t.index ["agency_id", "user_id"], name: "idx_snapshot_uploads_agency_id_user_id"
-    t.index ["agency_id"], name: "index_snapshot_uploads_in_flight_per_agency", unique: true, where: "((status)::text = ANY ((ARRAY['validating'::character varying, 'committing'::character varying])::text[]))"
+    t.index ["agency_id"], name: "index_snapshot_uploads_in_flight_per_agency", unique: true, where: "((status)::text = ANY (ARRAY[('validating'::character varying)::text, ('committing'::character varying)::text]))"
     t.index ["agency_id"], name: "index_snapshot_uploads_on_agency_id"
     t.index ["snapshot_id"], name: "index_snapshot_uploads_on_snapshot_id"
-    t.check_constraint "status::text = ANY (ARRAY['validating'::character varying, 'validated'::character varying, 'committing'::character varying, 'committed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'expired'::character varying]::text[])", name: "snapshot_uploads_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['validating'::character varying::text, 'validated'::character varying::text, 'committing'::character varying::text, 'committed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'expired'::character varying::text])", name: "snapshot_uploads_status_check"
   end
 
   create_table "snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -474,7 +447,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id"], name: "index_stage_events_on_agency_id"
     t.index ["lead_id", "stage"], name: "index_stage_events_on_lead_id_and_stage", unique: true
     t.index ["lead_id"], name: "index_stage_events_on_lead_id"
-    t.check_constraint "stage::text = ANY (ARRAY['inquiry'::character varying, 'pre_screen'::character varying, 'application'::character varying, 'consult'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "stage_events_stage_check"
+    t.check_constraint "stage::text = ANY (ARRAY['inquiry'::character varying::text, 'pre_screen'::character varying::text, 'application'::character varying::text, 'consult'::character varying::text, 'records'::character varying::text, 'accepted'::character varying::text])", name: "stage_events_stage_check"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -489,7 +462,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
     t.index ["agency_id", "id"], name: "index_users_on_agency_id_and_id", unique: true
     t.index ["agency_id"], name: "index_users_on_agency_id"
     t.index ["email"], name: "index_users_on_email", unique: true
-    t.check_constraint "role::text = ANY (ARRAY['owner'::character varying, 'coordinator'::character varying]::text[])", name: "users_role_check"
+    t.check_constraint "role::text = ANY (ARRAY['owner'::character varying::text, 'coordinator'::character varying::text])", name: "users_role_check"
   end
 
   create_table "web_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -510,8 +483,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
 
   add_foreign_key "action_completions", "agencies", on_delete: :cascade
   add_foreign_key "action_completions", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
-  add_foreign_key "ad_connections", "agencies", on_delete: :cascade
-  add_foreign_key "ad_spend_daily", "agencies", on_delete: :cascade
   add_foreign_key "agent_conversations", "agencies", on_delete: :cascade
   add_foreign_key "agent_conversations", "users", column: ["agency_id", "user_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "agent_messages", "agent_conversations", column: "conversation_id", on_delete: :cascade

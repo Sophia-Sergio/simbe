@@ -20,30 +20,10 @@ module Metrics
       LIMIT 1
     SQL
 
-    # (row count, latest update) of the agency's ad spend: goes into the cache key, so a
-    # changed spend total (a fresh sample run, an import) is never served from a stale
-    # summary/channels payload.
-    SPEND_FINGERPRINT_SQL = <<~SQL.freeze
-      SELECT count(*) AS count, max(updated_at) AS updated_at
-      FROM ad_spend_daily
-      WHERE agency_id = :agency_id
-    SQL
-
     # Placeholder for a blank campaign: the channel table aggregates by channel and never
-    # shows campaigns, so this is shared only by ChannelDetail and sample spend. Blank *form
+    # shows campaigns, so this is used only by ChannelDetail. Blank *form
     # sections* are labelled "(none)" by the funnel (see Metrics::Funnel::BLANK_SECTION).
     UNTAGGED = "(untagged)".freeze
-
-    # Predicate that drops a `sample` placeholder when a real (import/connected) row exists
-    # for the same agency/channel/day, so the placeholder never double counts real spend in
-    # the SUMs. The outer ad_spend_daily relation must be aliased `s`.
-    PREFER_REAL_SPEND = <<~SQL.squish.freeze
-      (s.source <> 'sample' OR NOT EXISTS (
-        SELECT 1 FROM ad_spend_daily r
-        WHERE r.agency_id = s.agency_id AND r.channel = s.channel
-          AND r.date = s.date AND r.source <> 'sample'
-      ))
-    SQL
 
     attr_reader :agency, :range
 
@@ -68,11 +48,6 @@ module Metrics
     # `[as_of - 2*range, as_of - range)`. This is exactly what the independent oracle computes
     # (`window()` in bin/golden-numbers, checked against `summary.<range>` in
     # spec/real_data/golden.json), so the two must not drift.
-    #
-    # Ad spend is date-only, so the SQL below binds its agency-local calendar dates instead
-    # (see `rows`/`local_date`). Because those endpoints fall mid-day local time, spend covers
-    # the whole first/last local day while leads cover only part of it — a small partial-day
-    # skew that is an accepted consequence of the spec's rolling definition, not a bug.
     def window
       return nil unless snapshot
 
@@ -93,8 +68,7 @@ module Metrics
       bind = {
         agency_id: agency.id,
         from: window[:from], to: window[:to],
-        prev_from: window[:prev_from], prev_to: window[:prev_to],
-        from_date: local_date(window[:from]), to_date: local_date(window[:to])
+        prev_from: window[:prev_from], prev_to: window[:prev_to]
       }.merge(extra)
       connection.select_all(sanitize(sql, bind), "Metrics").to_a.map(&:symbolize_keys)
     end
@@ -113,21 +87,7 @@ module Metrics
     private
 
     def cache_key(key)
-      [ "metrics", agency.id, snapshot&.dig(:id), agency.qualified_milestone, range, key, spend_fingerprint ]
-    end
-
-    # `"<row_count>:<max updated_at>"`, e.g. "3:2026-09-25T20:00:00.123456Z". A String, not a
-    # Time: cache-key expansion (`to_param`) would drop sub-second precision and miss a
-    # same-second replacement.
-    def spend_fingerprint
-      row = connection.select_one(sanitize(SPEND_FINGERPRINT_SQL, agency_id: agency.id))
-      "#{row['count'].to_i}:#{row['updated_at']&.utc&.iso8601(6)}"
-    end
-
-    # The agency-local calendar date of an instant, for `ad_spend_daily.date` (spend is
-    # date-only; the lead window is instants — see #window).
-    def local_date(time)
-      time.in_time_zone(agency.timezone).to_date
+      [ "metrics", agency.id, snapshot&.dig(:id), agency.qualified_milestone, range, key ]
     end
 
     def sanitize(sql, binds)

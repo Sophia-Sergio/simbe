@@ -5,7 +5,7 @@ RSpec.describe "schema" do
 
   it "creates every table the app needs" do
     expect(conn.tables).to include(*%w[agencies users auth_sessions leads stage_events contacts screener_answers web_sessions appointments applications
-      lead_facts snapshots snapshot_uploads ad_spend_daily action_completions invitations ad_connections agent_conversations agent_messages ai_usage_events mcp_keys])
+      lead_facts snapshots snapshot_uploads action_completions invitations agent_conversations agent_messages ai_usage_events mcp_keys])
   end
 
   tenant_tables.reject { _1.in?(%w[auth_sessions agent_messages]) }.each do |t|

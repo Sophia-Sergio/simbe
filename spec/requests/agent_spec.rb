@@ -2,7 +2,7 @@ require "rails_helper"
 
 # Owner spec for the four Ask Simbe HTTP paths (docs/conventions/testing.md). Conformance is
 # on, so this also exercises sendAgentMessage / getAgentConversation / getAgentSuggestions /
-# getAgentUsage. Anthropic is stubbed; data is Alpha + AlphaSpend.
+# getAgentUsage. Anthropic is stubbed; data is Alpha.
 RSpec.describe "Agent API", type: :request do
   let(:headers) { { "X-Requested-With" => "simbe" } }
   let(:agency) { create(:agency, slug: "alpha", name: "Alpha", qualified_milestone: "consult_attended") }
@@ -12,7 +12,6 @@ RSpec.describe "Agent API", type: :request do
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.agency = agency
   end
 

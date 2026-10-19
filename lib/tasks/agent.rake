@@ -1,5 +1,5 @@
 # Ask the agent from the CLI with the real Anthropic key (spec 2013, acceptance 6):
-#   docker compose exec web bundle exec rails "agent:smoke[harbor,Which channel costs the most per qualified lead?]"
+#   docker compose exec web bundle exec rails "agent:smoke[harbor,Which channel turns the most leads into qualified ones?]"
 # It runs one full turn (tools + the model) and prints the structured answer body. The
 # spend ledger row is written by the turn itself; check it with the psql query in the PR.
 namespace :agent do

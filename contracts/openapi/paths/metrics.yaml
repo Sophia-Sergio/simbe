@@ -2,7 +2,7 @@ summary:
   get:
     operationId: getMetricsSummary
     tags: [metrics]
-    summary: KPIs, biggest leak and cost by channel (owner)
+    summary: KPIs and biggest leak (owner)
     parameters: [{ $ref: '../openapi.yaml#/components/parameters/Range' }]
     responses:
       '200':

@@ -1,7 +1,7 @@
 # The channel table plus the two headline insights (spec 2004 decision 4). One row per
 # normalized channel with leads in the window (docs/conventions/database.md — the aggregate
-# is SQL, the agency id is a bind). `basis` is "cost" when any channel has spend and "rate"
-# otherwise; `flag` marks best/worst cost (or rate) so the UI can color them.
+# is SQL, the agency id is a bind). `flag` marks the best/worst qualified rate so the UI can
+# color them. The exports carry no ad spend, so channels are compared on leads and rate only.
 module Metrics
   module Channels
     MIN_LEADS = 30
@@ -16,16 +16,9 @@ module Metrics
         SELECT c.channel AS channel, count(*) AS leads, count(f.%<qcol>s) AS qualified
         FROM cohort c JOIN lead_facts f ON f.lead_id = c.lead_id
         GROUP BY c.channel
-      ),
-      spend AS (
-        SELECT s.channel, sum(s.spend_cents) AS cents
-        FROM ad_spend_daily s
-        WHERE s.agency_id = :agency_id AND s.date >= :from_date AND s.date <= :to_date
-          AND #{Metrics::Base::PREFER_REAL_SPEND}
-        GROUP BY s.channel
       )
-      SELECT p.channel, p.leads, p.qualified, s.cents AS spend_cents
-      FROM per_channel p LEFT JOIN spend s ON s.channel = p.channel
+      SELECT p.channel, p.leads, p.qualified
+      FROM per_channel p
       ORDER BY p.leads DESC, p.channel ASC
     SQL
 
@@ -36,7 +29,7 @@ module Metrics
       GROUP BY l.state
     SQL
 
-    # -> { rows: [...], basis: "cost"|"rate", insights: {...} }
+    # -> { rows: [...], insights: {...} }
     def self.call(agency:, range: "30d")
       base = Metrics::Base.new(agency: agency, range: range)
       return empty if base.snapshot.nil?
@@ -46,53 +39,41 @@ module Metrics
 
     def self.build(base)
       rows = rows_for(base)
-      basis = rows.any? { |row| row[:spend_cents].to_i.positive? } ? "cost" : "rate"
-      flags = assign_flags(rows, basis)
+      flags = assign_flags(rows)
       rows.each { |row| row[:flag] = flags[row[:channel]] }
-      { rows: rows, basis: basis, insights: insights(base, rows) }
+      { rows: rows, insights: insights(base, rows) }
     end
 
     # Per-channel rows ordered by leads desc then channel asc; reused by ChannelDetail.
     def self.rows_for(base)
       sql = format(PER_CHANNEL_SQL, qcol: base.qualified_column)
       base.rows(sql).map do |row|
-        spend = row[:spend_cents]&.to_i
         qualified = row[:qualified].to_i
         {
           channel: row[:channel],
           leads: row[:leads].to_i,
           qualified: qualified,
           rate: Metrics::Base.rate(qualified, row[:leads].to_i),
-          spend_cents: spend,
-          cost_per_qualified_cents: cost_per_qualified(spend, qualified),
           flag: nil,
           low_sample: row[:leads].to_i < MIN_LEADS
         }
       end
     end
 
-    def self.cost_per_qualified(spend, qualified)
-      return nil unless spend.to_i.positive? && qualified.to_i.positive?
-
-      (spend.to_f / qualified).round
-    end
-
-    # best = cheapest cost (or highest rate); worst = the opposite. Only channels with spend
-    # and ≥1 qualified compete on cost; the rate fallback needs at least MIN_LEADS leads,
-    # scaled down for tiny agencies (Alpha has 10 leads total, so every channel qualifies).
-    def self.assign_flags(rows, basis)
-      candidates =
-        if basis == "cost"
-          rows.select { |row| row[:cost_per_qualified_cents] }
-        else
-          min_leads = [ MIN_LEADS, rows.sum { |row| row[:leads].to_i } / 10 ].min.clamp(1, MIN_LEADS)
-          rows.select { |row| row[:leads].to_i >= min_leads }
-        end
+    # best = highest qualified rate; worst = the lowest. Ties go to the channel with more
+    # leads (it matters more). "Unknown" is not a channel an agency can act on, so it never
+    # competes (the unattributed insight covers it). A channel needs at least MIN_LEADS
+    # leads to compete, scaled down for tiny agencies (Alpha has 10 leads total, so every
+    # channel qualifies).
+    def self.assign_flags(rows)
+      min_leads = [ MIN_LEADS, rows.sum { |row| row[:leads].to_i } / 10 ].min.clamp(1, MIN_LEADS)
+      candidates = rows.select { |row| row[:channel] != "Unknown" && row[:leads].to_i >= min_leads }
       return {} if candidates.empty?
 
-      ranked = candidates.sort_by { |row| basis == "cost" ? row[:cost_per_qualified_cents] : -row[:rate] }
-      flags = { ranked.first[:channel] => "best" }
-      flags[ranked.last[:channel]] = "worst" if ranked.size >= 2 && ranked.last[:channel] != ranked.first[:channel]
+      best = candidates.max_by { |row| [ row[:rate], row[:leads] ] }
+      worst = candidates.min_by { |row| [ row[:rate], -row[:leads] ] }
+      flags = { best[:channel] => "best" }
+      flags[worst[:channel]] = "worst" unless worst[:channel] == best[:channel]
       flags
     end
 
@@ -113,7 +94,7 @@ module Metrics
 
     def self.empty
       {
-        rows: [], basis: "rate",
+        rows: [],
         insights: { unattributed: { count: 0, pct: 0.0 },
                     out_of_area: { count: 0, pct: 0.0, main_states: [] } }
       }

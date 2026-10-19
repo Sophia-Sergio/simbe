@@ -1,6 +1,6 @@
 module Api
   module V1
-    # Owner-only recommendations (docs/conventions: they reference spend/channel economics).
+    # Owner-only recommendations (docs/conventions: they reference channel performance).
     class RecommendationsController < Api::BaseController
       before_action :require_owner!
 

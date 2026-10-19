@@ -1,7 +1,7 @@
 module Agent
   module Tools
     # The agency's funnel for a range: how many leads reached each stage, the form drop-off
-    # and the headline KPIs (leads, qualified, rate, cost per qualified).
+    # and the headline KPIs (leads, qualified, rate).
     class GetFunnel
       DEFINITION = {
         name: "get_funnel",

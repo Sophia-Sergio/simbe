@@ -1,7 +1,6 @@
 {
   "snapshot": null,
   "range": "30d",
-  "spend_source": "none",
   "kpis": {
     "leads": {
       "value": 0,
@@ -19,13 +18,7 @@
       "delta": null,
       "low_sample": true
     },
-    "cost_per_qualified": {
-      "value_cents": null,
-      "previous_cents": null,
-      "delta_cents": null
-    },
     "unique_people": 0
   },
-  "biggest_leak": null,
-  "cost_by_channel": []
+  "biggest_leak": null
 }

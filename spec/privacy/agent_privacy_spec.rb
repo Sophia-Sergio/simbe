@@ -14,7 +14,6 @@ RSpec.describe "Agent privacy", type: :request do
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.agency = agency
   end
 

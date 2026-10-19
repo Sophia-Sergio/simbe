@@ -7,10 +7,10 @@
       "id": "toolu_e2e_respond",
       "name": "respond",
       "input": {
-        "text": "Facebook is your cheapest channel at about $150 per qualified surrogate. Google has spent $450 with no qualified leads yet - but the sample is small (3 leads), so treat this as a first signal.",
+        "text": "Facebook converts best: 66.7% of its leads became qualified. Google has no qualified leads yet - but the sample is small (3 leads), so treat this as a first signal.",
         "chart": {
-          "title": "Cost per qualified lead",
-          "bars": [{ "label": "Facebook", "value": 150, "display": "$150" }]
+          "title": "Qualified rate by channel",
+          "bars": [{ "label": "Facebook", "value": 66.7, "display": "66.7%" }]
         },
         "action": { "label": "Open channels", "route": "/channels" },
         "sources": [{ "label": "Channels", "route": "/channels" }],

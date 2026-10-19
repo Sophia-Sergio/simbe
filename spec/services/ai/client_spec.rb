@@ -72,7 +72,7 @@ RSpec.describe Ai::Client do
     reply = described_class.new(:agent).converse(messages: [ { role: "user", content: "q" } ], system: "s", ledger: ledger)
     expect(reply[:stop_reason]).to eq("tool_use")
     expect(reply[:content].first).to include("type" => "tool_use", "name" => "respond")
-    expect(reply[:content].first.dig("input", "chart", "title")).to eq("Cost per qualified lead")
+    expect(reply[:content].first.dig("input", "chart", "title")).to eq("Qualified rate by channel")
     expect(AiUsageEvent.find(ledger.event_ids.first)).to have_attributes(input_tokens: 812, output_tokens: 104)
   end
 

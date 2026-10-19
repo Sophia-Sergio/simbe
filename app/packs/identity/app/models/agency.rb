@@ -11,11 +11,9 @@ class Agency < ApplicationRecord
   # agency's, making `agency.destroy` either raise or orphan children.
   has_many :users
   has_many :invitations
-  has_many :ad_connections
   has_many :snapshots
   has_many :snapshot_uploads
   has_many :leads
-  has_many :ad_spend_days
   has_many :action_completions
   has_many :agent_conversations
   has_many :ai_usage_events

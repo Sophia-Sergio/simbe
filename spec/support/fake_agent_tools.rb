@@ -7,7 +7,7 @@ unless defined?(Agent::Tools)
     module Tools
       Error = Class.new(StandardError)
 
-      NAMES = %w[get_funnel get_channel_performance get_dropoff_reasons get_next_actions forecast_spend].freeze
+      NAMES = %w[get_funnel get_channel_performance get_dropoff_reasons get_next_actions].freeze
 
       # MCP shape: the five tools, validated with the real contract's field names.
       def self.mcp_definitions

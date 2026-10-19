@@ -35,7 +35,6 @@ RSpec.describe "Contract fixture parity", type: :request do
   before do
     Current.agency = agency
     AlphaScenario.load!(agency)
-    AlphaSpend.load!(agency)
     Current.reset
   end
 
@@ -158,9 +157,9 @@ RSpec.describe "Contract fixture parity", type: :request do
   end
 
   AGENT_RESPOND = {
-    "text" => "Facebook is your cheapest channel at about $150 per qualified surrogate.",
-    "chart" => { "title" => "Cost per qualified lead",
-                 "bars" => [ { "label" => "Facebook", "value" => 150, "display" => "$150" } ] },
+    "text" => "Facebook converts best: 66.7% of its leads became qualified.",
+    "chart" => { "title" => "Qualified rate by channel",
+                 "bars" => [ { "label" => "Facebook", "value" => 66.7, "display" => "66.7%" } ] },
     "action" => { "label" => "Open channels", "route" => "/channels" },
     "sources" => [ { "label" => "Channels", "route" => "/channels" } ],
     "suggestions" => [ "What about Google?", "Where do applicants drop off?" ]

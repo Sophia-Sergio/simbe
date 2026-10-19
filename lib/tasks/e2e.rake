@@ -7,7 +7,6 @@ namespace :e2e do
     # must be required explicitly here (the plan's snippet requires only builder + scenario).
     require Rails.root.join("spec/support/rows_loader")
     require Rails.root.join("spec/support/alpha_scenario")
-    require Rails.root.join("spec/support/alpha_spend")
     agency = Agency.find_by!(slug: "harbor")
     Current.agency = agency
     # Restore the documented Harbor config (docs/conventions/real-data.md): the journeys change the
@@ -17,7 +16,6 @@ namespace :e2e do
     # (same Alpha `as_of`) would still read as done and the journeys would not start clean.
     ActionCompletion.delete_all
     AlphaScenario.load!(agency)                # replaces; idempotent
-    AlphaSpend.load!(agency)
     # logins: erin@harbor.test (owner), dana@harbor.test (coordinator "Dana Ortiz"), jess@harbor.test ("Jess Kim"), priya@harbor.test ("Priya Shah") — password simbe-dev-pass
     # A re-seed must also restore the password of an existing login (dev/test only: the abort above),
     # or a lane that changed it would keep a stack nobody can sign into.

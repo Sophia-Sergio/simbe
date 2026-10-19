@@ -35,8 +35,3 @@ Isolation.register(
 Isolation.register(method: :get, path: "/api/v1/invitations/:token/preview", scope: :public)
 Isolation.register(method: :post, path: "/api/v1/invitations/:token/accept", scope: :public)
 Isolation.register(method: :get, path: "/api/v1/coordinator_names", scope: :self)
-
-# Ad connections (owner): platform is a name, not another agency's row id.
-Isolation.register(method: :get, path: "/api/v1/ad_connections", scope: :self)
-Isolation.register(method: :post, path: "/api/v1/ad_connections", scope: :self)
-Isolation.register(method: :delete, path: "/api/v1/ad_connections/:platform", scope: :self)

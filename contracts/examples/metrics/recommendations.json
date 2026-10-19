@@ -15,6 +15,21 @@
     "score": 5
   },
   {
+    "id": "best_vs_worst_channel",
+    "area": "ads",
+    "impact": "3 leads on Google",
+    "title": "Google has your lowest qualified rate",
+    "why": "Referral turns more of its leads into qualified ones than Google does.",
+    "cta": {
+      "label": "Open channels",
+      "route": "/channels"
+    },
+    "ask": {
+      "question": "Why does Google convert worse than Referral?"
+    },
+    "score": 3
+  },
+  {
     "id": "no_shows",
     "area": "process",
     "impact": "1 consult to rebook",

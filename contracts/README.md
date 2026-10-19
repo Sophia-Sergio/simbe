@@ -33,7 +33,7 @@ npx @redocly/cli@1 lint contracts/dist/openapi.bundled.yaml --config contracts/.
 
 ## Naming deviations from the first-draft plans
 
-`GET /leads/board` (board) vs `GET /leads` (list/search); `GET /invitations/{token}/preview` (public preview) vs `DELETE /invitations/{id}`; `GET /ad_connections` and `GET /coordinator_names` return objects (`{connections: []}`, `{names: []}`).
+`GET /leads/board` (board) vs `GET /leads` (list/search); `GET /invitations/{token}/preview` (public preview) vs `DELETE /invitations/{id}`; `GET /coordinator_names` returns an object (`{names: []}`).
 
 ## Snapshot uploads are asynchronous (real exports are up to 69 MB / ~625k rows)
 
