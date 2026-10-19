@@ -197,12 +197,13 @@ jobs:
 
   e2e_real:
     name: E2E (real API)
-    # main, nightly, or PRs labelled `e2e`. W3-1 ran the lane specs against this stack and they are
+    # Nightly, or PRs labelled `e2e`. Not on pushes to main: it runs to its 30 min timeout (86 journeys still
+    # fail) and the queued run behind it, which deploys, waits for it. W3-1 ran the lane specs against this stack and they are
     # still mock-only: they sign in with the MSW password `x` (the real API needs `simbe-dev-pass`)
     # and assert `?mock=` scenarios, and E2E_STUB_ANTHROPIC is not wired in the app. 7 passed / 86
     # failed / 15 skipped -> the job stays `continue-on-error` until those per-lane fix PRs land.
     # See docs/superpowers/parallel/integration-log.md (Task 5).
-    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     continue-on-error: true
