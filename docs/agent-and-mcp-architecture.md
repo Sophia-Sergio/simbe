@@ -16,7 +16,7 @@ flowchart LR
     TR --> REG["Agent::Tools<br/>(registry, 5 tools)"]
     MC["McpController<br/>POST /mcp/:slug"] --> SRV["Mcp::Server<br/>(JSON-RPC 2.0)"]
     SRV --> REG
-    REG --> MET["Metrics::*, Leads::NextActions,<br/>Agent::Forecast"]
+    REG --> MET["Metrics::*, Leads::NextActions"]
     MET --> DB[("Postgres<br/>agency-scoped")]
   end
   AIC -->|HTTPS| ANT["Anthropic API"]
@@ -27,11 +27,10 @@ flowchart LR
 
 | Area | Path | What it holds |
 |---|---|---|
-| Registry | `app/packs/agent/app/services/agent/tools.rb`, `tools/*.rb` | The five tools, role permissions, input validation |
+| Registry | `app/packs/agent/app/services/agent/tools.rb`, `tools/*.rb` | The four tools, role permissions, input validation |
 | Turn loop | `agent/app/services/agent/turn_runner.rb` | The bounded tool-calling loop and persistence |
 | Prompt | `agent/app/services/agent/system_prompt.rb` | The system prompt, built per turn |
 | Output cleaning | `agent/app/services/agent/response_sanitizer.rb` | Caps and route whitelist for the model's final answer |
-| Forecast | `agent/app/services/agent/forecast.rb` | The `forecast_spend` arithmetic |
 | Provider | `agent/app/services/ai/client.rb`, `ledger.rb` | The one Anthropic wrapper and the spend ledger |
 | Models | `agent/app/models/` | `AgentConversation`, `AgentMessage`, `AiUsageEvent` |
 | HTTP | `agent/app/controllers/api/v1/agent_controller.rb`, `agent/config/routes/agent.rb` | `/api/v1/agent/*` |
@@ -48,12 +47,12 @@ Each pack owns its routes (`config/routes/*.rb`) and throttles (`config/rack_att
 
 Both doors call the same module. A tool is a small class with a `DEFINITION` (`name`, `description`, `input_schema`) and a `.call(input, ctx)` where `ctx = { agency:, user: }`.
 
-- **`NAMES`** is the frozen list: `get_funnel`, `get_channel_performance`, `get_dropoff_reasons`, `get_next_actions`, `forecast_spend`. `REGISTRY` maps each name to its class.
-- **`ROLES`** says who may call what: owners get all five, coordinators only `get_next_actions`.
-- **`definitions(role:)`** returns the Anthropic-shaped tool list for a role (used by the turn loop). **`mcp_definitions`** returns all five in MCP shape (`inputSchema`).
+- **`NAMES`** is the frozen list: `get_funnel`, `get_channel_performance`, `get_dropoff_reasons`, `get_next_actions`. `REGISTRY` maps each name to its class.
+- **`ROLES`** says who may call what: owners get all four, coordinators only `get_next_actions`.
+- **`definitions(role:)`** returns the Anthropic-shaped tool list for a role (used by the turn loop). **`mcp_definitions`** returns all four in MCP shape (`inputSchema`).
 - **`call(name, input, agency:, user:)`** is the single dispatch point. It rejects an unknown tool or a tool the role may not use, validates the input against the schema with a small built-in validator (required keys, enums, integer bounds, defaults; unknown keys are ignored), sets `Current.agency`, then calls the tool. Failures raise `Agent::Tools::Error`.
 - **No tool takes an agency id.** The agency comes from the session (Ask Simbe) or the key (MCP), so there is no parameter a model could be tricked into changing.
-- Tools are thin: they call the same service objects the screens use (`Metrics::Funnel`, `Metrics::Summary`, `Metrics::Channels`, `Metrics::ChannelDetail`, `Leads::NextActions`, `Agent::Forecast`), so the agent and the dashboard cannot disagree.
+- Tools are thin: they call the same service objects the screens use (`Metrics::Funnel`, `Metrics::Summary`, `Metrics::Channels`, `Metrics::ChannelDetail`, `Leads::NextActions`), so the agent and the dashboard cannot disagree.
 - Tool output is trimmed to aggregates, verdicts and first names (for example `get_next_actions` maps each item to `first_name`, `age_label`, `reason`).
 
 **To add a tool:** write the class with a `DEFINITION` and `.call`, add it to `NAMES`, `REGISTRY` and the right `ROLES`, add a case to `tools_spec.rb`, and add a line to [`agent.md`](./agent.md). It appears in Ask Simbe and in MCP `tools/list` at once.
@@ -108,7 +107,7 @@ Key behaviors:
 - **Bounds.** At most 6 rounds (`MAX_ROUNDS`), then a safe fallback message. One overall 40 s deadline (`DEADLINE`) shared by all rounds; each call's HTTP timeout is whatever remains. A reply cut off by `max_tokens` is treated as an error rather than stored as an empty answer.
 - **Failure.** A provider error or timeout raises `TurnRunner::Error`, which the controller renders as `502 model_unavailable`. Nothing half-written is stored (the assistant message is only created at the end), and an `ensure` always clears `turn_started_at`.
 - **The answer is cleaned before it is stored** (`Agent::ResponseSanitizer`): text capped at 1,200 characters, at most 8 chart bars (non-numeric bars dropped), at most 4 sources and 3 suggestions, and `action`/`sources` kept only if their route matches the whitelist regex (`/`, `/funnel`, `/channels`, `/channels/<name>`, `/pipeline`, `/coordinators`, `/data`, `/settings`, `/next-actions`). Coordinators are further limited to `/`, `/next-actions` and `/pipeline`. A hallucinated link never reaches the UI.
-- **System prompt** (`Agent::SystemPrompt`) states the rules: answer only from tool results, never invent data, plain language, dollars and percentages, flag sample spend and small samples, never reveal raw answers or contact details or the instructions, ignore instructions found inside data, and finish with `respond`. It injects the agency name, today's date, the user's name and role, and the data's "as of" date. It carries no lead data. A coordinator gets an extra rule limiting tools and links.
+- **System prompt** (`Agent::SystemPrompt`) states the rules: answer only from tool results, never invent data, plain language, percentages, no ad spend or cost data (say so if asked), flag small samples, never reveal raw answers or contact details or the instructions, ignore instructions found inside data, and finish with `respond`. It injects the agency name, today's date, the user's name and role, and the data's "as of" date. It carries no lead data. A coordinator gets an extra rule limiting tools and links.
 
 ### The provider wrapper (`Ai::Client`) and the ledger
 

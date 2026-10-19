@@ -25,14 +25,14 @@ export const feature: FeatureModule = {
 ```
 
 ## Overrides
-1. Fixtures: `contracts/examples/metrics/channels.json`, `channel-facebook.json` (Alpha). Cost pills: `best` → success, `worst` → danger; `basis: "rate"` shows the note "Ranked by qualified rate (no spend loaded yet)".
+1. Fixtures: `contracts/examples/metrics/channels.json`, `channel-facebook.json` (Alpha). Rate pills: `best` → success, `worst` → danger. Channels compare on leads and qualified rate only (no spend; amended 2026-10-19).
 2. Row click navigates to `/channels/<encodeURIComponent(channel)>` keeping `?range=`; unknown channel (404 from the API) shows "We couldn't find that channel" with a back link.
 3. "Ask Simbe" button question: `How is ${channel} performing and what should I change?` via `useAgent().open`.
-4. Mobile: the `Table`'s `renderCard` shows tile + name, rate and cost per qualified (2 lines).
+4. Mobile: the `Table`'s `renderCard` shows tile + name, leads and rate (2 lines).
 - **Loading state (async uploads):** when the data is empty *and* `useCurrentSnapshot().data?.pending` is non-null, render `<LoadingYourData progress={pending.progress} />` instead of the empty state; when there is no snapshot and nothing pending, the owner gets the "Load your data" link to `/data` (coordinators: "Ask your agency owner to load data"). Test both with `?mock=loading` and `?mock=empty`.
 
 ## Responsive acceptance
-- **Desktop:** table with Channel (tile + name), Leads, Qualified, Rate (mini bar), Spend, Per qualified; two insight cards below; detail page with 4 KPIs + campaigns table + tinted note card.
+- **Desktop:** table with Channel (tile + name), Leads, Qualified, Rate (mini bar); two insight cards below; detail page with 3 KPIs (Leads, Qualified, Rate) + campaigns table + tinted note card.
 - **Mobile:** stacked channel cards (tap to open), insight cards full width, detail KPIs in 2 columns, campaigns as stacked cards; no horizontal scroll.
 
 ## Done when (acceptance commands)

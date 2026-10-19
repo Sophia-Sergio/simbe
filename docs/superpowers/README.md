@@ -13,6 +13,8 @@ Project rules live in `../../CLAUDE.md` / `../../AGENTS.md` and `../conventions/
 
 ## Build order and dependencies
 
+> Ad spend was dropped (2026-10-19): the exports carry no spend, so cost per qualified, `forecast_spend`, sample spend and the ad-account connections no longer exist. Older specs and plans were amended to match.
+
 | # | Feature | Spec | Plan | Depends on |
 |---|---------|------|------|-----------|
 | 1 | Foundation: monorepo, auth, tenancy, app shell | [spec](./specs/2026-10/2026-10-14-2000-foundation-design.md) | [plan](./plans/2026-10/2026-10-14-2001-foundation.md) | — |

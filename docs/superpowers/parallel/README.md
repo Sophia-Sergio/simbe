@@ -98,7 +98,7 @@ Inside a plan, tasks marked *parallelizable* (W0-2 handlers/hooks, W0-4A/4B comp
 
 0. Heavy work (parsing, imports) never runs in a request: it runs in jobs on the `ingest` queue; the API returns immediately and the client polls.
 1. Routes in `app/packs/<pack>/config/routes/<name>.rb` (outside `/api/v1`: `routes_root/`); isolation entries in `spec/support/isolation/<lane>.rb`; Rack::Attack throttles in `app/packs/<pack>/config/rack_attack/<name>.rb`. Code lives in your pack (`app/packs/<pack>/app/{models,controllers,services,serializers,jobs,mailers}`); cross-pack calls only through the other pack's public services (`boundaries:check` ratchet). No migrations (schema shipped in W0-3).
-2. Test data through `AlphaScenario.load!` (and `AlphaSpend.load!`), never the CSV importer (except B-INGEST for its own specs). Lanes with real-data checks add a `:real_data` spec that compares against `Golden.agency(slug)` using `RealData.load!`.
+2. Test data through `AlphaScenario.load!`, never the CSV importer (except B-INGEST for its own specs). Lanes with real-data checks add a `:real_data` spec that compares against `Golden.agency(slug)` using `RealData.load!`.
 3. Every request spec runs with OpenAPI conformance on; payloads equal `contracts/examples/**` where the plan says so.
 4. Tenancy and privacy rules from `docs/conventions/` are tested in the lane (404 across agencies/coordinators, no raw answers in JSON/logs).
 

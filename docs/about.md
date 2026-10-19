@@ -1,8 +1,8 @@
 # About Simbe
 
-Simbe is a web app (desktop and mobile) for **surrogacy agencies**. It connects what an agency spends on ads (Meta, Google) to how its recruiting funnel performs, and answers one question:
+Simbe is a web app (desktop and mobile) for **surrogacy agencies**. It shows how an agency's recruiting funnel performs, and answers one question:
 
-> **Which ads, process steps and people turn spend into qualified surrogates?**
+> **Which channels, process steps and people turn leads into qualified surrogates?**
 
 It is meant to be opened on Monday morning by an agency owner who wants to know where to spend the next hour, and every day by the coordinators who talk to candidates and need to know who to contact next.
 
@@ -12,10 +12,10 @@ This page is the plain-language overview. For how it was built see [`build-repor
 
 | Role | What they do | What they see |
 |---|---|---|
-| **Owner** (agency owner) | Signs up, creates the agency, loads data, connects ad accounts, invites the team | Everything: insights, the pipeline, coordinator performance, data sources, Claude/MCP setup and settings |
-| **Coordinator** (recruiter) | Works candidates through the process | Only their own leads and a daily list of next actions. No spend, no settings, no other coordinators' numbers |
+| **Owner** (agency owner) | Signs up, creates the agency, loads data, invites the team | Everything: insights, the pipeline, coordinator performance, data sources, Claude/MCP setup and settings |
+| **Coordinator** (recruiter) | Works candidates through the process | Only their own leads and a daily list of next actions. No settings, no other coordinators' numbers |
 
-Every agency's data is completely separate from every other agency's. Two agencies using the same app can never see each other's leads, spend or conversations.
+Every agency's data is completely separate from every other agency's. Two agencies using the same app can never see each other's leads or conversations.
 
 ## The funnel Simbe measures
 
@@ -31,9 +31,9 @@ Leads can also be closed (not eligible, withdrew, unresponsive) or paused with a
 
 **For owners**
 
-- **This week:** the home screen. Four headline numbers (leads, qualified, qualified rate, cost per qualified) over 30 days, 90 days or 12 months, a short list of *recommended actions* (each tagged Process, Ads or People, with an impact line and an "Ask why" button), the biggest leak in the funnel, and cost per qualified by channel.
+- **This week:** the home screen. Three headline numbers (leads, qualified, qualified rate) over 30 days, 90 days or 12 months, a short list of *recommended actions* (each tagged Process, Ads or People, with an impact line and an "Ask why" button), and the biggest leak in the funnel.
 - **Funnel:** stage by stage, with the exit reasons, and where applicants stop inside the application form.
-- **Channels:** leads, qualified, rate, spend and cost per qualified for Facebook, Instagram, Google, referrals and more; click through for the campaigns inside a channel. It also flags data quality, for example the share of leads with no source, or outside the states the agency works in.
+- **Channels:** leads, qualified and qualified rate for Facebook, Instagram, Google, referrals and more; click through for the campaigns inside a channel. It also flags data quality, for example the share of leads with no source, or outside the states the agency works in.
 - **Pipeline:** a board (Action needed, In application, Consult, Qualified) or a list, filterable by coordinator. Click any lead to open the **lead panel**.
 - **Lead panel:** contact details, a screener progress ring, consult status, and tabs for the process summary (with a short AI-written summary and a suggested next step), the screener answers, the activity timeline and the lead's source. A card lists **this person's other inquiries** (open one with a click), and a header line says how many there are.
 - **Coordinators:** one card per person with first-reply time, qualified count and overdue items, flagged "needs support" when many are overdue. Differences can come from lead mix as well as effort, and the screen says so.
@@ -61,16 +61,14 @@ An AI assistant available from every screen. Ask in plain language ("Which chann
 ```mermaid
 flowchart LR
   CRM["Seven CSV exports<br/>from the CRM"] -->|upload, validate, review| SNAP["Snapshot<br/>(replaces the previous one)"]
-  ADS["Meta / Google<br/>connections"] -->|sample spend in this version| SPEND["Daily ad spend"]
   SNAP --> FACTS["Per-lead facts<br/>and metrics"]
-  SPEND --> FACTS
   FACTS --> UI["Dashboards, pipeline,<br/>next actions"]
   FACTS --> AI["Ask Simbe and the MCP server"]
 ```
 
 - **CRM exports.** An agency uploads seven CSV files: leads, stage history, contact log, screener answers, web sessions, appointments and applications. The files carry no agency identifier, so Simbe tags every row itself.
 - **Snapshots, not syncs.** Each upload is a *full snapshot*. Simbe validates it and shows a review (row counts, what changed, duplicates) before replacing the agency's data **in one step**. A failed load rolls back to the previous snapshot, and loading the same export twice never double counts.
-- **Ad spend is sample data in this version.** The exports contain no spend. Connecting Meta or Google records the connection and generates a deterministic *placeholder* cost per lead for the paid channels, and the screens label it "sample spend". Real ad-account syncs are not built yet.
+- **Only what is in the exports.** The exports carry no ad spend, so Simbe shows no spend, cost per lead or ROI and never invents placeholder numbers. Channels are compared on leads and qualified rate.
 - **Time zones.** Dates and "this week" follow the agency's own time zone (Pacific, Mountain, Central or Eastern), chosen at sign-up and changeable in Settings.
 
 ## Privacy and safety
@@ -82,13 +80,13 @@ flowchart LR
 
 ## Claude and MCP
 
-Besides the in-app assistant, an owner can connect the agency's data to **Claude** (or any MCP client) with a server address and a key. Claude can then use five read-only tools: funnel, channel performance, drop-off reasons, next actions and spend forecast. A key is bound to one agency, shown once, and replaced when rotated; the old one stops working at once.
+Besides the in-app assistant, an owner can connect the agency's data to **Claude** (or any MCP client) with a server address and a key. Claude can then use four read-only tools: funnel, channel performance, drop-off reasons and next actions. A key is bound to one agency, shown once, and replaced when rotated; the old one stops working at once.
 
 What the agent can and cannot do, with its tools and limits: [`agent.md`](./agent.md). How to connect Claude: the root [`README.md`](../README.md#connect-claude-and-other-mcp-clients).
 
 ## What it is not (yet)
 
-- No real Meta or Google spend sync (placeholder spend only).
+- No ad spend, cost per lead or ROI: the exports do not contain them.
 - No email verification, password reset, single sign-on or multi-factor sign-in.
 - No billing, no deleting an agency, one owner per agency.
 - English only.
