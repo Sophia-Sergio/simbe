@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { HttpResponse, http } from "msw"
 import meOwner from "@contracts/examples/auth/me-owner.json"
+import snapshotCurrent from "@contracts/examples/snapshots/current.json"
 import { EXPORT_FILES } from "@/components/shared/FileChecklist"
 import { db } from "@/mocks/db"
 import { server } from "@/mocks/server"
@@ -380,3 +381,25 @@ it("does not warn once the upload was cancelled or when nothing was uploaded", a
   await userEvent.click(await screen.findByRole("button", { name: "Continue" }))
   expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
 }, 20000)
+
+it("stays in the wizard when the data finishes loading, instead of jumping to the dashboard", async () => {
+  let loaded = false
+  mockApi({
+    "GET /api/v1/snapshots/current": () =>
+      HttpResponse.json(loaded ? snapshotCurrent : { snapshot: null, pending: null, files: [] }),
+  })
+  const { queryClient, location } = renderWithProviders(<SignUpPage />, { role: "owner", route: "/signup" })
+  await screen.findByRole("heading", { name: "Connect your ad accounts" })
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  expect(screen.getByRole("heading", { name: "Load your data" })).toBeInTheDocument()
+
+  // The load commits: /snapshots/current now has a snapshot.
+  loaded = true
+  await queryClient.invalidateQueries({ queryKey: ["snapshot"] })
+
+  await waitFor(() => expect(queryClient.getQueryData<{ snapshot: unknown }>(["snapshot"])?.snapshot).toBeTruthy())
+  expect(location().pathname).toBe("/signup")
+  expect(screen.getByRole("heading", { name: "Load your data" })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }))
+  expect(screen.getByRole("heading", { name: "Invite your team" })).toBeInTheDocument()
+})
