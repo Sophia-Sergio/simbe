@@ -84,6 +84,8 @@ flowchart LR
 
 Besides the in-app assistant, an owner can connect the agency's data to **Claude** (or any MCP client) with a server address and a key. Claude can then use five read-only tools: funnel, channel performance, drop-off reasons, next actions and spend forecast. A key is bound to one agency, shown once, and replaced when rotated; the old one stops working at once.
 
+What the agent can and cannot do, with its tools and limits: [`agent.md`](./agent.md). How to connect Claude: the root [`README.md`](../README.md#connect-claude-and-other-mcp-clients).
+
 ## What it is not (yet)
 
 - No real Meta or Google spend sync (placeholder spend only).
