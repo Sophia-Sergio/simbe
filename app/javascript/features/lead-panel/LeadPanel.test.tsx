@@ -11,6 +11,7 @@ import { LeadPanel } from "./LeadPanel"
 
 const L4 = "aaaaaaaa-0000-4000-8000-000000000004"
 const L3 = "aaaaaaaa-0000-4000-8000-000000000003"
+const L2 = "aaaaaaaa-0000-4000-8000-000000000002"
 const UNKNOWN = "aaaaaaaa-0000-4000-8000-000000000099"
 const route = (tab?: string) => `/?lead=${L4}${tab ? `&tab=${tab}` : ""}`
 
@@ -335,4 +336,18 @@ it("hides Mark done when the lead is in no queue", async () => {
   expect(screen.queryByTestId("mark-done")).toBeNull()
   // Send text / Call are gated by can_contact, not by the queue.
   expect(screen.getByRole("link", { name: "Send text" })).toBeInTheDocument()
+})
+
+it("tells the viewer how many other inquiries this person has", async () => {
+  renderWithProviders(<LeadPanel />, { route: `/?lead=${L2}` })
+
+  expect(await screen.findByRole("heading", { name: "L2 Alpha" })).toBeInTheDocument()
+  expect(screen.getByText("1 other inquiry from this person")).toBeInTheDocument()
+})
+
+it("says nothing about other inquiries for a lead on its own", async () => {
+  renderWithProviders(<LeadPanel />, { route: route() })
+
+  expect(await screen.findByRole("heading", { name: "L4 Alpha" })).toBeInTheDocument()
+  expect(screen.queryByText(/from this person/)).toBeNull()
 })

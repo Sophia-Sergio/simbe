@@ -1,5 +1,6 @@
 import { Check, Sparkles } from "lucide-react"
 import type { LeadDetail } from "@/api/types"
+import { InquiriesCard } from "./InquiriesCard"
 
 type ProcessStep = LeadDetail["process"][number]
 
@@ -23,7 +24,7 @@ function ProcessIcon({ state }: { state: ProcessStep["state"] }) {
   return <span aria-hidden className={`h-4 w-4 shrink-0 rounded-full border-2 ${ring}`} />
 }
 
-export function SummaryTab({ detail }: { detail: LeadDetail }) {
+export function SummaryTab({ detail, tz }: { detail: LeadDetail; tz: string }) {
   return (
     <div className="flex flex-col gap-3">
       <section data-testid="process" className="rounded-card border border-line p-4">
@@ -50,6 +51,7 @@ export function SummaryTab({ detail }: { detail: LeadDetail }) {
           {detail.summary.next_step}
         </p>
       </section>
+      <InquiriesCard detail={detail} tz={tz} />
     </div>
   )
 }
