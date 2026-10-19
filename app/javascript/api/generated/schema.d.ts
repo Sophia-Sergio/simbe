@@ -729,8 +729,8 @@ export interface components {
         };
         ReportWarning: {
             /** @enum {string} */
-            code: "stage_mismatch" | "unknown_source" | "duplicate_email" | "source_aliases_normalized" | "duplicate_rows_dropped";
-            /** @description stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails); duplicate_rows_dropped: rows of ONE file that repeat an earlier row's natural key (only the first is loaded; one warning per file, named in the message) */
+            code: "stage_mismatch" | "unknown_source" | "duplicate_email" | "open_duplicate_inquiry" | "source_aliases_normalized" | "duplicate_rows_dropped";
+            /** @description stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails); open_duplicate_inquiry: pairs of one person's inquiries that were open at the same time; duplicate_rows_dropped: rows of ONE file that repeat an earlier row's natural key (only the first is loaded; one warning per file, named in the message) */
             count: number;
             message: string;
         };
@@ -2029,7 +2029,7 @@ export interface operations {
                      *           {
                      *             "code": "duplicate_email",
                      *             "count": 79,
-                     *             "message": "79 extra leads share an email with another lead (kept separate)"
+                     *             "message": "79 extra leads share an email with another lead; they are linked as one person and kept as separate inquiries"
                      *           },
                      *           {
                      *             "code": "source_aliases_normalized",

@@ -14,7 +14,7 @@
       {
         "code": "duplicate_email",
         "count": 79,
-        "message": "79 extra leads share an email with another lead (kept separate)"
+        "message": "79 extra leads share an email with another lead; they are linked as one person and kept as separate inquiries"
       },
       {
         "code": "source_aliases_normalized",
