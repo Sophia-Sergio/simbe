@@ -1,4 +1,3 @@
-import { ChevronDown } from "lucide-react"
 import type { Agency } from "@/api/types"
 
 const labelCache = new Map<string, string>()
@@ -49,7 +48,6 @@ export function AgencySwitcher({ agency, collapsed }: { agency: Agency; collapse
         </p>
         <p className="truncate text-[11px] text-ink-muted">{timeZoneLabel(agency.timezone)}</p>
       </div>
-      <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-ink-faint" />
     </div>
   )
 }
