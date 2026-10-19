@@ -136,6 +136,31 @@ RSpec.describe Snapshot::Validator do
 
     warning = described_class.call(agency: agency, dir: shared)[:warnings].find { _1[:code] == "duplicate_email" }
     expect(warning[:count]).to eq(1)
+    expect(warning[:message]).to eq(
+      "1 extra leads share an email with another lead; they are linked as one person and kept as separate inquiries"
+    )
+  end
+
+  # L1 was created 09-20 and accepted on 09-26: an inquiry on the same email created before the
+  # acceptance overlaps it; one created after does not.
+  def shared_email_dir(created)
+    builder = AlphaScenario.builder
+    builder.lead(id: SecureRandom.uuid, created: created, source: "google",
+                 email: "l1.alpha@example.com", history: %w[inquiry pre_screen], stage: "pre_screen")
+    builder.write(Dir.mktmpdir("alpha-overlap"))
+  end
+
+  def warning_for(dir_path, code) = described_class.call(agency: agency, dir: dir_path)[:warnings].find { _1[:code] == code }
+
+  it "warns about a pair of inquiries from one person that were open at the same time" do
+    warning = warning_for(shared_email_dir("2026-09-25T10:00:00Z"), "open_duplicate_inquiry")
+
+    expect(warning).to eq(code: "open_duplicate_inquiry", count: 1,
+                          message: "1 pairs of inquiries from the same person were open at the same time")
+  end
+
+  it "does not warn when the earlier inquiry had closed before the later one began" do
+    expect(warning_for(shared_email_dir("2026-09-27T10:00:00Z"), "open_duplicate_inquiry")).to be_nil
   end
 
   it "lists uploaded files that match none of the seven names as ignored" do

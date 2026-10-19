@@ -22,6 +22,27 @@ it("renders the greeting, four KPIs, recommendations and the leak", async () => 
   expect(screen.getByText("Most leads stall before Application")).toBeInTheDocument()
 })
 
+it("tells the owner how many distinct people the leads are, only when they differ", async () => {
+  const kpis = {
+    leads: { value: 20, previous: null, delta: null },
+    qualified: { value: 4, previous: null, delta: null },
+    qualified_rate: { value: 20, previous: null, delta: null, low_sample: false },
+    cost_per_qualified: { value_cents: 10000, previous_cents: null, delta_cents: null },
+  }
+  const summary = (unique: number) => ({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", spend_source: "import", kpis: { ...kpis, unique_people: unique }, biggest_leak: null, cost_by_channel: [] })
+
+  mockApi({ "GET /api/v1/metrics/summary": summary(17) })
+  const { unmount } = renderWithProviders(<Home />)
+  const people = await screen.findByText("17 people")
+  expect(people).toHaveAttribute("title", "A lead is one inquiry. The same person can inquire more than once.")
+  unmount()
+
+  mockApi({ "GET /api/v1/metrics/summary": summary(20) })
+  renderWithProviders(<Home />)
+  expect(await screen.findByText("Leads")).toBeInTheDocument()
+  expect(screen.queryByText(/ people$/)).toBeNull()
+})
+
 it("shows the qualified definition under the Qualified card", async () => {
   renderWithProviders(<Home />)
   expect(await screen.findByText(/Attended a consult/i)).toBeInTheDocument()

@@ -28,6 +28,7 @@ module RowsLoader
 
   def self.load_rows!(agency, rows)
     Lead.unscoped.where(agency_id: agency.id).delete_all
+    Person.unscoped.where(agency_id: agency.id).delete_all
     ids = insert_leads(agency, rows[:leads])
     insert_children(StageEvent, rows[:stage_events], ids, agency) do |row|
       { stage: row[:stage], entered_at: row[:entered_at] }
@@ -51,10 +52,22 @@ module RowsLoader
   end
 
   def self.insert_leads(agency, rows)
+    person_ids = insert_people(agency, rows)
     each_batch(rows) do |batch|
-      Lead.unscoped.insert_all!(batch.map { |row| lead_attributes(agency, row) })
+      Lead.unscoped.insert_all!(batch.map { |row| lead_attributes(agency, row).merge(person_id: person_ids.fetch(row[:external_id])) })
     end
     Lead.unscoped.where(agency_id: agency.id).pluck(:external_id, :id).to_h
+  end
+
+  # One person per normalised email, one per blank-email lead -> { external_id => person_id }.
+  def self.insert_people(agency, rows)
+    registry = Snapshot::People::Registry.new
+    ids = rows.to_h { |row| [ row[:external_id], registry.register(row[:external_id], row[:email]) ] }
+    now = Time.current
+    each_batch(registry.rows) do |batch|
+      Person.unscoped.insert_all!(batch.map { |id, key| { id: id, agency_id: agency.id, email_key: key, created_at: now, updated_at: now } })
+    end
+    ids
   end
 
   def self.lead_attributes(agency, row)

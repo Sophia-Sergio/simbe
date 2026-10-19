@@ -52,7 +52,7 @@ RSpec.describe Metrics::Summary do
 
   it "nulls every delta only when the previous window has no leads" do
     r = described_class.call(agency: agency, range: "30d")
-    expect(r[:kpis].values.map { _1[:delta] }).to all(be_nil)
+    expect(r[:kpis].except(:unique_people).values.map { _1[:delta] }).to all(be_nil)
   end
 
   it "returns the snapshot and range" do

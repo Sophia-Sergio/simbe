@@ -110,6 +110,50 @@ RSpec.describe Snapshot::Importer do
       .to match_array(Lead.unscoped.where(agency_id: agency.id).pluck(:external_id))
   end
 
+  describe "people (linked inquiries)" do
+    # L1 plus a second inquiry on the same email (other case and spacing) and a lead with no email.
+    let(:people_dir) do
+      builder = AlphaScenario.builder
+      builder.lead(id: SecureRandom.uuid, created: "2026-09-25T10:00:00Z", source: "google",
+                   email: " L1.Alpha@Example.com ", history: %w[inquiry pre_screen], stage: "pre_screen")
+      builder.lead(id: SecureRandom.uuid, created: "2026-09-26T10:00:00Z", source: "google",
+                   email: "", history: %w[inquiry pre_screen], stage: "pre_screen")
+      builder.write(Dir.mktmpdir("alpha-people"))
+    end
+
+    def people_of(for_agency) = Person.unscoped.where(agency_id: for_agency.id)
+
+    it "gives leads that share an email one person, and a lead without an email its own" do
+      described_class.call(agency: agency, dir: people_dir)
+
+      shared = Lead.where("lower(email) = ?", "l1.alpha@example.com")
+      blank = Lead.find_by!(email: nil)
+      expect(shared.count).to eq(2)
+      expect(shared.pluck(:person_id).uniq.size).to eq(1)
+      expect(Person.find(shared.first.person_id).email_key).to eq("l1.alpha@example.com")
+      expect(Person.find(blank.person_id).email_key).to be_nil
+      expect(people_of(agency).count).to eq(11)
+    end
+
+    it "replaces the people on a reload: same count, none left without a lead" do
+      described_class.call(agency: agency, dir: people_dir)
+      described_class.call(agency: agency, dir: people_dir)
+
+      expect(people_of(agency).count).to eq(11)
+      expect(people_of(agency).where.not(id: Lead.select(:person_id)).count).to eq(0)
+    end
+
+    it "keeps each agency's people separate when the same files are loaded twice" do
+      other = create(:agency, slug: "beta")
+      described_class.call(agency: agency, dir: people_dir)
+      described_class.call(agency: other, dir: people_dir)
+
+      expect(people_of(other).count).to eq(people_of(agency).count)
+      expect(people_of(other).pluck(:id) & people_of(agency).pluck(:id)).to be_empty
+      expect(Lead.unscoped.where(agency_id: other.id).where.not(person_id: people_of(other).select(:id)).count).to eq(0)
+    end
+  end
+
   it "aborts with Cancelled when the upload was cancelled mid-import" do
     expect { described_class.call(agency: agency, dir: dir, cancel: -> { true }) }
       .to raise_error(Snapshot::Importer::Cancelled)

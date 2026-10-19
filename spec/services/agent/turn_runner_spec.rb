@@ -75,6 +75,7 @@ RSpec.describe Agent::TurnRunner do
   it "puts the as_of date and role rules in the system prompt, never lead PII" do
     prompt = Agent::SystemPrompt.call(agency: agency, user: owner, as_of: Time.utc(2026, 10, 1))
     expect(prompt).to include("Alpha").and include("October 1, 2026").and include("Only use tool results")
+    expect(prompt).to include("A lead is one inquiry").and include("unique_people")
     expect(prompt).not_to include("l1.alpha@example.com")
   end
 

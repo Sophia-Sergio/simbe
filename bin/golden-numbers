@@ -22,6 +22,7 @@ OUT = os.path.join(ROOT, "spec/real_data/golden.json")
 AGENCIES = {"harbor": ("America/Los_Angeles", "consult_attended"), "lakeside": ("America/Chicago", "records")}
 STAGES = ["inquiry", "pre_screen", "application", "consult", "records", "accepted"]
 CLOSED = {"not_eligible", "withdrew", "unresponsive"}
+OVERLAP_CLOSED = CLOSED | {"accepted"}  # an inquiry that ended: it cannot overlap a later one (linked-inquiries spec, decision 5)
 MAP = {"facebook": "Facebook", "fb": "Facebook", "instagram": "Instagram", "ig": "Instagram", "google": "Google", "tiktok": "TikTok", "referral": "Referral"}
 CANON_RAW = {"facebook", "instagram", "google", "tiktok", "referral", ""}
 RANGES = {"30d": 30, "90d": 90, "12m": 365}
@@ -58,7 +59,7 @@ def agency(d, slug):
         ch = MAP.get(l["source"].strip().lower(), l["source"].strip().title() or "Unknown") if l["source"].strip() else "Unknown"
         latest_app = max(apps[i], key=lambda a: a["started_at"], default=None)
         latest_appt = max(appts[i], key=lambda a: a["booked_at"], default=None)
-        facts[i] = dict(lead=l, created=created, channel=ch, state=l["state"], coord=l["coordinator"], outcome=l["outcome"], stage=l["current_stage"],
+        facts[i] = dict(lead=l, created=created, person=(l["email"].strip().lower() or "lead:" + i), channel=ch, state=l["state"], coord=l["coordinator"], outcome=l["outcome"], stage=l["current_stage"],
             app_sub=any(a["submitted_at"] for a in apps[i]), attended=any(a["status"] == "attended" for a in appts[i]),
             records="records" in st, accepted="accepted" in st, has_app="application" in st or furthest >= 2, booked="consult" in st, furthest=furthest,
             first_out=outs[0] if outs else None, last_contact=max(allc) if allc else None,
@@ -75,10 +76,26 @@ def agency(d, slug):
     out["row_counts"] = {"leads": len(L), "stage_events": len(SH), "contacts": len(CL), "screener_answers": len(SA), "web_sessions": len(WS), "appointments": len(AP), "applications": len(AN)}
 
     emails = C.Counter(l["email"].strip().lower() for l in L)
+    # A person is one normalised email (a blank email is its own person); a lead is one inquiry.
+    out["people"] = len({f["person"] for f in facts.values()})
+    by_person = C.defaultdict(list)
+    for l in L:
+        if l["email"].strip(): by_person[l["email"].strip().lower()].append(l)
+    def overlap_pairs(group):
+        group = sorted(group, key=lambda l: (ts(l["created_at"]), l["lead_id"]))
+        n = 0
+        for a in range(len(group)):
+            for b in range(a + 1, len(group)):
+                e, later = group[a], group[b]
+                closed = e["outcome"] in OVERLAP_CLOSED and e["outcome_updated_at"] and ts(e["outcome_updated_at"]) < ts(later["created_at"])
+                if not closed: n += 1
+        return n
+    overlapping_pairs = sum(overlap_pairs(g) for g in by_person.values() if len(g) > 1)
     out["warnings"] = {
         "duplicate_email_extra_rows": sum(c - 1 for c in emails.values() if c > 1), "leads_in_duplicate_email_groups": sum(c for c in emails.values() if c > 1),
         "source_aliases_normalized": sum(1 for l in L if l["source"].strip().lower() not in CANON_RAW or l["source"] != l["source"].strip().lower()),
         "stage_mismatch": sum(1 for f in facts.values() if f["furthest"] >= 0 and STAGES[f["furthest"]] != f["stage"]),
+        "open_duplicate_inquiry_pairs": overlapping_pairs,
     }
     out["qualified_all_time"] = {m: qn(facts.values(), m) for m in qual}
 
@@ -86,7 +103,8 @@ def agency(d, slug):
     for rng, days in RANGES.items():
         cur, prev = window(days), window(days, prev=True)
         out["summary"][rng] = {"leads": len(cur), "qualified": qn(cur, milestone), "qualified_rate": rate(qn(cur, milestone), len(cur)),
-            "previous_leads": len(prev), "previous_qualified": qn(prev, milestone), "qualified_by_milestone": {m: qn(cur, m) for m in qual}}
+            "previous_leads": len(prev), "previous_qualified": qn(prev, milestone), "qualified_by_milestone": {m: qn(cur, m) for m in qual},
+            "unique_people": len({f["person"] for f in cur})}
 
     w = window(365)
     names = ["inquiry", "application", "consult_booked", "consult_attended", "records", "accepted"]

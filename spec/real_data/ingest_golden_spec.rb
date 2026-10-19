@@ -113,6 +113,8 @@ RSpec.describe "Snapshot ingest golden numbers", :real_data, type: :request do
       expect(snapshot["row_counts"]).to eq(golden["row_counts"])
       expect(as_of_seconds(snapshot["as_of"])).to eq(golden["as_of"])
       expect(warning_count(body, "duplicate_email")).to eq(golden.dig("warnings", "duplicate_email_extra_rows"))
+      expect(warning_count(body, "open_duplicate_inquiry")).to eq(golden.dig("warnings", "open_duplicate_inquiry_pairs"))
+      expect(Person.unscoped.where(agency_id: agency.id).count).to eq(golden["people"])
       expect(warning_count(body, "source_aliases_normalized")).to eq(golden.dig("warnings", "source_aliases_normalized"))
       expect(warning_count(body, "stage_mismatch")).to eq(golden.dig("warnings", "stage_mismatch"))
 

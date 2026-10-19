@@ -4,6 +4,9 @@ class Lead < ApplicationRecord
   STAGES = %w[inquiry pre_screen application consult records accepted].freeze
   OUTCOMES = %w[open not_eligible withdrew unresponsive paused accepted].freeze
 
+  belongs_to :person
+  before_validation :assign_person, on: :create
+
   has_many :stage_events, dependent: :delete_all
   has_many :contacts, dependent: :delete_all
   has_many :screener_answers, dependent: :delete_all
@@ -19,4 +22,15 @@ class Lead < ApplicationRecord
   validates :channel, :current_stage, :outcome, presence: true
   validates :current_stage, inclusion: { in: STAGES }
   validates :outcome, inclusion: { in: OUTCOMES }
+
+  private
+
+  # Leads built outside the importer (specs, console) get their person here; the importer and the
+  # bulk loaders assign `person_id` themselves.
+  def assign_person
+    return if person_id.present?
+
+    key = Snapshot::People.key_for(email)
+    self.person = key ? Person.find_or_create_by!(agency_id: agency_id, email_key: key) : Person.create!(agency_id: agency_id)
+  end
 end

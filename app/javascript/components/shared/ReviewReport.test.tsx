@@ -10,7 +10,7 @@ it("prints the green check rows for a valid upload", () => {
   expect(screen.getByText("Duplicate rows 0")).toBeInTheDocument()
   expect(screen.getByText("Files matched to Harbor Surrogacy 7 of 7")).toBeInTheDocument()
   expect(screen.getByText("Screener answers Encrypted")).toBeInTheDocument()
-  expect(screen.getByText("79 extra leads share an email with another lead (kept separate) (79)")).toHaveClass(
+  expect(screen.getByText("79 extra leads share an email with another lead; they are linked as one person and kept as separate inquiries (79)")).toHaveClass(
     "text-warning-text",
   )
 })

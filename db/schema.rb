@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_17_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_19_000003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -221,6 +221,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_000001) do
     t.string "outcome_reason"
     t.timestamptz "outcome_updated_at"
     t.date "paused_until"
+    t.uuid "person_id", null: false
     t.timestamptz "created_at", null: false
     t.timestamptz "updated_at", null: false
     t.index ["agency_id", "channel"], name: "index_leads_on_agency_id_and_channel"
@@ -228,6 +229,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_000001) do
     t.index ["agency_id", "external_id"], name: "index_leads_on_agency_id_and_external_id", unique: true
     t.index ["agency_id", "id"], name: "index_leads_on_agency_id_and_id", unique: true
     t.index ["agency_id", "outcome"], name: "index_leads_on_agency_id_and_outcome"
+    t.index ["agency_id", "person_id"], name: "index_leads_on_agency_id_and_person_id"
     t.index ["agency_id"], name: "index_leads_on_agency_id"
     t.check_constraint "current_stage::text = ANY (ARRAY['inquiry'::character varying, 'pre_screen'::character varying, 'application'::character varying, 'consult'::character varying, 'records'::character varying, 'accepted'::character varying]::text[])", name: "leads_current_stage_check"
     t.check_constraint "outcome::text = ANY (ARRAY['open'::character varying, 'not_eligible'::character varying, 'withdrew'::character varying, 'unresponsive'::character varying, 'paused'::character varying, 'accepted'::character varying]::text[])", name: "leads_outcome_check"
@@ -244,6 +246,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_000001) do
     t.index ["agency_id", "created_by"], name: "idx_mcp_keys_agency_id_created_by"
     t.index ["agency_id"], name: "index_mcp_keys_on_agency_id"
     t.index ["key_digest"], name: "index_mcp_keys_on_key_digest", unique: true
+  end
+
+  create_table "people", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "agency_id", null: false
+    t.string "email_key"
+    t.timestamptz "created_at", null: false
+    t.timestamptz "updated_at", null: false
+    t.index ["agency_id", "email_key"], name: "index_people_on_agency_id_and_email_key", unique: true, where: "(email_key IS NOT NULL)"
+    t.index ["agency_id", "id"], name: "index_people_on_agency_id_and_id", unique: true
   end
 
   create_table "screener_answers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -519,8 +530,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_000001) do
   add_foreign_key "lead_facts", "agencies", on_delete: :cascade
   add_foreign_key "lead_facts", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
   add_foreign_key "leads", "agencies", on_delete: :cascade
+  add_foreign_key "leads", "people", column: ["agency_id", "person_id"], primary_key: ["agency_id", "id"]
   add_foreign_key "mcp_keys", "agencies", on_delete: :cascade
   add_foreign_key "mcp_keys", "users", column: ["agency_id", "created_by"], primary_key: ["agency_id", "id"], name: "fk_mcp_keys_created_by_tenant"
+  add_foreign_key "people", "agencies", on_delete: :cascade
   add_foreign_key "screener_answers", "agencies", on_delete: :cascade
   add_foreign_key "screener_answers", "leads", column: ["agency_id", "lead_id"], primary_key: ["agency_id", "id"], on_delete: :cascade
   add_foreign_key "snapshot_uploads", "agencies", on_delete: :cascade

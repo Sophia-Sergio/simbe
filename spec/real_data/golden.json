@@ -16,11 +16,13 @@
         "appointments": 642,
         "applications": 918
       },
+      "people": 3451,
       "warnings": {
         "duplicate_email_extra_rows": 79,
         "leads_in_duplicate_email_groups": 158,
         "source_aliases_normalized": 611,
-        "stage_mismatch": 0
+        "stage_mismatch": 0,
+        "open_duplicate_inquiry_pairs": 6
       },
       "qualified_all_time": {
         "application_submitted": 674,
@@ -40,7 +42,8 @@
             "consult_attended": 10,
             "records": 4,
             "accepted": 0
-          }
+          },
+          "unique_people": 294
         },
         "90d": {
           "leads": 893,
@@ -53,7 +56,8 @@
             "consult_attended": 69,
             "records": 49,
             "accepted": 22
-          }
+          },
+          "unique_people": 889
         },
         "12m": {
           "leads": 3530,
@@ -66,7 +70,8 @@
             "consult_attended": 496,
             "records": 400,
             "accepted": 300
-          }
+          },
+          "unique_people": 3451
         }
       },
       "funnel_12m": {
@@ -287,11 +292,13 @@
         "appointments": 8076,
         "applications": 11357
       },
+      "people": 29038,
       "warnings": {
         "duplicate_email_extra_rows": 702,
         "leads_in_duplicate_email_groups": 1395,
         "source_aliases_normalized": 2252,
-        "stage_mismatch": 0
+        "stage_mismatch": 0,
+        "open_duplicate_inquiry_pairs": 47
       },
       "qualified_all_time": {
         "application_submitted": 8390,
@@ -311,7 +318,8 @@
             "consult_attended": 124,
             "records": 62,
             "accepted": 2
-          }
+          },
+          "unique_people": 1174
         },
         "90d": {
           "leads": 3615,
@@ -324,7 +332,8 @@
             "consult_attended": 682,
             "records": 493,
             "accepted": 263
-          }
+          },
+          "unique_people": 3605
         },
         "12m": {
           "leads": 14860,
@@ -337,7 +346,8 @@
             "consult_attended": 3260,
             "records": 2487,
             "accepted": 1829
-          }
+          },
+          "unique_people": 14694
         }
       },
       "funnel_12m": {

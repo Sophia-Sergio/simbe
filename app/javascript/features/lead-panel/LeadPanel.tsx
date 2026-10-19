@@ -157,6 +157,11 @@ function PanelHeader({
             <p className="mt-0.5 text-[12px] text-ink-secondary">
               {stageLabel(detail.stage)} · {detail.status.label}
             </p>
+            {detail.other_inquiries.length > 0 ? (
+              <p className="mt-0.5 text-[12px] text-ink-muted">
+                {detail.other_inquiries.length === 1 ? "1 other inquiry" : `${detail.other_inquiries.length} other inquiries`} from this person
+              </p>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -224,7 +229,7 @@ function LeadPanelBody({
         <Tabs value={tab} onChange={onTab} tabs={TAB_ITEMS} aria-label="Lead panel sections" />
       </div>
       <div className="mt-4">
-        {tab === "summary" ? <SummaryTab detail={detail} /> : null}
+        {tab === "summary" ? <SummaryTab detail={detail} tz={tz} /> : null}
         {tab === "screener" ? <ScreenerTab screener={detail.screener} /> : null}
         {tab === "activity" ? <ActivityTab activity={detail.activity} tz={tz} /> : null}
         {tab === "source" ? <SourceTab source={detail.source} tz={tz} /> : null}

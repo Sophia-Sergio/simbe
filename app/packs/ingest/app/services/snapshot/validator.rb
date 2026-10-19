@@ -234,6 +234,7 @@ class Snapshot
     #   stage_mismatch            leads whose current_stage is not the furthest stage in the trail
     #   unknown_source            leads with a non-blank source outside the known map
     #   duplicate_email           EXTRA rows (leads - distinct emails)
+    #   open_duplicate_inquiry    pairs of one person's inquiries that were open at the same time
     #   source_aliases_normalized leads whose raw source is not already canonical
     def self.warnings(rows)
       leads = rows[:leads]
@@ -249,7 +250,12 @@ class Snapshot
 
       duplicates = duplicate_email_extra_rows(leads)
       out << warning("duplicate_email", duplicates,
-                     "#{duplicates} extra leads share an email with another lead (kept separate)") if duplicates.positive?
+                     "#{duplicates} extra leads share an email with another lead; " \
+                     "they are linked as one person and kept as separate inquiries") if duplicates.positive?
+
+      overlapping = open_duplicate_inquiry_pairs(leads)
+      out << warning("open_duplicate_inquiry", overlapping,
+                     "#{overlapping} pairs of inquiries from the same person were open at the same time") if overlapping.positive?
 
       aliases = leads.count { |row| source_aliases?(row[:source]) }
       out << warning("source_aliases_normalized", aliases,
@@ -264,6 +270,20 @@ class Snapshot
       leads.count do |lead|
         furthest = history[lead[:external_id]].filter_map { |stage| Constants::STAGES.index(stage) }.max
         furthest && Constants::STAGES[furthest] != lead[:current_stage]
+      end
+    end
+
+    # Pairs of inquiries from one person (same email) where the earlier one had not closed before the
+    # later one was created: the same rule the lead panel uses (Leads::Overlap).
+    def self.open_duplicate_inquiry_pairs(leads)
+      leads.group_by { |row| Snapshot::People.key_for(row[:email]) }.sum do |key, group|
+        next 0 if key.nil? || group.size < 2
+
+        inquiries = group.map do |row|
+          { id: row[:external_id], created_at: row[:created_at], outcome: row[:outcome],
+            outcome_updated_at: row[:outcome_updated_at] }
+        end
+        Leads::Overlap.pairs(inquiries).size
       end
     end
 

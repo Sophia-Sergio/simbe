@@ -78,6 +78,22 @@ RSpec.describe "Snapshot uploads", type: :request do
     expect(Dir.exist?(Snapshot::Storage.dir(agency.snapshot_uploads.find(id)))).to be(false)
   end
 
+  it "tells the owner that leads sharing an email are linked as one person and flags overlapping inquiries" do
+    builder = AlphaScenario.builder
+    builder.lead(id: SecureRandom.uuid, created: "2026-09-25T10:00:00Z", source: "google",
+                 email: "l1.alpha@example.com", history: %w[inquiry pre_screen], stage: "pre_screen")
+    sign_in(owner)
+    id = create_upload(files(builder.write(Dir.mktmpdir("alpha-people-upload"))))
+
+    get "/api/v1/snapshot_uploads/#{id}", headers: headers
+
+    warnings = response.parsed_body.dig("report", "warnings").to_h { [ _1["code"], _1["message"] ] }
+    expect(warnings["duplicate_email"]).to eq(
+      "1 extra leads share an email with another lead; they are linked as one person and kept as separate inquiries"
+    )
+    expect(warnings["open_duplicate_inquiry"]).to eq("1 pairs of inquiries from the same person were open at the same time")
+  end
+
   it "refuses to commit an invalid upload with the report (422)" do
     sign_in(owner)
     id = create_upload(files.first(3)) # missing four files

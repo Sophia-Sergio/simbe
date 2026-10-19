@@ -26,7 +26,8 @@
       "value_cents": 28333,
       "previous_cents": null,
       "delta_cents": null
-    }
+    },
+    "unique_people": 10
   },
   "biggest_leak": {
     "from_stage": "Inquiry",

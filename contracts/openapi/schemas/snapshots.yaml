@@ -14,8 +14,8 @@ ReportWarning:
   type: object
   required: [code, count, message]
   properties:
-    code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, source_aliases_normalized, duplicate_rows_dropped] }
-    count: { type: integer, description: "stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails); duplicate_rows_dropped: rows of ONE file that repeat an earlier row's natural key (only the first is loaded; one warning per file, named in the message)" }
+    code: { type: string, enum: [stage_mismatch, unknown_source, duplicate_email, open_duplicate_inquiry, source_aliases_normalized, duplicate_rows_dropped] }
+    count: { type: integer, description: "stage_mismatch/unknown_source/source_aliases_normalized: affected leads; duplicate_email: extra rows (leads minus distinct emails); open_duplicate_inquiry: pairs of one person's inquiries that were open at the same time; duplicate_rows_dropped: rows of ONE file that repeat an earlier row's natural key (only the first is loaded; one warning per file, named in the message)" }
     message: { type: string }
 Report:
   type: object

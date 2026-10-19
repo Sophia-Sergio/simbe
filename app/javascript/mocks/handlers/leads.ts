@@ -2,6 +2,7 @@ import { HttpResponse, http } from "msw"
 import boardFixture from "@contracts/examples/leads/board.json"
 import detailCoordinator from "@contracts/examples/leads/detail-coordinator.json"
 import detailOwner from "@contracts/examples/leads/detail-owner.json"
+import detailRepeat from "@contracts/examples/leads/detail-repeat.json"
 import listFixture from "@contracts/examples/leads/list.json"
 import { db } from "../db"
 import type { Board, LeadCard, LeadDetail, LeadList } from "@/api/types"
@@ -103,6 +104,8 @@ function synthesize(card: LeadCard, canContact: boolean): LeadDetail {
     summary: { text: `${card.name} is in ${card.stage}.`, next_step: "Review this record." },
     queue: null,
     done: false,
+    other_inquiries: [],
+    open_overlap: false,
   }
 }
 
@@ -150,6 +153,8 @@ export const leadsHandlers = [
     if (id === "aaaaaaaa-0000-4000-8000-000000000004") {
       return HttpResponse.json(coord ? detailCoordinator : detailOwner)
     }
+    // L2 is the mock's repeat inquirer: owner only, a coordinator cannot see the earlier inquiry (Jess's).
+    if (id === "aaaaaaaa-0000-4000-8000-000000000002" && !coord) return HttpResponse.json(detailRepeat)
     return HttpResponse.json(synthesize(card, Boolean(coord)))
   }),
 ]

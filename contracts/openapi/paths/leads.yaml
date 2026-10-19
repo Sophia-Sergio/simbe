@@ -37,4 +37,5 @@ lead_by_id:
             examples:
               owner_view: { value: { $ref: '../../examples/leads/detail-owner.json' } }
               assigned_coordinator_view: { value: { $ref: '../../examples/leads/detail-coordinator.json' } }
+              repeat_inquiry_view: { value: { $ref: '../../examples/leads/detail-repeat.json' } }
       '404': { $ref: '../openapi.yaml#/components/responses/NotFound' }
