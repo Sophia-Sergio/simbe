@@ -24,7 +24,7 @@ One workflow, [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml), on `
 | `docker_build` | The production image builds (no push) and ships no source maps. | yes |
 | `deploy` | Fly deploy + post-deploy health checks (`/up`, `/`, `/api/v1/me` → 401; each failure fails the job). `main` only. | no: runs after merge, not a PR gate |
 
-`e2e_real` runs on `main`, nightly, and PRs labelled `e2e`; it is `continue-on-error` until **W3-1** flips it to required.
+`e2e_real` runs nightly and on PRs labelled `e2e` (not on pushes to `main`: it takes the whole 30 minute timeout and the deploy run queued behind it would wait); it is `continue-on-error` until **W3-1** flips it to required.
 
 ## Reproduce a failing job locally
 
