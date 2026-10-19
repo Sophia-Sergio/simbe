@@ -6,6 +6,7 @@ import { useAuth } from "@/app/auth/useAuth"
 import { ChannelTile } from "@/components/ui/ChannelTile"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
+import { InfoTip } from "@/components/ui/InfoTip"
 import { Pill } from "@/components/ui/Pill"
 import { RangeControl } from "@/components/ui/RangeControl"
 import { Skeleton } from "@/components/ui/Skeleton"
@@ -24,6 +25,19 @@ const share = (value: number) => formatPct(value, value > 0 && value < 1 ? 1 : 0
 function FlagPill({ row }: { row: Row }) {
   if (row.flag === null) return <span className="text-ink-muted">—</span>
   return <Pill tone={row.flag === "best" ? "success" : "danger"}>{row.flag === "best" ? "Best" : "Lowest"}</Pill>
+}
+
+function RateTip({ example }: { example: Row }) {
+  return (
+    <InfoTip label="How the rate is calculated">
+      <span className="block font-semibold text-ink">Rate = qualified ÷ leads</span>
+      <span className="mt-1 block">
+        A lead is qualified once it reaches the milestone your agency uses (see Settings). For example, {example.channel}:{" "}
+        {formatInt(example.qualified)} ÷ {formatInt(example.leads)} = {formatPct(example.rate)}.
+      </span>
+      <span className="mt-1 block">Best and Lowest compare this rate between channels with enough leads. Unknown is never ranked.</span>
+    </InfoTip>
+  )
 }
 
 function RateBar({ rate }: { rate: number }) {
@@ -112,14 +126,29 @@ export function ChannelsPage() {
     },
     { key: "leads", header: "Leads", align: "right", render: (row) => formatInt(row.leads) },
     { key: "qualified", header: "Qualified", align: "right", render: (row) => formatInt(row.qualified) },
-    { key: "rate", header: "Rate", align: "right", render: (row) => <RateBar rate={row.rate} /> },
+    {
+      key: "rate",
+      header: (
+        <span className="inline-flex items-center gap-1.5">
+          Rate
+          <RateTip example={rows[0]} />
+        </span>
+      ),
+      align: "right",
+      render: (row) => <RateBar rate={row.rate} />,
+    },
     { key: "flag", header: "Standing", align: "right", render: (row) => <FlagPill row={row} /> },
   ]
 
   return (
     <div className="flex flex-col gap-5">
       {header}
-      <p className="text-[13px] text-ink-muted">Ranked by number of leads; best and lowest compare qualified rate</p>
+      <p className="text-[13px] text-ink-muted">
+        Ranked by number of leads; best and lowest compare qualified rate
+        <span className="ml-1.5 inline-block align-middle md:hidden">
+          <RateTip example={rows[0]} />
+        </span>
+      </p>
       <section aria-label="Channels" className="overflow-hidden rounded-card border border-line bg-surface">
         <Table
           columns={columns}
