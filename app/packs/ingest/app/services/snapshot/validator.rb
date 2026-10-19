@@ -259,7 +259,8 @@ class Snapshot
 
       aliases = leads.count { |row| source_aliases?(row[:source]) }
       out << warning("source_aliases_normalized", aliases,
-                     "Normalized #{aliases} non-canonical source spellings") if aliases.positive?
+                     "#{aliases} leads spell their source differently from the standard name (for example " \
+                     "\"fb\" or \"Facebook\" instead of \"facebook\"); we group them under one channel so your counts are not split") if aliases.positive?
 
       out
     end

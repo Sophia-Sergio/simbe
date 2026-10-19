@@ -4,7 +4,7 @@ Analytics for surrogacy agencies. Simbe shows how an agency's recruiting funnel 
 
 - **Owners** get insights (This week, Funnel, Channels), a pipeline board, coordinator performance, data sources, settings and the Claude/MCP connection.
 - **Coordinators** get a daily list of next actions and their own leads, nothing else.
-- **Everyone** can ask the **Ask Simbe** assistant in plain language ("Which channel is cheapest per qualified surrogate?"), and owners can plug the same data into Claude or any MCP client.
+- **Everyone** can ask the **Ask Simbe** assistant in plain language ("Which channel turns the most leads into qualified surrogates?"), and owners can plug the same data into Claude or any MCP client.
 - Each agency uploads full CRM snapshots (seven CSV files). Every agency's data is isolated from every other's, and screener answers (health data) are encrypted and never leave the app verbatim.
 
 More: [`docs/about.md`](docs/about.md) (the product in plain language) and [`docs/agent.md`](docs/agent.md) (what the agent can do).
@@ -34,6 +34,17 @@ Open the `web` URL from `make ports`, then sign in with a seeded account (develo
 | `alex@lakeside.test` | `simbe-dev-pass` | Coordinator at Lakeside |
 
 The seeds create the agencies and people but no leads. To see numbers, load a snapshot from **Data sources** (or the sign-up wizard). Generate a synthetic one with `bin/generate-sample-export`; the real exports are local-only and never committed.
+
+### Inviting a coordinator
+
+Coordinators join by invitation; there is no public sign-up for them.
+
+1. As the owner, open **Settings → Team**, enter the coordinator's email and their **Coordinator** name, and press **Invite**. The name must match the `coordinator` value in your leads data exactly (for example `Dana Ortiz`); it is what scopes their leads.
+2. Send them the link: press **Copy invite link** on their row. Simbe also emails it in the background when mail is configured, so copying is the reliable route in development. **Revoke** cancels a pending invitation.
+3. They open the link, see **Create your account** with their email and name already filled in, and choose a password (at least 8 characters). The link is single-use and expires after 7 days.
+4. They sign in and land on their own next-actions list, with only their leads.
+
+In development you can skip this and use the seeded coordinator accounts above.
 
 ### Configuration (`.env`)
 
@@ -80,7 +91,7 @@ Clients that read a JSON config usually want this shape (the Connect Claude page
 }
 ```
 
-Test it from a terminal (should list five tools):
+Test it from a terminal (should list four tools):
 
 ```bash
 curl -s https://simbe.fly.dev/mcp/<your-agency-slug> \
@@ -100,6 +111,22 @@ claude mcp add --transport http simbe https://simbe.fly.dev/mcp/<your-agency-slu
 ```
 
 Add `--scope project` to share it through a `.mcp.json` in a repo (use an environment variable for the key there, never the key itself), or `--scope user` to have it in every project. Check it with `claude mcp list`, or `/mcp` inside a session.
+
+To keep the key out of `~/.claude.json`, store it in an environment variable and let Claude Code expand it (single quotes, so your shell does not expand it first):
+
+```bash
+# 1. In ~/.zshrc (or your shell's profile), then `source` it:
+export SIMBE_MCP_KEY=simbe_live_...
+
+# 2. Register the server once, for every project:
+claude mcp add --transport http --scope user simbe https://simbe.fly.dev/mcp/<your-agency-slug> \
+  --header 'Authorization: Bearer ${SIMBE_MCP_KEY}'
+
+# 3. Restart Claude Code and check it:
+claude mcp get simbe        # Status: Connected
+```
+
+`Invalid or revoked MCP key` (HTTP 401) in that output means `SIMBE_MCP_KEY` is not set in the shell that started Claude Code, or the key was replaced by a newer one.
 
 **Claude Desktop** takes local commands in `claude_desktop_config.json`, so bridge to the remote server with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) (needs Node):
 

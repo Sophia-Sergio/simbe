@@ -97,3 +97,12 @@ it("the channel name is a real link (keyboard and screen-reader friendly)", asyn
   renderWithProviders(<ChannelsPage />, { route: "/channels?range=90d" })
   expect(await screen.findByRole("link", { name: "Facebook" })).toHaveAttribute("href", "/channels/Facebook?range=90d")
 })
+
+it("explains how the rate is calculated in a tooltip", async () => {
+  renderWithProviders(<ChannelsPage />)
+  await screen.findByRole("row", { name: /Facebook/ })
+  await userEvent.hover(screen.getAllByRole("button", { name: "How the rate is calculated" })[0])
+  const tip = screen.getByRole("tooltip")
+  expect(tip).toHaveTextContent("Rate = qualified ÷ leads")
+  expect(tip).toHaveTextContent("Facebook: 2 ÷ 3 = 66.7%")
+})
