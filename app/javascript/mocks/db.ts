@@ -1,5 +1,5 @@
 // In-memory state for the MSW mock API. Everything a stateful UI flow needs to remember lives here:
-// the signed-in session, done toggles, the team and pending invitations, ad connections, upload
+// the signed-in session, done toggles, the team and pending invitations, upload
 // sessions, agent conversations, the agency (timezone / qualified milestone) and the current snapshot.
 // Reset between tests (see test/setup.ts) or between scenario boots.
 import agencyFixture from "@contracts/examples/account/agency.json"
@@ -7,7 +7,7 @@ import teamFixture from "@contracts/examples/account/team.json"
 import currentFixture from "@contracts/examples/snapshots/current.json"
 import currentLoadingFixture from "@contracts/examples/snapshots/current-loading.json"
 import settingsFixture from "@contracts/examples/mcp/settings.json"
-import type { AdConnection, Agency, AgentMessage, Report, Snapshot, SnapshotCurrent, Team } from "@/api/types"
+import type { Agency, AgentMessage, Report, Snapshot, SnapshotCurrent, Team } from "@/api/types"
 import type { components } from "@/api/generated/schema"
 import { scenario } from "./scenarios"
 
@@ -82,7 +82,6 @@ function seed() {
     session: defaultSession(),
     completions: new Set<string>(),
     team: clone(teamFixture) as Team,
-    connections: [] as AdConnection[],
     uploads: new Map<string, MockUpload>(),
     mcp: {
       key_prefix: freshKey ? null : (settingsFixture.key_prefix as string | null),

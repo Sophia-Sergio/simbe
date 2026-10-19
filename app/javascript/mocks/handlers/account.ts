@@ -3,7 +3,7 @@ import agencyFixture from "@contracts/examples/account/agency.json"
 import meOwner from "@contracts/examples/auth/me-owner.json"
 import { COORDINATOR_NAMES, db, persistSession } from "../db"
 import { csrfForbidden, forbidden, isOwner, jsonError, notFound, unauth, uuid } from "./shared"
-import type { AdConnection, AdPlatform, Agency, Invitation, Me } from "@/api/types"
+import type { Agency, Invitation, Me } from "@/api/types"
 
 const MILESTONES = ["application_submitted", "consult_attended", "records", "accepted"]
 
@@ -14,12 +14,6 @@ type SignupBody = {
 type AgencyUpdate = { name?: string; timezone?: string; qualified_milestone?: string }
 type InviteBody = { email?: string; coordinator_name?: string }
 type AcceptBody = { name?: string; password?: string }
-
-function ownerGate(): Response | null {
-  if (!db.session) return unauth()
-  if (!isOwner()) return forbidden()
-  return null
-}
 
 export const accountHandlers = [
   http.post("/api/v1/signup", async ({ request }) => {
@@ -138,34 +132,5 @@ export const accountHandlers = [
     if (!db.session) return unauth()
     if (!isOwner()) return forbidden()
     return HttpResponse.json({ names: COORDINATOR_NAMES })
-  }),
-
-  http.get("/api/v1/ad_connections", () => {
-    const gate = ownerGate()
-    if (gate) return gate
-    return HttpResponse.json({ connections: db.connections })
-  }),
-  http.post("/api/v1/ad_connections", async ({ request }) => {
-    const csrf = csrfForbidden(request)
-    if (csrf) return csrf
-    if (!db.session) return unauth()
-    if (!isOwner()) return forbidden()
-    const body = (await request.json().catch(() => ({}))) as { platform?: string }
-    const platform = body.platform
-    if (platform !== "meta" && platform !== "google") return jsonError(422, "invalid_platform", "Unknown platform")
-    const existing = db.connections.find((connection) => connection.platform === platform)
-    if (existing) return HttpResponse.json(existing)
-    const connection: AdConnection = { platform: platform as AdPlatform, status: "connected", connected_at: "2026-10-01T12:00:00.000Z" }
-    db.connections = [...db.connections, connection]
-    return HttpResponse.json(connection, { status: 201 })
-  }),
-  http.delete("/api/v1/ad_connections/:platform", ({ request, params }) => {
-    const csrf = csrfForbidden(request)
-    if (csrf) return csrf
-    if (!db.session) return unauth()
-    if (!isOwner()) return forbidden()
-    const platform = String(params.platform)
-    db.connections = db.connections.filter((connection) => connection.platform !== platform)
-    return new HttpResponse(null, { status: 204 })
   }),
 ]

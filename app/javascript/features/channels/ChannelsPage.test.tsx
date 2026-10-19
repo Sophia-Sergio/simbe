@@ -6,38 +6,45 @@ import { setScenario } from "@/mocks/scenarios"
 import { renderWithProviders } from "@/test/renderWithProviders"
 import { ChannelsPage } from "./ChannelsPage"
 
-it("lists channels with the best-cost pill and navigates to the detail on a row click", async () => {
+it("lists channels with the best-rate pill and navigates to the detail on a row click", async () => {
   const { location } = renderWithProviders(<ChannelsPage />, { route: "/channels?range=90d" })
-  const row = await screen.findByRole("row", { name: /Facebook/ })
-  expect(within(row).getByText("$150")).toHaveClass("bg-success-bg")
+  const best = await screen.findByRole("row", { name: /Referral/ })
+  expect(within(best).getByText("Best")).toHaveClass("bg-success-bg")
+  const row = screen.getByRole("row", { name: /Facebook/ })
   expect(within(row).getByText("66.7%")).toBeInTheDocument()
   await userEvent.click(within(row).getByText("Facebook")) // a click on the cell, not only on the row element
   expect(location().pathname).toBe("/channels/Facebook")
   expect(location().search).toBe("?range=90d")
 })
 
-it("marks the worst channel danger and shows a dash without a cost", async () => {
+it("marks the lowest channel danger and shows a dash without a standing", async () => {
   mockApi({
     "GET /api/v1/metrics/channels": {
       ...channelsFixture,
       rows: [
         { ...channelsFixture.rows[0], flag: "best" },
-        { ...channelsFixture.rows[1], cost_per_qualified_cents: 90000, flag: "worst" },
-        { ...channelsFixture.rows[3] },
+        { ...channelsFixture.rows[1], flag: "worst" },
+        { ...channelsFixture.rows[3], flag: null },
       ],
     },
   })
   renderWithProviders(<ChannelsPage />)
   const worst = await screen.findByRole("row", { name: /Google/ })
-  expect(within(worst).getByText("$900")).toHaveClass("bg-danger-bg")
+  expect(within(worst).getByText("Lowest")).toHaveClass("bg-danger-bg")
   const referral = screen.getByRole("row", { name: /Referral/ })
-  expect(within(referral).getAllByRole("cell")[5]).toHaveTextContent("—")
+  expect(within(referral).getAllByRole("cell")[4]).toHaveTextContent("—")
 })
 
-it("shows the ranked-by-rate note when basis is rate", async () => {
-  mockApi({ "GET /api/v1/metrics/channels": { ...channelsFixture, basis: "rate" } })
+it("says how channels are ranked", async () => {
   renderWithProviders(<ChannelsPage />)
-  expect(await screen.findByText("Ranked by qualified rate (no spend loaded yet)")).toBeInTheDocument()
+  expect(await screen.findByText("Ranked by number of leads; best and lowest compare qualified rate")).toBeInTheDocument()
+})
+
+it("has no spend or cost columns", async () => {
+  renderWithProviders(<ChannelsPage />)
+  await screen.findByRole("row", { name: /Facebook/ })
+  expect(screen.queryByText("Spend")).not.toBeInTheDocument()
+  expect(screen.queryByText("Per qualified")).not.toBeInTheDocument()
 })
 
 it("renders the two insight cards", async () => {
@@ -54,14 +61,14 @@ it("stacks channel cards on a phone and opens one on tap", async () => {
 })
 
 it("offers 'Load your data' to an owner with no channels", async () => {
-  mockApi({ "GET /api/v1/metrics/channels": { rows: [], basis: "cost", insights: channelsFixture.insights } })
+  mockApi({ "GET /api/v1/metrics/channels": { rows: [], insights: channelsFixture.insights } })
   setScenario("empty")
   renderWithProviders(<ChannelsPage />)
   expect(await screen.findByRole("link", { name: /load your data/i })).toHaveAttribute("href", "/data")
 })
 
 it("shows 'Loading your data…' while an upload is pending", async () => {
-  mockApi({ "GET /api/v1/metrics/channels": { rows: [], basis: "cost", insights: channelsFixture.insights } })
+  mockApi({ "GET /api/v1/metrics/channels": { rows: [], insights: channelsFixture.insights } })
   setScenario("loading")
   renderWithProviders(<ChannelsPage />)
   expect(await screen.findByText("Loading your data…")).toBeInTheDocument()

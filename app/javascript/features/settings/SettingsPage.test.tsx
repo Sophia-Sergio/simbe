@@ -12,7 +12,7 @@ it("says what a new definition recomputes before it is saved", async () => {
   renderWithProviders(<SettingsPage />)
 
   const definition = await screen.findByRole("region", { name: "Definition of qualified" })
-  expect(definition).toHaveTextContent(/funnel, channels and cost per qualified/i)
+  expect(definition).toHaveTextContent(/funnel and channels all recompute/i)
 })
 
 it("changing the qualified definition saves immediately with the handoff toast", async () => {

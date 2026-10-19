@@ -4,20 +4,18 @@ import { AgentContext } from "@/app/agent"
 import { setScenario } from "@/mocks/scenarios"
 import { mockApi } from "@/test/mockApi"
 import { renderWithProviders } from "@/test/renderWithProviders"
-import { costDelta, greeting, hourIn, WeekPage, weekOf } from "./WeekPage"
+import { greeting, hourIn, WeekPage, weekOf } from "./WeekPage"
 
 function Home() {
   return <WeekPage />
 }
 
-it("renders the greeting, four KPIs, recommendations and the leak", async () => {
+it("renders the greeting, three KPIs, recommendations and the leak", async () => {
   renderWithProviders(<Home />, { route: "/" })
   expect(await screen.findByText(/Good (morning|afternoon|evening), Erin/)).toBeInTheDocument()
   ;["Leads", "Qualified", "Qualified rate"].forEach((label) => expect(screen.getByText(label)).toBeInTheDocument())
-  expect(screen.getAllByText("Cost per qualified").length).toBeGreaterThan(0)
   expect(screen.getByText("30.0%")).toBeInTheDocument()
-  expect(screen.getByText("$283")).toBeInTheDocument()
-  expect(screen.getByText(/2 things worth your time/)).toBeInTheDocument()
+  expect(screen.getByText(/3 things worth your time/)).toBeInTheDocument()
   expect(screen.getByRole("img", { name: /50% stall/ })).toBeInTheDocument()
   expect(screen.getByText("Most leads stall before Application")).toBeInTheDocument()
 })
@@ -27,9 +25,8 @@ it("tells the owner how many distinct people the leads are, only when they diffe
     leads: { value: 20, previous: null, delta: null },
     qualified: { value: 4, previous: null, delta: null },
     qualified_rate: { value: 20, previous: null, delta: null, low_sample: false },
-    cost_per_qualified: { value_cents: 10000, previous_cents: null, delta_cents: null },
   }
-  const summary = (unique: number) => ({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", spend_source: "import", kpis: { ...kpis, unique_people: unique }, biggest_leak: null, cost_by_channel: [] })
+  const summary = (unique: number) => ({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", kpis: { ...kpis, unique_people: unique }, biggest_leak: null })
 
   mockApi({ "GET /api/v1/metrics/summary": summary(17) })
   const { unmount } = renderWithProviders(<Home />)
@@ -57,7 +54,7 @@ it("switching the range refetches with the new range", async () => {
   const seen: string[] = []
   mockApi({ "GET /api/v1/metrics/summary": (req: Request) => {
     seen.push(new URL(req.url).searchParams.get("range") ?? "")
-    return Response.json({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "90d", spend_source: "import", kpis: { leads: { value: 20, previous: null, delta: null }, qualified: { value: 4, previous: null, delta: null }, qualified_rate: { value: 20, previous: null, delta: null, low_sample: false }, cost_per_qualified: { value_cents: 10000, previous_cents: null, delta_cents: null } }, biggest_leak: null, cost_by_channel: [] })
+    return Response.json({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "90d", kpis: { leads: { value: 20, previous: null, delta: null }, qualified: { value: 4, previous: null, delta: null }, qualified_rate: { value: 20, previous: null, delta: null, low_sample: false } }, biggest_leak: null })
   } })
   const { location } = renderWithProviders(<Home />)
   await screen.findByText("Leads")
@@ -86,15 +83,6 @@ it("Ask why goes through the agent with the preset question", async () => {
   const buttons = await screen.findAllByRole("button", { name: /ask why/i })
   await userEvent.click(buttons[0])
   expect(open).toHaveBeenCalledWith("Why do leads stall before the application and what should we change?")
-})
-
-it("labels sample spend", async () => {
-  mockApi({ "GET /api/v1/metrics/summary": () => {
-    return Response.json({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", spend_source: "sample", kpis: { leads: { value: 10, previous: null, delta: null }, qualified: { value: 3, previous: null, delta: null }, qualified_rate: { value: 30, previous: null, delta: null, low_sample: true }, cost_per_qualified: { value_cents: 28333, previous_cents: null, delta_cents: null } }, biggest_leak: null, cost_by_channel: [ { channel: "Facebook", cost_per_qualified_cents: 15000, flag: "best" } ] })
-  } })
-  renderWithProviders(<Home />)
-  expect(await screen.findByText("Sample spend")).toBeInTheDocument()
-  expect(screen.getByText("sample")).toBeInTheDocument()
 })
 
 it("offers 'Load your data' to an owner without a snapshot", async () => {
@@ -139,28 +127,12 @@ describe("greeting and week", () => {
   })
 })
 
-describe("cost delta", () => {
-  it("is money, not a percentage, and a rise is bad news", () => {
-    expect(costDelta(5000)).toEqual({ text: "+$50.00", tone: "down" })
-    expect(costDelta(-12000)).toEqual({ text: "−$120", tone: "up" })
-    expect(costDelta(0).tone).toBe("none")
-    expect(costDelta(null)).toEqual({ text: "", tone: "none" })
-  })
-})
-
 it("hides the 'things worth your time' count until the recommendations have loaded", async () => {
   mockApi({ "GET /api/v1/recommendations": async () => { await new Promise((resolve) => setTimeout(resolve, 80)); return Response.json([]) } })
   renderWithProviders(<Home />)
   await screen.findByText(/Week of/)
   expect(screen.queryByText(/worth your time/)).toBeNull()
   expect(await screen.findByText(/0 things worth your time/)).toBeInTheDocument()
-})
-
-it("says there is no spend loaded when the agency has none", async () => {
-  mockApi({ "GET /api/v1/metrics/summary": () => Response.json({ snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", spend_source: "none", kpis: { leads: { value: 10, previous: null, delta: null }, qualified: { value: 3, previous: null, delta: null }, qualified_rate: { value: 30, previous: null, delta: 2.5, low_sample: false }, cost_per_qualified: { value_cents: null, previous_cents: null, delta_cents: null } }, biggest_leak: null, cost_by_channel: [] }) })
-  renderWithProviders(<Home />)
-  expect(await screen.findByText("No spend loaded")).toBeInTheDocument()
-  expect(screen.getByText("+2.5 pp")).toBeInTheDocument()
 })
 
 it("loads the numbers when an upload finishes while the page is open", async () => {
@@ -170,12 +142,12 @@ it("loads the numbers when an upload finishes while the page is open", async () 
       Response.json({ snapshot: loaded ? { id: "s", as_of: "2026-10-01T12:00:00.000Z" } : null, pending: loaded ? null : { upload_id: "u", status: "committing", progress: { pct: 90 } }, files: [] }),
     "GET /api/v1/metrics/summary": () =>
       Response.json(loaded
-        ? { snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", spend_source: "import", kpis: { leads: { value: 10, previous: null, delta: null }, qualified: { value: 3, previous: null, delta: null }, qualified_rate: { value: 30, previous: null, delta: null, low_sample: true }, cost_per_qualified: { value_cents: 28333, previous_cents: null, delta_cents: null } }, biggest_leak: null, cost_by_channel: [] }
-        : { snapshot: null, range: "30d", spend_source: "none", kpis: { leads: { value: 0, previous: null, delta: null }, qualified: { value: 0, previous: null, delta: null }, qualified_rate: { value: 0, previous: null, delta: null, low_sample: true }, cost_per_qualified: { value_cents: null, previous_cents: null, delta_cents: null } }, biggest_leak: null, cost_by_channel: [] }),
+        ? { snapshot: { id: "s", as_of: "2026-10-01T12:00:00.000Z" }, range: "30d", kpis: { leads: { value: 10, previous: null, delta: null }, qualified: { value: 3, previous: null, delta: null }, qualified_rate: { value: 30, previous: null, delta: null, low_sample: true } }, biggest_leak: null }
+        : { snapshot: null, range: "30d", kpis: { leads: { value: 0, previous: null, delta: null }, qualified: { value: 0, previous: null, delta: null }, qualified_rate: { value: 0, previous: null, delta: null, low_sample: true } }, biggest_leak: null }),
   })
   const { queryClient } = renderWithProviders(<Home />)
   expect(await screen.findByText("Loading your data…")).toBeInTheDocument()
   loaded = true
   await queryClient.invalidateQueries({ queryKey: ["snapshot"] })
-  expect(await screen.findByText("$283", {}, { timeout: 3000 })).toBeInTheDocument()
+  expect(await screen.findByText("30.0%", {}, { timeout: 3000 })).toBeInTheDocument()
 })

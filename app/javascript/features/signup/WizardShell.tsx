@@ -9,7 +9,7 @@ import { Stepper } from "./Stepper"
  * stepper, a `28px 24px` body and a footer bar that sticks to the bottom on mobile.
  *
  * Moving forward focuses the step heading so the new step is announced; so does any move among the
- * authenticated steps (3–5), whose Back button vanishes with the step. Moving back to step 1–2 (a
+ * authenticated steps (3–4), whose Back button vanishes with the step. Moving back to step 1–2 (a
  * rejected submit) leaves focus alone, so the step can put it on the field that needs fixing.
  */
 export function WizardShell({

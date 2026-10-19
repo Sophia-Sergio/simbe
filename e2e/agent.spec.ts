@@ -26,17 +26,17 @@ test("owner asks a starter question, sees the chart answer and follows the actio
   await expect(panel).toBeVisible()
   await expect(panel.getByText("How can I help this week?")).toBeVisible()
   for (const chip of [
-    "Which channel costs the most per qualified lead?",
+    "Which channel turns the most leads into qualified ones?",
     "Where do most applicants drop off?",
-    "How should I split next month's budget?",
+    "Which channel should I look at first?",
     "Who needs support on my team?",
   ]) {
     await expect(panel.getByRole("button", { name: chip })).toBeVisible()
   }
 
-  await panel.getByRole("button", { name: "Which channel costs the most per qualified lead?" }).click()
+  await panel.getByRole("button", { name: "Which channel turns the most leads into qualified ones?" }).click()
   await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
-  await expect(panel.getByRole("img", { name: /Cost per qualified lead/ })).toBeVisible()
+  await expect(panel.getByRole("img", { name: /Qualified rate by channel/ })).toBeVisible()
   await page.screenshot({ path: shot("agent", testInfo.project.name) })
 
   await panel.getByRole("button", { name: /Open channels/ }).click()
@@ -71,9 +71,9 @@ test("the Ask tab opens the agent full screen on a phone and answers with a char
   expect(box?.y).toBe(0)
   expect(box?.height).toBeGreaterThan(800)
 
-  await panel.getByRole("button", { name: "Which channel costs the most per qualified lead?" }).click()
+  await panel.getByRole("button", { name: "Which channel turns the most leads into qualified ones?" }).click()
   await expect(panel.getByText(/Facebook is your cheapest channel/)).toBeVisible()
-  await expect(panel.getByRole("img", { name: /Cost per qualified lead/ })).toBeVisible()
+  await expect(panel.getByRole("img", { name: /Qualified rate by channel/ })).toBeVisible()
   await page.screenshot({ path: shot("agent", testInfo.project.name) })
 
   await panel.getByRole("button", { name: "Close" }).click()

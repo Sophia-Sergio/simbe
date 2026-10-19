@@ -11,9 +11,9 @@ import { AgentProvider } from "./AgentProvider"
 
 const ANSWER = answerFixture.message.body
 const OWNER_CHIPS = [
-  "Which channel costs the most per qualified lead?",
+  "Which channel turns the most leads into qualified ones?",
   "Where do most applicants drop off?",
-  "How should I split next month's budget?",
+  "Which channel should I look at first?",
   "Who needs support on my team?",
 ]
 const COORDINATOR_CHIPS = ["Who should I text back first?", "Which leads are overdue?", "Where am I losing applicants?"]
@@ -58,7 +58,7 @@ it("opens from the FAB with the empty state, four owner chips and a chart answer
 
   await userEvent.click(screen.getByRole("button", { name: OWNER_CHIPS[0] }))
   expect(await screen.findByText(ANSWER.text)).toBeInTheDocument()
-  expect(screen.getByRole("img", { name: /Cost per qualified lead/ })).toBeInTheDocument()
+  expect(screen.getByRole("img", { name: /Qualified rate by channel/ })).toBeInTheDocument()
 })
 
 it("exposes the conversation as a polite live log and the pending line as a status", async () => {
@@ -401,7 +401,7 @@ it("clears the thread and conversation when the session ends", async () => {
     const { signOut } = useAuth()
     return (
       <>
-        <button type="button" onClick={() => agent.open("which channel costs the most?")}>
+        <button type="button" onClick={() => agent.open("which channel qualifies the most?")}>
           Ask
         </button>
         <button type="button" onClick={() => agent.open()}>
@@ -429,7 +429,7 @@ it("clears the thread and conversation when the session ends", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Reopen" }))
   expect(await screen.findByText("How can I help this week?")).toBeInTheDocument()
   expect(screen.queryByText(ANSWER.text)).toBeNull()
-  expect(screen.queryByText("which channel costs the most?")).toBeNull()
+  expect(screen.queryByText("which channel qualifies the most?")).toBeNull()
 })
 
 it("shows the coordinator's three chips", async () => {

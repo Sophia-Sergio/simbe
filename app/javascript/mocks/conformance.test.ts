@@ -121,8 +121,6 @@ function samplePath(path: string): string {
       return "/metrics/channels/Facebook"
     case "/next_actions/{lead_id}/{queue}/completion":
       return `/next_actions/${LEAD_ID}/nudge_applications/completion`
-    case "/ad_connections/{platform}":
-      return "/ad_connections/meta"
     default:
       return path
   }
@@ -179,10 +177,8 @@ function sampleBody(path: string, method: string): { body?: BodyInit; contentTyp
       return asJson({ email: "maya@harbor.test", coordinator_name: "Jess Kim" })
     case "/invitations/{token}/accept":
       return asJson({ name: "New Coordinator", password: "longpassword1" })
-    case "/ad_connections":
-      return asJson({ platform: "meta" })
     case "/agent/messages":
-      return asJson({ text: "Which channel costs the most?" })
+      return asJson({ text: "Which channel qualifies the most?" })
     case "/snapshot_uploads":
       return multipart(SEVEN)
     default:
@@ -223,7 +219,7 @@ function seed() {
     commits: 0,
     snapshot: null,
   } satisfies MockUpload)
-  const message: AgentMessage = { id: "99999999-9999-4999-8999-999999999997", role: "user", created_at: NOW, body: { text: "Which channel costs the most?" } }
+  const message: AgentMessage = { id: "99999999-9999-4999-8999-999999999997", role: "user", created_at: NOW, body: { text: "Which channel qualifies the most?" } }
   db.conversations.set(CONVO_ID, { owner: OWNER_EMAIL, messages: [message] })
 }
 
@@ -241,7 +237,7 @@ const notFoundOps = ops.filter(({ path, op }) => op.responses["404"] && unknownP
 const validatable = ops.filter(({ op }) => jsonStatus(op))
 
 it("has a mock handler for every operation, returning a status the contract lists", async () => {
-  expect(ops).toHaveLength(39)
+  expect(ops).toHaveLength(36)
   for (const { path, method, op } of ops) {
     asOwner()
     const res = await call(path, method)
@@ -253,7 +249,7 @@ it.each(validatable)("$method $path default response matches its (tightened) sch
   asOwner()
   const status = jsonStatus(op) as string
   const res = await call(path, method)
-  expect(listed2xx(op)).toContain(String(res.status)) // accept any listed 2xx (connect-platform has 200 and 201)
+  expect(listed2xx(op)).toContain(String(res.status)) // accept any listed 2xx
   const body = await res.json()
   const validate = compile(TIGHT_ID, path, method, status)
   const valid = validate(body)

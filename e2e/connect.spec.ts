@@ -15,7 +15,7 @@ test("owner sees the connection, generates a key once, and it is masked after a 
   await page.goto("/connect")
   await expect(page.getByLabel("Server URL", { exact: true })).toHaveValue("https://mcp.simbe.app/harbor")
   await expect(page.getByLabel("API key", { exact: true })).toHaveValue(/^simbe_live_ab12•+/)
-  for (const tool of ["get_funnel", "get_channel_performance", "get_dropoff_reasons", "get_next_actions", "forecast_spend"]) {
+  for (const tool of ["get_funnel", "get_channel_performance", "get_dropoff_reasons", "get_next_actions"]) {
     await expect(page.getByText(tool)).toBeVisible()
   }
   expect(await overflow(page)).toBeLessThanOrEqual(0)

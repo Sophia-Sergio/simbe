@@ -7,9 +7,9 @@ import { csrfForbidden, forbidden, isOwner, jsonError, notFound, unauth, uuid } 
 
 const NOW = "2026-10-01T12:00:00.000Z"
 const OWNER_SUGGESTIONS = [
-  "Which channel costs the most per qualified lead?",
+  "Which channel turns the most leads into qualified ones?",
   "Where do most applicants drop off?",
-  "How should I split next month's budget?",
+  "Which channel should I look at first?",
   "Who needs support on my team?",
 ]
 const COORDINATOR_SUGGESTIONS = [
@@ -24,7 +24,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 function buildAnswer(text: string): AgentBody {
   if (/google/i.test(text)) {
-    return { text: `You asked: "${text}" Google has spent $450 with no qualified leads yet — too small a sample to act on.` }
+    return { text: `You asked: "${text}" Google has no qualified leads yet — too small a sample to act on.` }
   }
   return (answerFixture.message.body as AgentBody)
 }

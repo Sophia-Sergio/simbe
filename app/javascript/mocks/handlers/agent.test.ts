@@ -17,7 +17,7 @@ it("text over 500 characters is 422 text_too_long", async () => {
 })
 
 it("answers and appends both messages to the conversation", async () => {
-  const res = await ask("Which channel costs the most?")
+  const res = await ask("Which channel qualifies the most?")
   expect(res.status).toBe(201)
   const body = await res.json()
   expect(body.message.role).toBe("assistant")
@@ -31,7 +31,7 @@ it("echoes the question when it mentions Google", async () => {
 })
 
 it("a second message while one is in flight is 409 already_in_progress", async () => {
-  const first = ask("Which channel costs the most?")
+  const first = ask("Which channel qualifies the most?")
   await new Promise((resolve) => setTimeout(resolve, 5))
   const second = await ask("Where do most applicants drop off?")
   expect(second.status).toBe(409)
@@ -40,7 +40,7 @@ it("a second message while one is in flight is 409 already_in_progress", async (
 })
 
 it("a conversation belongs to the user who started it", async () => {
-  const body = await (await ask("Which channel costs the most?")).json()
+  const body = await (await ask("Which channel qualifies the most?")).json()
   asRole("coordinator")
   expect((await fetch(`/api/v1/agent/conversations/${body.conversation_id}`)).status).toBe(404)
 })

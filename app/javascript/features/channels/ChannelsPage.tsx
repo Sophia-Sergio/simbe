@@ -13,7 +13,7 @@ import { Table } from "@/components/ui/Table"
 import type { Column } from "@/components/ui/Table"
 import { LoadingYourData } from "@/components/shared/LoadingYourData"
 import { useRange } from "@/hooks/useRange"
-import { formatInt, formatMoney, formatPct } from "@/lib/format"
+import { formatInt, formatPct } from "@/lib/format"
 
 type Row = Channels["rows"][number]
 
@@ -21,10 +21,9 @@ const leadsLabel = (count: number) => `${formatInt(count)} ${count === 1 ? "lead
 /** 0 -> "0%", 0.4 -> "0.4%", 10 -> "10%": a share below 1% must not round to a misleading "0%". */
 const share = (value: number) => formatPct(value, value > 0 && value < 1 ? 1 : 0)
 
-function CostPill({ row }: { row: Row }) {
-  if (row.cost_per_qualified_cents === null) return <span className="text-ink-muted">—</span>
-  const tone = row.flag === "best" ? "success" : row.flag === "worst" ? "danger" : "neutral"
-  return <Pill tone={tone}>{formatMoney(row.cost_per_qualified_cents)}</Pill>
+function FlagPill({ row }: { row: Row }) {
+  if (row.flag === null) return <span className="text-ink-muted">—</span>
+  return <Pill tone={row.flag === "best" ? "success" : "danger"}>{row.flag === "best" ? "Best" : "Lowest"}</Pill>
 }
 
 function RateBar({ rate }: { rate: number }) {
@@ -49,7 +48,7 @@ export function ChannelsPage() {
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h1 className="hidden font-display text-[24px] font-semibold tracking-[-0.02em] text-ink md:block">Channels</h1>
-        <p className="mt-0.5 text-[14px] text-ink-muted">Where your leads come from and what they cost</p>
+        <p className="mt-0.5 text-[14px] text-ink-muted">Where your leads come from and how many qualify</p>
       </div>
       <RangeControl value={range} onChange={setRange} />
     </header>
@@ -72,7 +71,7 @@ export function ChannelsPage() {
     )
   }
 
-  const { rows, basis, insights } = channels.data!
+  const { rows, insights } = channels.data!
   if (rows.length === 0) {
     const pending = snapshot.data?.pending
     return (
@@ -114,14 +113,13 @@ export function ChannelsPage() {
     { key: "leads", header: "Leads", align: "right", render: (row) => formatInt(row.leads) },
     { key: "qualified", header: "Qualified", align: "right", render: (row) => formatInt(row.qualified) },
     { key: "rate", header: "Rate", align: "right", render: (row) => <RateBar rate={row.rate} /> },
-    { key: "spend", header: "Spend", align: "right", render: (row) => formatMoney(row.spend_cents) },
-    { key: "cost", header: "Per qualified", align: "right", render: (row) => <CostPill row={row} /> },
+    { key: "flag", header: "Standing", align: "right", render: (row) => <FlagPill row={row} /> },
   ]
 
   return (
     <div className="flex flex-col gap-5">
       {header}
-      {basis === "rate" && <p className="text-[13px] text-ink-muted">Ranked by qualified rate (no spend loaded yet)</p>}
+      <p className="text-[13px] text-ink-muted">Ranked by number of leads; best and lowest compare qualified rate</p>
       <section aria-label="Channels" className="overflow-hidden rounded-card border border-line bg-surface">
         <Table
           columns={columns}
@@ -141,8 +139,7 @@ export function ChannelsPage() {
                 </span>
               </span>
               <span className="shrink-0 text-right text-[12px] text-ink-muted">
-                <CostPill row={row} />
-                <span className="mt-0.5 block">per qualified</span>
+                <FlagPill row={row} />
               </span>
             </div>
           )}

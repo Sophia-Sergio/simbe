@@ -15,7 +15,6 @@ import { useAsyncAction } from "@/hooks/useAsyncAction"
 import { WizardShell } from "./WizardShell"
 import { agencyFieldErrors } from "./agencyErrors"
 import { AccountStep } from "./steps/AccountStep"
-import { AdAccountsStep } from "./steps/AdAccountsStep"
 import { AgencyStep } from "./steps/AgencyStep"
 import { LoadDataStep } from "./steps/LoadDataStep"
 import { TeamStep } from "./steps/TeamStep"
@@ -50,17 +49,16 @@ export function isAccountValid(account: AccountDraft): boolean {
 const STEPS = [
   { title: "Create your account", subtitle: "Start your agency workspace in Simbe." },
   { title: "Set up your agency", subtitle: "This sets how Simbe counts success for your agency." },
-  { title: "Connect your ad accounts", subtitle: "A preview — connecting ad accounts is coming soon." },
   { title: "Load your data", subtitle: "Upload the seven exports from your CRM." },
   { title: "Invite your team", subtitle: "Add coordinators so they can work their leads." },
 ] as const
 
 /**
- * The five-step sign-up wizard (spec decision 1): steps 1–2 collect everything client-side and
- * `POST /signup` fires at the end of step 2; steps 3–5 run authenticated.
+ * The four-step sign-up wizard (spec decision 1): steps 1–2 collect everything client-side and
+ * `POST /signup` fires at the end of step 2; steps 3–4 run authenticated.
  *
  * `/signup` is a public route, so the page itself is the guard: a signed-in visitor must not be able
- * to create a second agency (and a refresh in steps 3–5 must not drop them back to step 1).
+ * to create a second agency (and a refresh in steps 3–4 must not drop them back to step 1).
  */
 export function SignUpPage() {
   const { status } = useAuth()
@@ -76,7 +74,7 @@ export function SignUpPage() {
  * already has data — or a coordinator, who never onboards — goes to its home instead.
  *
  * The "already has data" decision is made once, when the page is entered. The wizard's own load
- * creates the first snapshot while the owner is still on step 4, and that must not eject them to the
+ * creates the first snapshot while the owner is still on step 3, and that must not eject them to the
  * dashboard before "Your data is loaded" and the team step.
  */
 function SignedInOnboarding() {
@@ -108,17 +106,17 @@ function Wizard({
   const [serverErrors, setServerErrors] = useState<FieldErrors>({})
   const [touched, setTouched] = useState<Partial<Record<AccountField | "agency", boolean>>>({})
   const [serverAgencyError, setServerAgencyError] = useState<string | null>(null)
-  // Step 4 owns an upload; once visited it stays mounted (hidden) so Back/Continue never cancel it.
-  const [loadDataVisited, setLoadDataVisited] = useState(initialStep === 4)
-  // Files uploaded to step 4 but not loaded: leaving the step then asks first (the dashboard would be empty).
+  // Step 3 owns an upload; once visited it stays mounted (hidden) so Back/Continue never cancel it.
+  const [loadDataVisited, setLoadDataVisited] = useState(initialStep === 3)
+  // Files uploaded to step 3 but not loaded: leaving the step then asks first (the dashboard would be empty).
   const [unloaded, setUnloaded] = useState(false)
   const [confirmingLeave, setConfirmingLeave] = useState(false)
   const leaveLoadData = () => {
     if (unloaded) setConfirmingLeave(true)
-    else go(5)
+    else go(4)
   }
   const go = (target: number) => {
-    if (target === 4) setLoadDataVisited(true)
+    if (target === 3) setLoadDataVisited(true)
     setStep(target)
   }
   const [focusRequest, setFocusRequest] = useState<{ field: AccountField } | null>(null)
@@ -183,15 +181,15 @@ function Wizard({
 
   // Once `POST /signup` has created the account, the wizard must not walk back to steps 1–2 (a
   // second submit would be a duplicate account); Back is only offered on step 2.
-  // Steps 3–5 are free to revisit (step 4 stays mounted, so a running upload survives); step 3 has
+  // Steps 3–4 are free to revisit (step 3 stays mounted, so a running upload survives); step 3 has
   // nowhere to go back to.
   const back =
     step === 2 ? (
       <Button variant="secondary" onClick={() => setStep(1)}>
         Back
       </Button>
-    ) : step === 4 || step === 5 ? (
-      <Button variant="secondary" onClick={() => go(step - 1)}>
+    ) : step === 4 ? (
+      <Button variant="secondary" onClick={() => go(3)}>
         Back
       </Button>
     ) : (
@@ -212,15 +210,12 @@ function Wizard({
       </Button>
     )
   } else if (step === 3) {
-    // Step 3 is a display-only preview.
-    next = <Button onClick={() => go(4)}>Continue</Button>
-  } else if (step === 4) {
-    // Step 4 may continue at any time (a running load finishes in the background), but not silently
+    // Step 3 may continue at any time (a running load finishes in the background), but not silently
     // with files that were uploaded and never loaded.
     next = <Button onClick={leaveLoadData}>Continue</Button>
   }
   const leaveWarning =
-    step === 4 && unloaded && confirmingLeave ? (
+    step === 3 && unloaded && confirmingLeave ? (
       <div role="alert" className="w-full">
         <ConfirmInline
           tone="brand"
@@ -230,7 +225,7 @@ function Wizard({
           onCancel={() => setConfirmingLeave(false)}
           onConfirm={() => {
             setConfirmingLeave(false)
-            go(5)
+            go(4)
           }}
         />
       </div>
@@ -240,7 +235,7 @@ function Wizard({
     <WizardShell
       step={step}
       firstReachable={step >= 3 ? 3 : undefined}
-      onGo={(target) => (step === 4 && target > 4 ? leaveLoadData() : go(target))}
+      onGo={(target) => (step === 3 && target > 3 ? leaveLoadData() : go(target))}
       title={STEPS[step - 1].title} subtitle={STEPS[step - 1].subtitle} alert={alert} footer={leaveWarning ?? <>{back}{next}</>}>
       {step === 1 ? (
         <AccountStep
@@ -264,13 +259,12 @@ function Wizard({
           onBlur={() => setTouched((previous) => ({ ...previous, agency: true }))}
         />
       ) : null}
-      {step === 3 ? <AdAccountsStep /> : null}
-      {loadDataVisited || step === 4 ? (
-        <div hidden={step !== 4}>
+      {loadDataVisited || step === 3 ? (
+        <div hidden={step !== 3}>
           <LoadDataStep agencyName={agencyName} onSkip={leaveLoadData} onUnloadedChange={setUnloaded} />
         </div>
       ) : null}
-      {step === 5 ? <TeamStep owner={owner} onLoadData={() => go(4)} /> : null}
+      {step === 4 ? <TeamStep owner={owner} onLoadData={() => go(3)} /> : null}
     </WizardShell>
   )
 }

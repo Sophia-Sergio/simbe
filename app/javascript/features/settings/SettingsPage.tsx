@@ -15,7 +15,7 @@ import { TeamCard } from "./TeamCard"
 const DEFINITION_SAVED = "Saved. Every number now uses this definition."
 const TIMEZONE_SAVED = "Saved. Times now use this time zone."
 const SAVE_FAILED = "We could not save that. Try again."
-const DEFINITION_NOTICE = "Your funnel, channels and cost per qualified all recompute from this definition."
+const DEFINITION_NOTICE = "Your funnel and channels all recompute from this definition."
 
 /** The kit's chips only know the four offered zones: a stored zone outside them would render unselected. */
 function ZoneChips({ value, onChange }: { value: string; onChange: (timezone: string) => void }) {

@@ -1,6 +1,6 @@
 import { Check } from "lucide-react"
 
-const WIZARD_STEPS = ["Account", "Agency", "Ad accounts", "Load data", "Team"] as const
+const WIZARD_STEPS = ["Account", "Agency", "Load data", "Team"] as const
 
 export type StepStatus = "done" | "current" | "upcoming"
 
@@ -18,7 +18,7 @@ const DOT: Record<StepStatus, string> = {
 }
 
 /**
- * The wizard's header strip: five numbered dots with labels (labels collapse to dots on mobile).
+ * The wizard's header strip: four numbered dots with labels (labels collapse to dots on mobile).
  * With `onGo`, every step from `firstReachable` on (except the current one) is a button; the steps
  * before it stay plain (steps 1–2 must never be revisited once the account exists).
  */

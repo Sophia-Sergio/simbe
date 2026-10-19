@@ -43,16 +43,9 @@ it("stacks campaigns as cards on a phone", async () => {
   expect(await screen.findByText(/3 leads · 2 qualified/)).toBeInTheDocument()
 })
 
-it("rates the cost bar from the channel list's flag (Facebook is the best channel: green)", async () => {
-  const { container } = mount()
+it("shows no spend or cost anywhere", async () => {
+  mount()
   await screen.findByText("c-a")
-  const thirds = Array.from(container.querySelectorAll("[role=presentation]")).find((el) => el.children.length === 3)
-  expect(thirds?.children[0]).toHaveClass("opacity-100")
-  expect(thirds?.children[2]).toHaveClass("opacity-30")
-})
-
-it("shows no cost rating for a channel without a cost", async () => {
-  const { container } = mount(<ChannelPage />, "TikTok")
-  await screen.findByText("No campaigns for this channel yet")
-  expect(Array.from(container.querySelectorAll("[role=presentation]")).find((el) => el.children.length === 3)).toBeUndefined()
+  expect(screen.queryByText(/spend/i)).not.toBeInTheDocument()
+  expect(screen.queryByText(/per qualified/i)).not.toBeInTheDocument()
 })

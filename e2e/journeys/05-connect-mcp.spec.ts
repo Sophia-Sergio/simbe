@@ -17,12 +17,11 @@ import { expectNoHorizontalScroll, shot } from "../support/viewport"
 // Chromium denies clipboard writes by default; the key is read back from the clipboard.
 test.use({ permissions: ["clipboard-read", "clipboard-write"] })
 
-const FIVE_TOOLS = [
+const FOUR_TOOLS = [
   "get_funnel",
   "get_channel_performance",
   "get_dropoff_reasons",
   "get_next_actions",
-  "forecast_spend",
 ]
 
 const jsonRpc = (request: APIRequestContext, slug: string, key: string, body: Record<string, unknown>) =>
@@ -62,9 +61,9 @@ test.describe("journey 5 — Connect Claude and MCP", () => {
     await signIn(page, "owner")
     await navTo(page, "Connect Claude")
 
-    // The connection card: the agency's server URL and the five tools Claude may call.
+    // The connection card: the agency's server URL and the four tools Claude may call.
     await expect(page.getByLabel("Server URL", { exact: true })).toHaveValue(/\/mcp\/harbor$/)
-    for (const tool of FIVE_TOOLS) await expect(page.getByText(tool, { exact: true })).toBeVisible()
+    for (const tool of FOUR_TOOLS) await expect(page.getByText(tool, { exact: true })).toBeVisible()
     await expectNoHorizontalScroll(page)
     await page.screenshot({ path: shot("connect-01-page", testInfo), fullPage: true })
 
@@ -75,11 +74,11 @@ test.describe("journey 5 — Connect Claude and MCP", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(key)
     await page.screenshot({ path: shot("connect-02-generated", testInfo), fullPage: true })
 
-    // tools/list: the five tools.
+    // tools/list: the four tools.
     const list = await jsonRpc(request, "harbor", key, { id: 1, method: "tools/list", params: {} })
     expect(list.status()).toBe(200)
     const tools = ((await list.json()) as { result: { tools: { name: string }[] } }).result.tools.map((tool) => tool.name)
-    expect(tools).toEqual(FIVE_TOOLS)
+    expect(tools).toEqual(FOUR_TOOLS)
 
     // tools/call get_funnel: Alpha's 10 / 5 / 4 / 3 / 2 / 1.
     const call = await jsonRpc(request, "harbor", key, {

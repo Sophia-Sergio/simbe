@@ -1,117 +1,17 @@
-import { useEffect, useRef, useState } from "react"
-import { Check, Upload } from "lucide-react"
+import { useState } from "react"
+import { Upload } from "lucide-react"
 import { useCurrentSnapshot } from "@/api/hooks/snapshots"
-import { useAdConnections, useConnectPlatform, useDisconnectPlatform } from "@/api/hooks/account"
-import type { AdConnection, AdPlatform, Snapshot } from "@/api/types"
+import type { Snapshot } from "@/api/types"
 import { useAuth } from "@/app/auth/useAuth"
 import { UploadProgress } from "@/components/shared/UploadProgress"
 import type { UploadProgressValue } from "@/components/shared/UploadProgress"
 import { Button } from "@/components/ui/Button"
-import { ChannelTile } from "@/components/ui/ChannelTile"
-import { ConfirmInline } from "@/components/ui/ConfirmInline"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorState } from "@/components/ui/ErrorState"
 import { Skeleton } from "@/components/ui/Skeleton"
-import { useAsyncAction } from "@/hooks/useAsyncAction"
 import { formatInt } from "@/lib/format"
 import { loadedLabel } from "./lib"
 import { UploadModal } from "./UploadModal"
-
-const PLATFORMS: { platform: AdPlatform; label: string; tile: string }[] = [
-  { platform: "meta", label: "Meta Ads", tile: "Meta" },
-  { platform: "google", label: "Google Ads", tile: "Google" },
-]
-
-const SAMPLE_NOTE = "Sample spend — live sync coming"
-
-/** Connect / Connected (green pill-button) with an inline disconnect confirmation. */
-function ConnectorCard({ platform, label, tile, connection }: { platform: AdPlatform; label: string; tile: string; connection: AdConnection | null }) {
-  const connect = useConnectPlatform()
-  const disconnect = useDisconnectPlatform()
-  const [confirming, setConfirming] = useState(false)
-  const cardRef = useRef<HTMLDivElement>(null)
-  const confirmRef = useRef<HTMLDivElement>(null)
-  // Focus returns to the card's button once the confirmation closes (Connected on cancel, Connect after a disconnect).
-  const returnFocus = useRef(false)
-
-  useEffect(() => {
-    if (confirming) {
-      confirmRef.current?.querySelectorAll("button")[1]?.focus()
-    } else if (returnFocus.current) {
-      returnFocus.current = false
-      cardRef.current?.querySelector("button")?.focus()
-    }
-  }, [confirming])
-
-  const closeConfirm = () => {
-    returnFocus.current = true
-    setConfirming(false)
-  }
-
-  const connectAction = useAsyncAction(async () => {
-    try {
-      await connect.mutateAsync(platform)
-    } catch {
-      // Surfaced by the mutation state below; the button stays on Connect.
-    }
-  })
-  const disconnectAction = useAsyncAction(async () => {
-    try {
-      await disconnect.mutateAsync(platform)
-    } catch {
-      // Keep the confirmation open so the user can retry; the error shows in the card.
-      return
-    }
-    closeConfirm()
-  })
-
-  const connected = connection?.status === "connected"
-
-  return (
-    <div ref={cardRef} className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-      <div className="flex items-center gap-3">
-        <ChannelTile channel={tile} size={38} />
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-[15px] font-semibold text-ink">{label}</p>
-          <p className="text-[12px] text-ink-muted">{SAMPLE_NOTE}</p>
-        </div>
-        {connected ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="border-success-border bg-success-bg text-success-text hover:bg-success-bg"
-            leftIcon={<Check aria-hidden className="h-3.5 w-3.5" />}
-            aria-expanded={confirming}
-            aria-label={`Connected to ${label} — click to disconnect`}
-            onClick={() => setConfirming(true)}
-          >
-            Connected
-          </Button>
-        ) : (
-          <Button size="sm" pending={connectAction.pending} onClick={() => void connectAction.run()}>
-            Connect
-          </Button>
-        )}
-      </div>
-      {connect.isError || disconnect.isError ? (
-        <p role="alert" className="text-[12px] text-danger-text">
-          We couldn't update this connection. Try again.
-        </p>
-      ) : null}
-      {confirming ? (
-        <div ref={confirmRef}>
-          <ConfirmInline
-            message={`Disconnect ${label}?`}
-            confirmLabel="Disconnect"
-            pending={disconnectAction.pending}
-            onConfirm={() => void disconnectAction.run()}
-            onCancel={closeConfirm}
-          />
-        </div>
-      ) : null}
-    </div>
-  )
-}
 
 /** The pending load strip: "Loading your data… 46%" over the phase bar. */
 function LoadingStrip({ status, progress }: { status: string; progress: UploadProgressValue | null }) {
@@ -177,14 +77,13 @@ function CrmExportsCard({
 }
 
 /**
- * Owner-only Data sources screen (handoff §10, spec decisions 4–6): connector cards, the CRM exports
+ * Owner-only Data sources screen (handoff §10, spec decisions 4–6): the CRM exports
  * card and the asynchronous upload modal. While `snapshots/current.pending` is set the card shows the
  * current snapshot dimmed under a "Loading your data…" strip; with no snapshot at all it is empty.
  */
 export function DataSourcesPage() {
   const { agency } = useAuth()
   const snapshot = useCurrentSnapshot()
-  const connections = useAdConnections()
   const [uploadOpen, setUploadOpen] = useState(false)
 
   const timezone = agency?.timezone ?? "UTC"
@@ -205,25 +104,9 @@ export function DataSourcesPage() {
   const pending = snapshot.data?.pending ?? null
   const current = snapshot.data?.snapshot ?? null
   const files = snapshot.data?.files ?? []
-  const byPlatform = new Map((connections.data?.connections ?? []).map((connection) => [connection.platform, connection]))
-
-  // Each card fails on its own: a broken connections call must not hide the CRM exports or the upload path.
   // A query that already has data keeps rendering it when a later poll fails (`refetchInterval` refetches
   // every 2 s while a load is pending): only a first load with no data at all shows the error card, so an
   // in-flight upload is never dropped mid-validate/commit by a transient failure.
-  const connectors =
-    connections.data !== undefined ? (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {PLATFORMS.map((config) => (
-          <ConnectorCard key={config.platform} {...config} connection={byPlatform.get(config.platform) ?? null} />
-        ))}
-      </div>
-    ) : connections.isError ? (
-      <ErrorState message="We couldn't load your ad connections." onRetry={() => void connections.refetch()} />
-    ) : (
-      <Skeleton className="h-[104px]" />
-    )
-
   const crm =
     snapshot.data !== undefined ? (
       <CrmExportsCard snapshot={current} files={files} pending={pending} timezone={timezone} onUpload={() => setUploadOpen(true)} />
@@ -234,9 +117,8 @@ export function DataSourcesPage() {
     )
 
   return (
-    <div className="flex flex-col gap-5" aria-busy={snapshot.isPending || connections.isPending}>
+    <div className="flex flex-col gap-5" aria-busy={snapshot.isPending}>
       {header}
-      {connectors}
       {crm}
       {/* Mounted outside every loading/error branch: the header button must always work. */}
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} agencyName={agencyName} />
